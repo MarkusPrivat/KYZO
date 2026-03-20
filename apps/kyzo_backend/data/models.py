@@ -59,7 +59,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from apps.kyzo.config.config import UserRole, InputType
+from apps.kyzo_backend.config.config import UserRole, InputType
 
 
 class Base(DeclarativeBase):
@@ -276,6 +276,7 @@ class User(db.Model):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password: Mapped[Optional[str]] = mapped_column(String(100), default=None, nullable=True)
     grade: Mapped[int] = mapped_column(Integer, nullable=False)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.STUDENT, nullable=False)
