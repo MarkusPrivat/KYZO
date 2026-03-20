@@ -1,3 +1,9 @@
-sqlalchemy
+dotenv
+fastapi[standard-no-fastapi-cloud-cli]
 flask
 flask_sqlalchemy
+pydantic
+pydantic[email]
+pydantic_settings
+sqlalchemy
+uvicorn
