@@ -261,6 +261,7 @@ class User(db.Model):
     Attributes:
         id (int): Unique identifier and primary key for the user.
         name (str): The display name or username.
+        email (str): As a unique user identifier.
         password (str, optional): Hashed password for authentication.
         grade (int): The current school grade level of the student.
         role (UserRole): The authorization level (STUDENT, TEACHER, or ADMIN).
