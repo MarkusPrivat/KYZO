@@ -10,7 +10,8 @@ class UserMessages:
     ensuring consistency across the UserManager and FastAPI routes.
     All attributes are immutable (frozen).
     """
-    CREATE_ERROR: str = "Error adding user:"
-    GET_USER_ERROR: str = "Error fetching user:"
-    NOT_FOUND: str = "User not found!"
-    UPDATE_USER_ERROR: str = "Update error:"
+    CREATE_ERROR = "Error adding user:"
+    EMAIL_ALREADY_EXIST = "Email already registered!"
+    GET_USER_ERROR = "Error fetching user:"
+    NOT_FOUND = "User not found!"
+    UPDATE_USER_ERROR = "Update error:"
