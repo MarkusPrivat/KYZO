@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -73,6 +74,7 @@ class UserRead(BaseSchema):
         email (EmailStr): The user's registered email.
         grade (int): The associated school grade level.
         role (UserRole): The assigned system role.
+        is_active (bool): Account status.
         created_at (datetime): The timestamp of account creation.
     """
     id: int = Field(..., description="Unique database ID of the user.")
@@ -80,4 +82,25 @@ class UserRead(BaseSchema):
     email: EmailStr = Field(..., description="The validated email address.")
     grade: int = Field(..., description="The school grade level.")
     role: UserRole = Field(..., description="The user's role in the system.")
+    is_active: bool = Field(..., description="Whether the user account is active.")
     created_at: datetime = Field(..., description="When the user was created.")
+
+
+class UserUpdate(BaseSchema):
+    """
+    Validation schema for modifying existing user information.
+
+    This schema allows for partial updates (PATCH-style logic). All fields are
+    wrapped in Optional and default to None, ensuring that only the data
+    explicitly provided in the request body will be modified in the database.
+
+    Attributes:
+        name (Optional[str]): Updated display name (3-100 chars).
+        email (Optional[EmailStr]): Updated unique email address.
+        grade (Optional[int]): Updated school grade level (1-13).
+        role (Optional[UserRole]): Updated authorization level.
+    """
+    name: Optional[str] = Field(None, min_length=3, max_length=100)
+    email: Optional[EmailStr] = Field(None, max_length=255)
+    grade: Optional[int] = Field(None, ge=1, le=13)
+    role: Optional[UserRole] = Field(None)
