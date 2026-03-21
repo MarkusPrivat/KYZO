@@ -230,6 +230,10 @@ class Topic(db.Model):
         is_active (bool): Flag to toggle whether the topic is available for study.
         grade_expected (int): The curriculum-standard school grade for this topic.
         subject (Subject): Relationship back to the parent Subject model.
+        questions (list[Question]): Relationship linking to all questions
+                                    assigned to this topic.
+        user_competences (list[UserCompetence]): Relationship to mastery levels
+                                                 of different users for this topic.
     """
     __tablename__ = 'topics'
 
@@ -242,6 +246,8 @@ class Topic(db.Model):
     grade_expected: Mapped[int] = mapped_column(Integer, nullable=False)
 
     subject: Mapped["Subject"] = relationship("Subject", back_populates="topics")
+    questions: Mapped[list["Question"]] = relationship("Question", back_populates="topic")
+    user_competences: Mapped[list["UserCompetence"]] = relationship("UserCompetence", back_populates="topic")
 
     def __repr__(self):
         return f"<topic(id={self.id}, name='{self.name}', is_active={self.is_active})>"
@@ -324,6 +330,8 @@ class UserCompetence(db.Model):
             has answered for this topic.
         last_improved_at (datetime): Timestamp of the last successful
             update or performance increase (UTC).
+        user (User): Relationship back to the User who owns this competence.
+        topic (Topic): Relationship back to the Topic this competence refers to.
     """
     __tablename__ = 'user_competence'
 
@@ -340,6 +348,9 @@ class UserCompetence(db.Model):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False
     )
+
+    user: Mapped["User"] = relationship("User", back_populates="competences")
+    topic: Mapped["Topic"] = relationship("Topic")
 
     def __repr__(self):
         return (f"<user_competence(id={self.id}, user_id='{self.user_id}', "
@@ -377,6 +388,7 @@ class Question(db.Model):
             automatically generated or modified by an AI.
         is_active (bool): Flag to toggle whether the question is available
             in tests.
+        topic (Topic): Relationship back to the Topic this question belongs to.
         test_occurrences (list[TestQuestion]): Relationship to all test
             instances where this question was used.
     """
@@ -396,6 +408,7 @@ class Question(db.Model):
     is_llm_variant: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    topic: Mapped["Topic"] = relationship("Topic", back_populates="questions")
     test_occurrences: Mapped[list["TestQuestion"]] = relationship(
         "TestQuestion",
         back_populates="question"
@@ -427,6 +440,8 @@ class QuestionInput(db.Model):
         extracted_questions (list[dict], optional): Preliminary JSON data
             parsed by the LLM before final Question objects are created.
         created_at (datetime): Timestamp of the upload/creation (UTC).
+        user (User): Relationship to the user who provided the input.
+        topic (Topic): Relationship to the topic the input is categorized under.
     """
     __tablename__ = 'question_inputs'
 
@@ -443,6 +458,9 @@ class QuestionInput(db.Model):
         default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
+
+    user: Mapped["User"] = relationship("User")
+    topic: Mapped["Topic"] = relationship("Topic")
 
     def __repr__(self):
         return f"<question_input(id={self.id}, user_id={self.user_id}, topic_id={self.topic_id})>"
