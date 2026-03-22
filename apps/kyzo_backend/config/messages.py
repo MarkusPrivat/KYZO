@@ -12,6 +12,9 @@ class UserMessages:
     """
     CREATE_ERROR = "Error adding user:"
     EMAIL_ALREADY_EXIST = "Email already registered!"
+    GET_ALL_USER_ERROR = "Error fetching users:"
     GET_USER_ERROR = "Error fetching user:"
-    NOT_FOUND = "User not found!"
+    NO_USERS = "No users in database!"
     UPDATE_USER_ERROR = "Update error:"
+    USER_NOT_FOUND = "User not found!"
+

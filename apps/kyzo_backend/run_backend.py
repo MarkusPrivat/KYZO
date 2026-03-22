@@ -12,6 +12,43 @@ create_database()
 app = FastAPI(title="Kyzo Backend")
 
 
+@app.get("/api/users/list-all", response_model=list[UserRead])
+async def get_all_users(db: Session = Depends(get_db)):
+    """
+    Retrieves a complete list of all registered users.
+
+    This endpoint is primarily for administrative purposes to oversee
+    the user base. It returns the public profile data (UserRead) for
+    every account in the system.
+
+    Args:
+        db (Session): Injected database session.
+
+    Returns:
+        list[UserRead]: A list of all user profiles.
+
+    Raises:
+        HTTPException: 404 if no users exist in the database.
+        HTTPException: 500 if a database error occurs.
+    """
+    user_manager = UserManager(db)
+
+    success, result = user_manager.get_all_users()
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=UserMessages.NO_USERS
+        )
+
+    return result
+
+
 @app.get("/api/users/{user_id}", response_model=UserRead)
 async def get_user(user_id: int, db: Session = Depends(get_db)):
     """
@@ -45,7 +82,7 @@ async def get_user(user_id: int, db: Session = Depends(get_db)):
     if result is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=UserMessages.NOT_FOUND
+            detail=UserMessages.USER_NOT_FOUND
         )
 
     return result
@@ -121,7 +158,7 @@ async def set_user_status(user_id: int, active: bool, db: Session = Depends(get_
     if result is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=UserMessages.NOT_FOUND
+            detail=UserMessages.USER_NOT_FOUND
         )
 
     return result
@@ -160,7 +197,7 @@ async def update_user(user_id: int, update_data: UserUpdate, db: Session = Depen
     if result is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=UserMessages.NOT_FOUND
+            detail=UserMessages.USER_NOT_FOUND
         )
 
     return result

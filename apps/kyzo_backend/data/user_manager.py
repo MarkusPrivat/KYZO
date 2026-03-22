@@ -120,6 +120,27 @@ class UserManager:
             return False, f"{UserMessages.CREATE_ERROR}: {str(error)}"
 
 
+    def get_all_users(self) -> tuple[bool, list[User] | str]:
+        """
+        Retrieves all user records from the database.
+
+        This method queries the entire users table. It is intended for
+        administrative overviews or system-wide user management.
+
+        Returns:
+            tuple[bool, list[User] | str]:
+                - (True, [User, ...]) if successful (even if the list is empty).
+                - (False, error_message) if a database error occurs.
+        """
+        try:
+            stmt = select(User)
+            all_users = self._db.execute(stmt).scalars().all()
+
+            return True, list(all_users)
+        except SQLAlchemyError as error:
+            return False, f"{UserMessages.GET_ALL_USER_ERROR}: {str(error)}"
+
+
     def get_user_by_email(self, email: str | EmailStr) -> tuple[bool, User | None | str]:
         """
         Retrieves a single user from the database based on their unique email address.
