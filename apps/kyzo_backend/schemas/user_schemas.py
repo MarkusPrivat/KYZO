@@ -1,3 +1,33 @@
+"""
+user_schemas.py - Pydantic data validation and serialization models for user management in Kyzo.
+
+This module defines the complete set of Pydantic schemas required for user account
+management within the Kyzo adaptive learning platform. These schemas enforce data
+validation, type safety, and proper serialization for all user-related API operations.
+
+Key Features:
+------------
+- **Comprehensive Validation**:
+  * String length constraints
+  * Email format verification
+  * Numeric range validation
+  * Required field enforcement
+
+- **Security Considerations**:
+  * Password field excluded from read operations
+  * Sensitive operations require explicit field specification
+  * Type safety throughout all operations
+
+- **API Integration**:
+  * Field descriptions for automatic OpenAPI documentation
+  * Consistent data structure for frontend integration
+  * Support for both complete and partial updates
+
+- **Role Management**:
+  * UserRole enum integration for access control
+  * Default role assignment for new users
+  * Role modification support
+"""
 from datetime import datetime
 from typing import Optional
 
