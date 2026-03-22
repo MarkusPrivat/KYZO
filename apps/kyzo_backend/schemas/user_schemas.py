@@ -1,22 +1,10 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import EmailStr, Field
 
 from apps.kyzo_backend.config import UserRole
-
-
-class BaseSchema(BaseModel):
-    """
-    Common base class for all Pydantic schemas in the Kyzo application.
-
-    This class configures global settings like ORM compatibility and
-    automatic whitespace stripping for all inheriting models.
-
-    Attributes:
-        model_config (ConfigDict): Configuration for Pydantic model behavior.
-    """
-    model_config = ConfigDict(from_attributes=True, str_strip_whitespace=True)
+from .base_schemas import BaseSchema
 
 
 class UserCreate(BaseSchema):
