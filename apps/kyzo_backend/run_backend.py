@@ -2,10 +2,10 @@ import uvicorn
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from apps.kyzo_backend.config.messages import UserMessages
-from apps.kyzo_backend.data.database import create_database, get_db
-from apps.kyzo_backend.data.schemas import UserCreate, UserRead, UserUpdate
-from apps.kyzo_backend.data.user_manager import UserManager
+from apps.kyzo_backend.config import UserMessages
+from apps.kyzo_backend.core import create_database, get_db
+from apps.kyzo_backend.schemas import UserCreate, UserRead, UserUpdate
+from apps.kyzo_backend.managers import UserManager
 
 
 create_database()

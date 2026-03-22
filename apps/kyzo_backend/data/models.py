@@ -59,7 +59,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from apps.kyzo_backend.config.config import UserRole, InputType
+from apps.kyzo_backend.config import UserRole, InputType
 
 
 class Base(DeclarativeBase):

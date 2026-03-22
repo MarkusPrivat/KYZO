@@ -58,9 +58,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
-from apps.kyzo_backend.config.messages import UserMessages
-from apps.kyzo_backend.data.models import User
-from apps.kyzo_backend.data.schemas import UserCreate, UserUpdate
+from apps.kyzo_backend.config import UserMessages
+from apps.kyzo_backend.data import User
+from apps.kyzo_backend.schemas import UserCreate, UserUpdate
 
 
 class UserManager:

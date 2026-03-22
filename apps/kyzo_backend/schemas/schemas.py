@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from apps.kyzo_backend.config.config import UserRole
+from apps.kyzo_backend.config import UserRole
 
 
 class BaseSchema(BaseModel):

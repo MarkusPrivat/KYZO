@@ -26,8 +26,8 @@ Components:
 from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-from apps.kyzo_backend.config.config import fastapi_settings
-from apps.kyzo_backend.data.models import Base
+from apps.kyzo_backend.config import fastapi_settings
+from apps.kyzo_backend.data import Base
 
 
 engine = create_engine(
