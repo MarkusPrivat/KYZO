@@ -35,28 +35,13 @@ class KnowledgeManager:
     def add_subject(self, subject_data: SubjectCreate) -> tuple[bool, Subject | str]:
         """
         Adds a new academic subject to the database.
-
-        This method validates that the subject name is unique (case-insensitive)
-        before persistence. It converts the incoming Pydantic schema into a
-        SQLAlchemy model and handles database commitment and refresh.
-
-        Args:
-            subject_data (SubjectCreate): The validated data for the new subject.
-
-        Returns:
-            tuple[bool, Subject | str]:
-                - If successful: (True, Subject-instance)
-                - If name exists: (False, KnowledgeMessages.SUBJECT_ALREADY_EXISTS)
-                - If DB error: (False, Error-Message)
         """
         try:
-            stmt = (
-                select(Subject)
-                .where(func.lower(Subject.name) == func.lower(subject_data.name))
-            )
-            existing = self._db.execute(stmt).scalar_one_or_none()
+            success, result_subject = self._get_subject_by_name(subject_data.name)
+            if not success:
+                return False, result_subject
 
-            if existing:
+            if result_subject is not None:
                 return False, KnowledgeMessages.SUBJECT_ALREADY_EXISTS
 
             subject_dict = subject_data.model_dump()
@@ -195,3 +180,19 @@ class KnowledgeManager:
         except SQLAlchemyError as error:
             self._db.rollback()
             return  False, f"{KnowledgeMessages.UPDATE_SUBJECT_ERROR} {str(error)}"
+
+
+    def _get_subject_by_name(self, subject_name: str)  -> tuple[bool, Subject | None | str]:
+        """
+        get subject by name
+        """
+        try:
+            stmt = (
+                select(Subject)
+                .where(func.lower(Subject.name) == func.lower(subject_name))
+            )
+            subject = self._db.execute(stmt).scalar_one_or_none()
+
+            return True, subject
+        except SQLAlchemyError as error:
+            return False, f"{KnowledgeMessages.GET_SUBJECT_ERROR} {str(error)}"

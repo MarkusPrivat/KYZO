@@ -24,6 +24,8 @@ class KnowledgeMessages:
     CREATE_ERROR = "Error adding subject:"
     GET_ALL_SUBJECTS_ERROR = "Error fetching subjects:"
     GET_SUBJECT_ERROR = "Error fetching subject:"
+    NO_SUBJECTS = "No subjects in database!"
     STATUS_UPDATE_ERROR = "Status update error:"
     SUBJECT_ALREADY_EXISTS = "Subject already exist"
+    SUBJECT_NOT_FOUND = "Subject not found!"
     UPDATE_SUBJECT_ERROR = "Update subject error:"
