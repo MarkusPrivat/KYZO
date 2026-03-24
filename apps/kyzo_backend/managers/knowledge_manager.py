@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 
 from apps.kyzo_backend.config import KnowledgeMessages
 from apps.kyzo_backend.data import Subject, Topic
-from apps.kyzo_backend.schemas import SubjectCreate, SubjectStatus, SubjectUpdate, TopicCreate, TopicStatus, TopicUpdate
+from apps.kyzo_backend.schemas import (SubjectCreate, SubjectStatus, SubjectUpdate,
+                                       TopicCreate, TopicStatus, TopicUpdate)
 
 
 class KnowledgeManager:
@@ -206,7 +207,8 @@ class KnowledgeManager:
             return False, f"{KnowledgeMessages.GET_SUBJECT_ERROR} {str(error)}"
 
 
-    def get_topic_from_subject(self, subject_id: int, topic_id: int) -> tuple[bool, Topic | None | str]:
+    def get_topic_from_subject(self, subject_id: int, topic_id: int) \
+            -> tuple[bool, Topic | None | str]:
         """
         Verifies the existence of a specific topic within the context of a subject.
 
@@ -472,4 +474,3 @@ class KnowledgeManager:
             return True, topic
         except SQLAlchemyError as error:
             return False, f"{KnowledgeMessages.GET_TOPIC_FROM_SUBJECT_ERROR} {error}"
-
