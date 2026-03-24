@@ -164,7 +164,22 @@ class QuestionRead(BaseSchema):
 
 
 class QuestionStatus(BaseSchema):
-    is_active: bool = Field(..., description="Whether the question is active")
+    """
+    Schema for updating the operational status of a question.
+
+    This model is used to toggle a question's availability within the
+    learning application. Deactivating a question (is_active=False)
+    retains the record in the database for historical data and analytics
+    but excludes it from being served in active testing or practice sessions.
+
+    Attributes:
+        is_active (bool): The desired visibility state of the question.
+    """
+    is_active: bool = Field(
+        ...,
+        description="True to enable the question for students, "
+                    "False to hide it from active sessions."
+    )
 
 
 class QuestionUpdate(BaseSchema):
@@ -234,7 +249,8 @@ class QuestionUpdate(BaseSchema):
         if self.options and self.answer is not None:
             correct_indices = [i for i, option in enumerate(self.options) if option.is_correct]
             if len(correct_indices) != 1:
-                raise ValueError(f"Exactly one correct answer required. Found: {len(correct_indices)}")
+                raise ValueError(f"Exactly one correct answer required. "
+                                 f"Found: {len(correct_indices)}")
             if self.answer != correct_indices[0]:
                 raise ValueError(
                     f"The 'answer' index {self.answer} does not "

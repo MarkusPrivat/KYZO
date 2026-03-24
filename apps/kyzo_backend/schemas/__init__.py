@@ -7,3 +7,9 @@ from .knowledge_schemas import (SubjectCreate,
                                 TopicRead,
                                 TopicStatus,
                                 TopicUpdate)
+from .questions_schemas import (QuestionOption,
+                                QuestionExplanation,
+                                QuestionCreate,
+                                QuestionRead,
+                                QuestionStatus,
+                                QuestionUpdate)
