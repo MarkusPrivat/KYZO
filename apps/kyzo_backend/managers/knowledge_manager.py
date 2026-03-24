@@ -81,25 +81,25 @@ class KnowledgeManager:
         """
         Creates and attaches a new learning topic to an existing subject.
 
-        This method enforces referential integrity at the business logic level by
-        verifying the existence of the parent subject before attempting to
-        persist the topic.
+        This method enforces referential integrity and prevents duplicate topics
+        within the same subject context at the business logic level.
 
         Steps:
-        1. Validates that the 'subject_id' provided in topic_data refers to an
-           existing subject in the database.
-        2. Maps the validated schema to a Topic model instance.
-        3. Persists the new topic and refreshes the instance to include
-           database-generated fields (like ID and default status).
+        1. Validates that the 'subject_id' refers to an existing subject.
+        2. Performs a case-insensitive check to ensure the topic name is unique
+           within the scope of the parent subject.
+        3. Maps the validated schema to a Topic model instance and persists it.
+        4. Refreshes the instance to include database-generated fields.
 
         Args:
             topic_data (TopicCreate): Validated data for the new topic, including
-                                     the mandatory 'subject_id'.
+                                     the mandatory 'subject_id' and topic 'name'.
 
         Returns:
             tuple[bool, Topic | str]:
                 - If successful: (True, Topic-instance)
                 - If subject missing: (False, KnowledgeMessages.SUBJECT_NOT_FOUND)
+                - If topic exists: (False, KnowledgeMessages.TOPIC_ALREADY_EXISTS)
                 - If DB error: (False, Error message string)
         """
         try:
@@ -109,6 +109,15 @@ class KnowledgeManager:
                 return False, result_subject
             if not result_subject:
                 return False, KnowledgeMessages.SUBJECT_NOT_FOUND
+
+            success, result_topic = self._get_topic_by_name(
+                topic_data.subject_id,
+                topic_data.name
+            )
+            if not success:
+                return False, result_topic
+            if result_topic:
+                return False, KnowledgeMessages.TOPIC_ALREADY_EXISTS
 
             topic_dict = topic_data.model_dump()
             new_topic = Topic(**topic_dict)
@@ -425,10 +434,31 @@ class KnowledgeManager:
             self._db.rollback()
             return False, f"{KnowledgeMessages.UPDATE_TOPIC_ERROR} {error}"
 
-
-    def _get_subject_by_name(self, subject_name: str)  -> tuple[bool, Subject | None | str]:
+    def _get_subject_by_name(self, subject_name: str) -> tuple[bool, Subject | None | str]:
         """
-        get subject by name
+        Internal helper to retrieve a subject by its name using a case-insensitive search.
+
+        This method is a critical component for ensuring the uniqueness of subjects
+        at the top level of the knowledge hierarchy. It prevents the creation of
+        redundant subject entries (e.g., 'Mathematics' vs 'mathematics').
+
+        Logic:
+            - Utilizes 'func.lower' to normalize both the database field and the
+              input string for a reliable comparison.
+            - Returns a single record or None if no match is found.
+
+        Args:
+            subject_name (str): The plain-text name of the subject to find.
+
+        Returns:
+            tuple[bool, Subject | None | str]:
+                - If found: (True, Subject-instance)
+                - If not found: (True, None)
+                - If DB error: (False, Error message string)
+
+        Note:
+            This is a low-level query method. It does not perform any business
+            validation or status checks (is_active).
         """
         try:
             stmt = (
@@ -474,3 +504,43 @@ class KnowledgeManager:
             return True, topic
         except SQLAlchemyError as error:
             return False, f"{KnowledgeMessages.GET_TOPIC_FROM_SUBJECT_ERROR} {error}"
+
+
+    def _get_topic_by_name(self, subject_id: int, topic_name: str) \
+            -> tuple[bool, Topic | None | str]:
+        """
+        Internal helper to locate a topic by its name within a specific subject context.
+
+        This method is primarily used for duplicate prevention. It performs a
+        case-insensitive search to ensure that topic names remain unique
+        within each subject, while allowing the same topic name to exist
+        across different subjects.
+
+        Logic:
+            - Filters by 'subject_id' to isolate the search scope.
+            - Uses 'func.lower' for a case-insensitive name comparison.
+
+        Args:
+            subject_id (int): The ID of the subject to search within.
+            topic_name (str): The name of the topic to look for.
+
+        Returns:
+            tuple[bool, Topic | None | str]:
+                - If found: (True, Topic-instance)
+                - If not found: (True, None)
+                - If DB error: (False, Error message string)
+
+        Note:
+            This method does not check if the subject itself exists; it only
+            queries the Topic table based on the provided IDs.
+        """
+        try:
+            stmt = (
+                select(Topic)
+                .where(Topic.subject_id == subject_id)
+                .where(func.lower(Topic.name) == func.lower(topic_name))
+            )
+            topic = self._db.execute(stmt).scalar_one_or_none()
+            return True, topic
+        except SQLAlchemyError as error:
+            return False, f"{KnowledgeMessages.GET_TOPIC_ERROR} {str(error)}"
