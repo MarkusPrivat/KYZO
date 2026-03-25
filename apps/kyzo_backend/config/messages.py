@@ -37,3 +37,12 @@ class KnowledgeMessages:
     TOPIC_NOT_FOUND = "Topic not found!"
     UPDATE_SUBJECT_ERROR = "Update subject error:"
     UPDATE_TOPIC_ERROR = "Update topic error:"
+
+
+@dataclass(frozen=True)
+class QuestionMessages:
+    CREATE_QUESTION_ERROR = "Error adding question:"
+    GET_ALL_QUESTIONS_ERROR = "Error fetching questions:"
+    GET_QUESTIONS_ERROR = "Error fetching question:"
+    STATUS_UPDATE_ERROR = "Status update error:"
+    UPDATE_QUESTION_ERROR = "Update topic error:"
