@@ -451,6 +451,7 @@ class QuestionInput(db.Model):
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
     subject_id: Mapped[int] = mapped_column(ForeignKey('subject.id'))
     topic_id: Mapped[int] = mapped_column(ForeignKey('topics.id'))
+    grade: Mapped[int] = mapped_column(Integer, nullable=False)
 
     input_type: Mapped[InputType] = mapped_column(Enum(InputType), nullable=False)
     raw_input: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
