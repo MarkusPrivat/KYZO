@@ -65,6 +65,7 @@ class QuestionCreate(BaseSchema):
       the correct option flag.
     - Maintains traceability for AI-generated variants (LLM variants).
     """
+    subject_id: int = Field(..., gt=0, description="The unique ID of the subject.")
     topic_id: int = Field(..., gt=0, description="The unique ID of the topic.")
     parent_question_id: Optional[int] = Field(
         None,
@@ -142,6 +143,7 @@ class QuestionRead(BaseSchema):
     - 'parent_question_id' facilitates tracking the content lineage for AI-generated variants.
     """
     id: int = Field(..., description="The unique database identifier of the question.")
+    subject_id: int = Field(..., description="The ID of the subject this question belongs to.")
     topic_id: int = Field(..., description="The ID of the topic this question belongs to.")
     parent_question_id: Optional[int] = Field(
         None,
@@ -196,6 +198,7 @@ class QuestionUpdate(BaseSchema):
           changed via this schema to preserve content lineage.
         - Status toggles (is_active) are handled via a separate Status schema.
     """
+    subject_id: Optional[int] = Field(None, gt=0, description="The unique ID of the subject.")
     topic_id: Optional[int] = Field(None, gt=0, description="The unique ID of the topic.")
     grade: Optional[int] = Field(None, ge=1, le=13, description="Target school grade (1-13).")
     difficulty: Optional[int] = Field(

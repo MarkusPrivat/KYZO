@@ -396,6 +396,7 @@ class Question(db.Model):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
+    subject_id: Mapped[int] = mapped_column(ForeignKey('subject.id'))
     topic_id: Mapped[int] = mapped_column(ForeignKey('topics.id'))
     parent_question_id: Mapped[int] = mapped_column(ForeignKey('questions.id'), nullable=True)
 
@@ -448,6 +449,7 @@ class QuestionInput(db.Model):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    subject_id: Mapped[int] = mapped_column(ForeignKey('subject.id'))
     topic_id: Mapped[int] = mapped_column(ForeignKey('topics.id'))
 
     input_type: Mapped[InputType] = mapped_column(Enum(InputType), nullable=False)
