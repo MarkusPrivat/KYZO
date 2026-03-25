@@ -2,14 +2,16 @@ import uvicorn
 from fastapi import FastAPI
 
 from apps.kyzo_backend.core import create_database
-from apps.kyzo_backend.api import user_router, knowledge_router
+from apps.kyzo_backend.api import knowledge_router, question_router, user_router
 
 
 create_database()
 app = FastAPI(title="Kyzo Backend")
 
-app.include_router(user_router)
+
 app.include_router(knowledge_router)
+app.include_router(question_router)
+app.include_router(user_router)
 
 
 
