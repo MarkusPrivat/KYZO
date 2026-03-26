@@ -35,7 +35,22 @@ class InputType(enum.Enum):
 class FastAPISettings(BaseSettings):
     """
     Central configuration container for the Kyzo backend.
-    Uses Pydantic Settings to automatically load from environment variables.
+
+    This class leverages Pydantic Settings to automatically load and validate
+    configuration from environment variables and a .env file. It manages
+    paths, database URIs, security keys, and LLM parameters.
+
+    Attributes:
+        PROJECT_ROOT (Path): The absolute path to the repository's root directory.
+        DATA_DIR (Path): Directory for persistent application data (SQLite, uploads).
+        DATABASE_PATH (Path): Full path to the SQLite database file.
+        SQLALCHEMY_DATABASE_URI (str): The connection string for the SQLAlchemy engine.
+        FLASK_SECRET_KEY (str): Secret key used for cryptographic signing and sessions.
+        OPENAI_API_KEY (str): Authentication token for the OpenAI API.
+        OPENAI_MODEL (str): The specific OpenAI model ID (e.g., 'gpt-4o-mini').
+        LLM_TEMPERATURE (float): Sampling temperature (0.0 to 2.0).
+            Lower is more deterministic, higher is more creative.
+        LLM_MAX_TOKENS (int): The maximum length of the generated AI response.
     """
     PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent.parent.parent
     DATA_DIR: Path = PROJECT_ROOT / 'apps' / 'kyzo_backend' / 'data'
@@ -46,19 +61,33 @@ class FastAPISettings(BaseSettings):
     FLASK_SECRET_KEY: str = Field(...)
     OPENAI_API_KEY: str = Field(...)
 
+    OPENAI_MODEL: str = Field("gpt-4o-mini", description="The AI model used for generation")
+    LLM_TEMPERATURE: float = Field(0.7, ge=0.0, le=2.0, description="Creativity level of the AI")
+    LLM_MAX_TOKENS: int = Field(5000, description="Limit for the AI response size")
+
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=Path(__file__).resolve().parent.parent / ".env",
         env_file_encoding="utf-8",
-        extra="ignore"  # Ignoriert weitere Variablen in der .env
+        extra="ignore"
     )
 
     def __init__(self, **values: Any):
         """
-        Initializes the settings, ensures data directories exist, and
-        constructs the final SQLAlchemy database URI.
+        Initializes the configuration settings and performs post-init setup.
+
+        This constructor triggers the Pydantic settings loading process, ensures
+        that the required local data directories exist on the file system, and
+        dynamically constructs the SQLAlchemy database URI if not already
+        provided via environment variables.
 
         Args:
-            **values (Any): Arbitrary keyword arguments passed to the Pydantic model.
+            **values (Any): Arbitrary keyword arguments passed to the Pydantic
+                model constructor, typically used for overriding settings
+                during testing.
+
+        Note:
+            The directory creation (mkdir) is performed with 'parents=True'
+            to ensure the entire path leading to DATA_DIR is available.
         """
         super().__init__(**values)
         self.DATA_DIR.mkdir(parents=True, exist_ok=True)

@@ -154,7 +154,7 @@ class QuestionCreate(BaseSchema):
         return self
 
 
-class QuestionInputExtractedQuestionUpdate(BaseSchema):
+class QuestionInputExtractedQuestionsUpdate(BaseSchema):
     """
     Used to update the AI-generated drafts.
     Typically called by the AI-worker after processing the raw_input.
