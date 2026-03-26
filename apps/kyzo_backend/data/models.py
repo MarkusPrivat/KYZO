@@ -456,6 +456,7 @@ class QuestionInput(db.Model):
     input_type: Mapped[InputType] = mapped_column(Enum(InputType), nullable=False)
     raw_input: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     extracted_questions: Mapped[Optional[list[dict[str, Any]]]] = mapped_column(JSON, nullable=True)
+    is_processed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

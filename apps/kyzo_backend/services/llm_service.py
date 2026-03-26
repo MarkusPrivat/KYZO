@@ -1,77 +1,79 @@
 import openai
 from openai import OpenAI
 
-from apps.kyzo_backend.config import fastapi_settings
+from apps.kyzo_backend.config import fastapi_settings,  InstructionsPrompts, OpenAIMessages
 from apps.kyzo_backend.schemas import QuestionInputExtractedQuestionsUpdate
 
-
-system_prompt = '''
-    Du bist ein erfahrener Lehrer und Experte für Didaktik. Antworte immer auf Deutsch.
-'''
 
 
 class LLMService:
     """
-    Service layer for interacting with the OpenAI API.
+    Service layer for interacting with the OpenAI Responses API.
+
+    This service encapsulates the OpenAI client and provides a high-level
+    interface for generating structured educational content. It leverages
+    the modern 'Responses' API to ensure that AI-generated data strictly
+    conforms to internal Pydantic schemas.
+
+    Attributes:
+        client (OpenAI): The initialized OpenAI client.
+        model (str): The specific model ID (e.g., 'gpt-4o-mini').
+        temperature (float): Controls the creativity/determinism of the output.
+        llm_max_tokens (int): The maximum allowed token count for the response.
     """
 
     def __init__(self):
         """
         Initializes the LLMService using centralized application settings.
+
+        Sets up the OpenAI client with API keys and model parameters
+        defined in the global 'fastapi_settings'.
         """
         self.client = OpenAI(api_key=fastapi_settings.OPENAI_API_KEY)
         self.model = fastapi_settings.OPENAI_MODEL
         self.temperature = fastapi_settings.LLM_TEMPERATURE
         self.llm_max_tokens = fastapi_settings.LLM_MAX_TOKENS
 
-    def get_extracted_questions_from_raw_input(self, prompt: str):
+    def get_extracted_questions_from_raw_input(
+            self,
+            prompt: str
+    ) -> tuple[bool, QuestionInputExtractedQuestionsUpdate | str | None]:
         """
-        Requests a completion from the LLM that strictly follows a given schema.
+        Processes raw text input and extracts structured questions using the LLM.
+
+        This method sends the raw input to the OpenAI Responses API, utilizing
+        predefined pedagogical instructions. The response is automatically
+        parsed and validated against the QuestionInputExtractedQuestionsUpdate
+        schema.
+
+        Args:
+            prompt (str): The raw source text (e.g., from a PDF or manual input)
+                from which questions should be generated.
+
+        Returns:
+            tuple[bool, QuestionInputExtractedQuestionsUpdate | str | None]:
+                A tuple where the first element indicates success (True/False).
+                If True, the second element is the parsed
+                QuestionInputExtractedQuestionsUpdate object.
+                If False, the second element is a string containing the error
+                message for the user/logs.
+
+        Note:
+            Specific OpenAI errors (Connection, Rate Limit, etc.) are caught
+            internally and returned as a failure state with a descriptive
+            message from OpenAIMessages.
         """
         try:
             response = self.client.responses.parse(
                 model=self.model,
                 temperature=self.temperature,
                 max_output_tokens=self.llm_max_tokens,
-                instructions=system_prompt,
+                instructions=InstructionsPrompts.TEACHER_PROMPT,
                 input=prompt,
                 text_format=QuestionInputExtractedQuestionsUpdate
             )
 
-            return response.output_parsed
+            return True, response.output_parsed
 
         except openai.OpenAIError as error:
-            print(f"Server connection error: {error}")
-        except Exception as error:  # pylint: disable=broad-exception-caught
-            print(f"Unexpected error: {error}")
-
-        return None
-
-
-
-# --- TEST ---
-if __name__ == "__main__":
-    test_prompt = """
-    Analysiere den folgenden Text und erstelle daraus genau 3 Multiple-Choice-Fragen.
-
-    Regeln:
-    1. Die Fragen müssen didaktisch wertvoll sein.
-    2. Jede Frage braucht genau eine richtige Antwort.
-    3. Erstelle für jede Frage eine hilfreiche Erklärung (Explanation).
-    4. Schwierigkeitsgrad: 1 (leicht) bis 10 (sehr schwer).
-
-    TEXT ZUR ANALYSE:
-    Die Französische Revolution begann im Jahr 1789. Ein zentrales Ereignis war der 
-    Sturm auf die Bastille am 14. Juli. Die Revolution führte zum Ende der absoluten 
-    Monarchie in Frankreich und zur Erklärung der Menschen- und Bürgerrechte. 
-    Wichtige Akteure waren unter anderem Maximilien de Robespierre und Napoleon Bonaparte.
-    """
-    service = LLMService()
-
-    # Wir übergeben das Schema hier dynamisch
-    result = service.get_extracted_questions_from_raw_input(
-        test_prompt
-    )
-
-    if result:
-        print(f"Erfolgreich generiert: {result}")
+            return False, f"{OpenAIMessages.LLM_CONNECTION_ERROR} {str(error)}"
