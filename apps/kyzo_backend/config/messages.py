@@ -2,24 +2,6 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class UserMessages:
-    """
-    Centralized store for user-related feedback and error messages.
-
-    This class provides standardized strings for API responses and logging,
-    ensuring consistency across the UserManager and FastAPI routes.
-    All attributes are immutable (frozen).
-    """
-    CREATE_ERROR = "Error adding user:"
-    EMAIL_ALREADY_EXIST = "Email already registered!"
-    GET_ALL_USER_ERROR = "Error fetching users:"
-    GET_USER_ERROR = "Error fetching user:"
-    NO_USERS = "No users in database!"
-    UPDATE_USER_ERROR = "Update user error:"
-    USER_NOT_FOUND = "User not found!"
-
-
-@dataclass(frozen=True)
 class KnowledgeMessages:
     CREATE_SUBJECT_ERROR = "Error adding subject:"
     CREATE_TOPIC_ERROR = "Error adding topic:"
@@ -40,9 +22,39 @@ class KnowledgeMessages:
 
 
 @dataclass(frozen=True)
+class OpenAIMessages:
+    LLM_CONNECTION_ERROR = "Server connection error:"
+
+
+@dataclass(frozen=True)
 class QuestionMessages:
     CREATE_QUESTION_ERROR = "Error adding question:"
+    CREATE_QUESTION_INPUT_ERROR = "Error adding input questions:"
     GET_ALL_QUESTIONS_ERROR = "Error fetching questions:"
-    GET_QUESTIONS_ERROR = "Error fetching question:"
+    GET_QUESTION_ERROR = "Error fetching question:"
+    GET_QUESTION_INPUT_ERROR = "Error fetching question:"
+    NO_QUESTION_TO_PROCESS = "There are no extracted questions to process."
+    QUESTION_INPUT_ALREADY_PROCESSED= "This input has already been processed"
+    QUESTION_INPUT_NOT_FOUND = "Question input not Found!"
+    QUESTION_INPUT_PROCESSED = "Questions successfully generated"
     STATUS_UPDATE_ERROR = "Status update error:"
-    UPDATE_QUESTION_ERROR = "Update topic error:"
+    UPDATE_QUESTION_ERROR = "Update question error:"
+    UPDATE_QUESTION_INPUT_ERROR = "Update question input error:"
+
+
+@dataclass(frozen=True)
+class UserMessages:
+    """
+    Centralized store for user-related feedback and error messages.
+
+    This class provides standardized strings for API responses and logging,
+    ensuring consistency across the UserManager and FastAPI routes.
+    All attributes are immutable (frozen).
+    """
+    CREATE_ERROR = "Error adding user:"
+    EMAIL_ALREADY_EXIST = "Email already registered!"
+    GET_ALL_USER_ERROR = "Error fetching users:"
+    GET_USER_ERROR = "Error fetching user:"
+    NO_USERS = "No users in database!"
+    UPDATE_USER_ERROR = "Update user error:"
+    USER_NOT_FOUND = "User not found!"
