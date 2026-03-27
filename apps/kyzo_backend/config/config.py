@@ -58,7 +58,6 @@ class FastAPISettings(BaseSettings):
     DATABASE_PATH: Path = DATA_DIR / 'kyzo-data.sqlite'
     SQLALCHEMY_DATABASE_URI: str = ""
 
-    FLASK_SECRET_KEY: str = Field(...)
     OPENAI_API_KEY: str = Field(...)
 
     OPENAI_MODEL: str = Field("gpt-4o-mini", description="The AI model used for generation")
@@ -95,7 +94,7 @@ class FastAPISettings(BaseSettings):
             self.SQLALCHEMY_DATABASE_URI = f"sqlite:///{self.DATABASE_PATH.as_posix()}"
 
 
-    @field_validator("FLASK_SECRET_KEY", "OPENAI_API_KEY")
+    @field_validator("OPENAI_API_KEY")
     @classmethod
     def check_not_empty(cls, value: str) -> str:
         """
