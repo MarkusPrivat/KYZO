@@ -1,48 +1,56 @@
 from apps.kyzo_backend.config import InputPrompts
 from apps.kyzo_backend.services import LLMService
-from apps.kyzo_backend.schemas import QuestionInputExtractedQuestionsUpdate
+from apps.kyzo_backend.schemas import QuestionInputRawInput, QuestionInputExtractedQuestionsUpdate
 
 
 class QuestionGenerator:
     """
-    High-level orchestrator for generating pedagogical questions from raw text.
+    High-level orchestrator for transforming raw pedagogical content into structured questions.
 
-    This service acts as the bridge between the raw input data and the LLMService.
-    It formats templates with specific parameters (like question count) and
-    handles the logical flow of the generation process.
+    This service serves as the specialized logic layer between raw input data and the
+    generic LLMService. It manages prompt engineering by injecting specific parameters
+    (like question count and instructional constraints) into predefined templates
+    to ensure the AI produces high-quality, curriculum-aligned questions.
     """
+
     def __init__(self):
         """
-        Initializes the QuestionGenerator with a dedicated LLMService instance.
+        Initializes the QuestionGenerator with an encapsulated LLMService.
         """
         self.llm = LLMService()
 
     def generate_extracted_questions_from_raw_input(
             self,
-            raw_input: str,
-            count: int
-    ) -> tuple[bool, list[QuestionInputExtractedQuestionsUpdate] | str]:
+            raw_input: QuestionInputRawInput,
+            question_count: int
+    ) -> tuple[bool, QuestionInputExtractedQuestionsUpdate | str]:
         """
-        Orchestrates the extraction of a specific number of questions from a text.
+        Orchestrates the AI-driven extraction of question drafts from source material.
 
-        It takes the raw source text, injects the desired question count into
-        the predefined prompt template, and triggers the structured extraction
-        via the LLM.
+        This method merges instructional templates with the raw source content and
+        requests a structured JSON response from the LLM. It focuses on maintaining
+        the requested quantity and pedagogical quality of the generated items.
 
         Args:
-            raw_input (str): The source content to be analyzed by the AI.
-            count (int): The exact number of questions the AI should attempt
-                to generate from the provided text.
+            raw_input (QuestionInputRawInput): The validated source material,
+                                               including the core text content.
+            question_count (int): The target number of questions the AI is
+                                  instructed to generate from the context.
 
         Returns:
             tuple[bool, QuestionInputExtractedQuestionsUpdate | str]:
-                A tuple containing:
-                - bool: True if the generation and validation were successful.
-                - result: The validated QuestionInputExtractedQuestionsUpdate
-                  object on success, or an error message (str) on failure.
+                - If successful: (True, A validated DTO containing the list of drafted questions)
+                - If failed: (False, A descriptive error message from the LLM service)
+
+        Note:
+            The quality of the output depends heavily on the 'MULTIPLE_CHOICE_INSTRUCTION'
+            template defined in InputPrompts.
         """
-        multiple_choice_instruction = InputPrompts.MULTIPLE_CHOICE_INSTRUCTION.format(count=count)
-        input_prompt = f"{multiple_choice_instruction}\n{raw_input}"
+        multiple_choice_instruction = InputPrompts.MULTIPLE_CHOICE_INSTRUCTION.format(
+            question_count=question_count
+        )
+
+        input_prompt = f"{multiple_choice_instruction}\n{raw_input.content}"
 
         success, result = self.llm.get_extracted_questions_from_raw_input(input_prompt)
 
