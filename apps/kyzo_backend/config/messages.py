@@ -24,6 +24,7 @@ class KnowledgeMessages:
 @dataclass(frozen=True)
 class OpenAIMessages:
     LLM_CONNECTION_ERROR = "Server connection error:"
+    GENERATION_FAILED = "AI generation failed:"
 
 
 @dataclass(frozen=True)
@@ -36,7 +37,8 @@ class QuestionMessages:
     NO_QUESTION_TO_PROCESS = "There are no extracted questions to process."
     QUESTION_INPUT_ALREADY_PROCESSED= "This input has already been processed"
     QUESTION_INPUT_NOT_FOUND = "Question input not Found!"
-    QUESTION_INPUT_PROCESSED = "Questions successfully generated"
+    QUESTION_INPUT_PROCESSED = "{question_count} Extracted Questions successfully generated"
+    QUESTION_INPUT_TO_QUESTION = "{new_questions_count} Question generated from Question Input"
     STATUS_UPDATE_ERROR = "Status update error:"
     UPDATE_QUESTION_ERROR = "Update question error:"
     UPDATE_QUESTION_INPUT_ERROR = "Update question input error:"
