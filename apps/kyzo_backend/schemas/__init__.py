@@ -17,6 +17,7 @@ from .questions_schemas import (
     QuestionCreate,
     QuestionInputExtractedQuestionsUpdate,
     QuestionInputCreate,
+    QuestionInputRead,
     QuestionInputUpdate,
     QuestionRead,
     QuestionStatus,
