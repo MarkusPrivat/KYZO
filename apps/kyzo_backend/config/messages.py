@@ -46,6 +46,11 @@ class QuestionMessages:
 
 
 @dataclass(frozen=True)
+class SchemasMessages:
+    SUBJECT_NAME_LEN = "Subject name must have at least 3 characters."
+    TOPIC_NAME_LEN = "Topic name must have at least 2 characters."
+
+@dataclass(frozen=True)
 class UserMessages:
     """
     Centralized store for user-related feedback and error messages.
