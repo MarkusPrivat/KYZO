@@ -1,9 +1,11 @@
 """
-subject_and_topic_schemas.py - Pydantic validation and serialization schemas for academic content management in Kyzo.
+subject_and_topic_schemas.py - Pydantic validation and serialization schemas
+for academic content management in Kyzo.
 
-This module defines comprehensive data validation and transfer schemas for managing academic
-subjects and their nested topics within the Kyzo adaptive learning platform. These schemas ensure
-data integrity, proper formatting, and consistent API contracts for all curriculum-related operations.
+This module defines comprehensive data validation and transfer schemas for
+managing academic subjects and their nested topics within the Kyzo adaptive
+learning platform. These schemas ensure data integrity, proper formatting, and
+consistent API contracts for all curriculum-related operations.
 
 Core Components:
 ----------------
