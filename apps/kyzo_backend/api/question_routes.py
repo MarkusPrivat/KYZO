@@ -6,7 +6,10 @@ from apps.kyzo_backend.core import get_db
 from apps.kyzo_backend.managers import QuestionManager
 from apps.kyzo_backend.schemas import (QuestionInputUpdate,
                                        QuestionInputCreate,
-                                       QuestionInputRead)
+                                       QuestionInputRead,
+                                       QuestionUpdate,
+                                       QuestionRead,
+                                       QuestionStatus)
 
 router = APIRouter(
     prefix="/api/questions",
@@ -14,7 +17,7 @@ router = APIRouter(
 )
 
 
-@router.post("/add", status_code=status.HTTP_201_CREATED)
+@router.post("/inputs/add", status_code=status.HTTP_201_CREATED)
 async def add_question(
         question_count: int,
         question_input_data: QuestionInputCreate,
@@ -63,44 +66,6 @@ async def add_question(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=result
-        )
-
-    return result
-
-
-@router.get("/inputs/{question_input_id}", response_model=QuestionInputRead)
-async def get_question_input_by_id(question_input_id: int, db: Session = Depends(get_db)):
-    """
-    Retrieves a specific question generation job and its AI-generated drafts.
-
-    This endpoint is used to check the progress of a generation request or to
-    fetch the raw drafts for user review and potential editing before they
-    are promoted to the global pool.
-
-    Args:
-        question_input_id (int): The unique identifier of the generation job.
-        db (Session): The database session provided by the FastAPI dependency.
-
-    Returns:
-        QuestionInputRead: The full record including raw input, drafts, and status.
-
-    Raises:
-        HTTPException (404): If the specified ID does not exist.
-        HTTPException (500): If a database error occurs.
-    """
-    question_manager = QuestionManager(db)
-    success, result = question_manager.get_question_input_by_id(question_input_id)
-
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=result
-        )
-
-    if result is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=QuestionMessages.QUESTION_INPUT_NOT_FOUND
         )
 
     return result
@@ -156,8 +121,249 @@ async def finalize_input(question_input_id: int, db: Session = Depends(get_db)):
     return result
 
 
+@router.get("/list-all", response_model=list[QuestionRead])
+async def get_questions(db: Session = Depends(get_db)):
+    """
+    Retrieves the complete list of all questions available in the global pool.
+
+    This endpoint returns every question across all subjects and topics.
+    It is primarily used for administrative overview or broad content audits.
+
+    Args:
+        db (Session): The database session provided by the FastAPI dependency.
+
+    Returns:
+        list[QuestionRead]: A list of all questions, formatted according to the
+                           QuestionRead schema.
+
+    Raises:
+        HTTPException (404): If the question pool is currently empty.
+        HTTPException (500): If a database error occurs during retrieval.
+    """
+    question_manager = QuestionManager(db)
+    success, result = question_manager.get_all_questions()
+
+    if not success:
+        if result == QuestionMessages.QUESTION_NOT_FOUND:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=result
+            )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
+
+    return result
+
+
+@router.get("/subjects/{subject_id}", response_model=list[QuestionRead])
+async def get_questions_for_subject(subject_id: int, db: Session = Depends(get_db)):
+    """
+    Retrieves all questions filtered by a specific subject.
+
+    This endpoint is used for subject-specific browsing or quiz generation.
+    It returns a filtered subset of the global question pool based on the
+    provided subject identifier.
+
+    Args:
+        subject_id (int): The unique ID of the subject to filter by.
+        db (Session): The database session provided by the FastAPI dependency.
+
+    Returns:
+        list[QuestionRead]: A list of questions belonging to the specified subject.
+
+    Raises:
+        HTTPException (404): If no questions are found for the given subject ID.
+        HTTPException (500): If a database error occurs during retrieval.
+    """
+    question_manager = QuestionManager(db)
+    success, result = question_manager.get_all_questions_for_subject(subject_id)
+
+    if not success:
+        if result == QuestionMessages.QUESTION_NOT_FOUND:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=result
+            )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
+
+    return result
+
+
+@router.get("/subjects/{subject_id}/topics/{topic_id}", response_model=list[QuestionRead])
+async def get_questions_for_subject_topic(
+        subject_id: int,
+        topic_id: int,
+        db: Session = Depends(get_db)
+):
+    """
+    Retrieves questions filtered by both subject and a specific topic.
+
+    This is the most granular retrieval endpoint, ideal for targeted practice
+    sessions or specific classroom modules. It ensures that the returned
+    questions belong strictly to the intersection of the given subject and topic.
+
+    Args:
+        subject_id (int): The unique ID of the subject.
+        topic_id (int): The unique ID of the topic within that subject.
+        db (Session): The database session provided by the FastAPI dependency.
+
+    Returns:
+        list[QuestionRead]: A list of questions matching both criteria.
+
+    Raises:
+        HTTPException (404): If no questions exist for this specific combination.
+        HTTPException (500): If a database error occurs during the query.
+    """
+    question_manager = QuestionManager(db)
+    success, result = question_manager.get_all_questions_for_subject_topic(
+        subject_id,
+        topic_id
+    )
+
+    if not success:
+        if result == QuestionMessages.QUESTION_NOT_FOUND:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=result
+            )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
+
+    return result
+
+
+@router.get("/{question_id}", response_model=QuestionRead)
+async def get_question_by_id(question_id: int, db: Session = Depends(get_db)):
+    """
+    Retrieves a single question from the global pool by its unique identifier.
+
+    This endpoint is used when the specific ID of a question is already known,
+    e.g., when loading a single question for detailed viewing, editing,
+    or specific pedagogical review.
+
+    Args:
+        question_id (int): The unique primary key of the question.
+        db (Session): The database session provided by the FastAPI dependency.
+
+    Returns:
+        QuestionRead: The complete question data matching the ID.
+
+    Raises:
+        HTTPException (404): If no question exists with the provided ID.
+        HTTPException (500): If a database error occurs during retrieval.
+    """
+    question_manager = QuestionManager(db)
+    success, result = question_manager.get_question_by_id(question_id)
+
+    if not success:
+        if result == QuestionMessages.QUESTION_NOT_FOUND:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=result
+            )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
+
+    return result
+
+
+@router.get("/inputs/{question_input_id}", response_model=QuestionInputRead)
+async def get_question_input_by_id(question_input_id: int, db: Session = Depends(get_db)):
+    """
+    Retrieves a specific question generation job and its AI-generated drafts.
+
+    This endpoint is used to check the progress of a generation request or to
+    fetch the raw drafts for user review and potential editing before they
+    are promoted to the global pool.
+
+    Args:
+        question_input_id (int): The unique identifier of the generation job.
+        db (Session): The database session provided by the FastAPI dependency.
+
+    Returns:
+        QuestionInputRead: The full record including raw input, drafts, and status.
+
+    Raises:
+        HTTPException (404): If the specified ID does not exist.
+        HTTPException (500): If a database error occurs.
+    """
+    question_manager = QuestionManager(db)
+    success, result = question_manager.get_question_input_by_id(question_input_id)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
+
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=QuestionMessages.QUESTION_INPUT_NOT_FOUND
+        )
+
+    return result
+
+
+@router.put("/{question_id}/status", response_model=QuestionRead)
+async def set_question_status(
+        question_id: int,
+        active: QuestionStatus,
+        db: Session = Depends(get_db)
+):
+    """
+    Toggles the visibility or operational status of a specific question.
+
+    This endpoint is used to enable or disable questions in the live pool
+    without deleting them. This is useful for temporary removals, content
+    reviews, or retiring outdated questions while maintaining database
+    integrity and historical records.
+
+    Args:
+        question_id (int): The unique ID of the question to update.
+        active (QuestionStatus): True to activate the question, False to deactivate it.
+        db (Session): The database session provided by the FastAPI dependency.
+
+    Returns:
+        QuestionRead: The updated question record reflecting the new status.
+
+    Raises:
+        HTTPException (404): If the question_id does not exist.
+        HTTPException (500): If the status update fails due to a database error.
+    """
+    question_manager = QuestionManager(db)
+    success, result = question_manager.set_question_status(question_id, active)
+
+    if not success:
+        if result == QuestionMessages.QUESTION_NOT_FOUND:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=result
+            )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
+
+    return result
+
+
 @router.put("/inputs/{question_input_id}/edit", response_model=QuestionInputRead)
-async def edit_question_input(
+async def update_question_input(
         question_input_id: int,
         question_input_data: QuestionInputUpdate,
         db: Session = Depends(get_db)
@@ -190,6 +396,49 @@ async def edit_question_input(
 
     if not success:
         if result == QuestionMessages.QUESTION_INPUT_NOT_FOUND:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=result
+            )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
+
+    return result
+
+
+@router.put("/{question_id}/edit", response_model=QuestionRead)
+async def update_question_by_id(
+        question_id: int,
+        question_data: QuestionUpdate,
+        db: Session = Depends(get_db)
+):
+    """
+    Updates the content or properties of an existing question.
+
+    This endpoint allows for granular changes to a question that is already
+    in the live pool, such as fixing typos, updating answer options,
+    or adjusting the difficulty level.
+
+    Args:
+        question_id (int): The unique identifier of the question to be updated.
+        question_data (QuestionUpdate): The DTO containing the fields to update.
+        db (Session): The database session provided by the FastAPI dependency.
+
+    Returns:
+        QuestionRead: The updated question record.
+
+    Raises:
+        HTTPException (404): If no question is found with the provided ID.
+        HTTPException (500): If the update fails due to a database error.
+    """
+    question_manager = QuestionManager(db)
+    success, result = question_manager.update_question(question_id, question_data)
+
+    if not success:
+        if result == QuestionMessages.QUESTION_NOT_FOUND:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=result

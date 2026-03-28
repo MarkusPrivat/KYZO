@@ -242,29 +242,31 @@ class QuestionManager:
             self._db.rollback()
             return False, f"{QuestionMessages.CREATE_QUESTION_ERROR}: {str(error)}"
 
-
     def get_all_questions(self) -> tuple[bool, list[Question] | str]:
         """
         Retrieves all questions from the database without any filters.
 
         This method provides a global overview of the entire question pool.
-        It is typically used for administrative dashboards, content audits,
-        or cross-subject analytics. It returns the raw SQLAlchemy objects
-        which can be serialized via Pydantic in the API layer.
+        It is primarily intended for administrative dashboards, content audits,
+        or cross-subject analytics.
 
         Returns:
             tuple[bool, list[Question] | str]:
-                - If successful: (True, List of all Question objects)
-                - If failed: (False, Error message string)
+                - If successful: (True, List of all Question SQLAlchemy objects)
+                - If no questions exist: (False, "No questions found" message)
+                - If failed: (False, Detailed SQLAlchemy error message)
 
         Note:
-            For large datasets, this operation can be performance-intensive.
-            Consider using scoped retrieval methods (by subject or topic)
-            for student-facing features.
+            **Performance Warning**: This operation performs a full table scan.
+            For production environments with large datasets, use paginated
+            or scoped retrieval methods to avoid memory exhaustion.
         """
         try:
             stmt = select(Question)
             all_questions = self._db.execute(stmt).scalars().all()
+
+            if not all_questions:
+                return False, QuestionMessages.QUESTION_NOT_FOUND
 
             return True, list(all_questions)
         except SQLAlchemyError as error:
@@ -286,6 +288,7 @@ class QuestionManager:
         Returns:
             tuple[bool, list[Question] | str]:
                 - If successful: (True, List of Question objects for the subject)
+                - If no questions exist: (False, "No questions found" message)
                 - If failed: (False, Error message string)
 
         Note:
@@ -295,6 +298,9 @@ class QuestionManager:
         try:
             stmt = select(Question).where(Question.subject_id == subject_id)
             all_questions = self._db.execute(stmt).scalars().all()
+
+            if not all_questions:
+                return False, QuestionMessages.QUESTION_NOT_FOUND
 
             return True, list(all_questions)
         except SQLAlchemyError as error:
@@ -320,6 +326,7 @@ class QuestionManager:
         Returns:
             tuple[bool, list[Question] | str]:
                 - If successful: (True, List of Question objects for this specific unit)
+                - If no questions exist: (False, "No questions found" message)
                 - If failed: (False, Error message string)
 
         Note:
@@ -332,6 +339,9 @@ class QuestionManager:
                     .where(Question.subject_id == subject_id)
                     .where(Question.topic_id == topic_id))
             all_questions = self._db.execute(stmt).scalars().all()
+
+            if not all_questions:
+                return False, QuestionMessages.QUESTION_NOT_FOUND
 
             return True, list(all_questions)
         except SQLAlchemyError as error:
@@ -353,6 +363,7 @@ class QuestionManager:
         Returns:
             tuple[bool, Question | str | None]:
                 - If successful: (True, Question object or None if not found)
+                - If no questions exist: (False, "No questions found" message)
                 - If failed: (False, Error message string)
 
         Note:
@@ -362,6 +373,9 @@ class QuestionManager:
         try:
             stmt = select(Question).where(Question.id == question_id)
             question = self._db.execute(stmt).scalar()
+
+            if not question:
+                return False, QuestionMessages.QUESTION_NOT_FOUND
 
             return True, question
         except SQLAlchemyError as error:
@@ -484,6 +498,7 @@ class QuestionManager:
         except SQLAlchemyError as error:
             self._db.rollback()
             return False, f"{QuestionMessages.UPDATE_QUESTION_ERROR} {str(error)}"
+
 
     def update_question_input(
             self,

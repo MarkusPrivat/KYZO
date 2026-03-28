@@ -39,6 +39,7 @@ class QuestionMessages:
     QUESTION_INPUT_NOT_FOUND = "Question input not Found!"
     QUESTION_INPUT_PROCESSED = "{question_count} Extracted Questions successfully generated"
     QUESTION_INPUT_TO_QUESTION = "{new_questions_count} Question generated from Question Input"
+    QUESTION_NOT_FOUND = "No question found!"
     STATUS_UPDATE_ERROR = "Status update error:"
     UPDATE_QUESTION_ERROR = "Update question error:"
     UPDATE_QUESTION_INPUT_ERROR = "Update question input error:"
