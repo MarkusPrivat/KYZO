@@ -8,7 +8,7 @@ SQLAlchemy and implements a session factory pattern with proper resource cleanup
 Key Features:
 -------------
 - **Database Engine Configuration**: Creates a SQLAlchemy engine with thread-safe
-  connection settings (required for SQLite in multi-threaded environments like FastAPI).
+  connection settings (required for SQLite in multithreaded environments like FastAPI).
 - **Session Management**: Provides a session factory with disabled auto-commit and auto-flush
   for better transaction control.
 - **Database Initialization**: Creates all database tables based on the SQLAlchemy models
@@ -24,8 +24,10 @@ Components:
 - get_db(): FastAPI dependency that yields a database session for the request lifecycle.
 """
 from typing import Generator
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
+
 from apps.kyzo_backend.config import fastapi_settings
 from apps.kyzo_backend.data import Base
 
@@ -40,19 +42,31 @@ SESSION_LOCAL = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def create_database() -> None:
     """
-    Creates all database tables defined in the SQLAlchemy models.
+    Initializes the database schema by creating all defined tables.
 
-    This function uses the metadata from the Base class to generate
-    the schema. It is safe to call multiple times as it only creates
-    tables that do not already exist in the database.
+    This function leverages SQLAlchemy's MetaData from the 'Base' class
+    to generate the physical database tables. It should be called during
+    the application startup sequence. It is idempotent, meaning it won't
+    overwrite or error out if tables already exist.
     """
     Base.metadata.create_all(bind=engine)
 
 
 def get_db() -> Generator[Session, None, None]:
     """
-    Dependency function that yields a database session and
-    ensures it's closed after the request is finished.
+    FastAPI dependency that provides a thread-local database session.
+
+    This generator-based function handles the lifecycle of a single
+    SQLAlchemy session. It ensures that a connection is opened when a
+    request starts and is reliably closed after the response is sent,
+    preventing connection leaks.
+
+    Yields:
+        Generator[Session, None, None]: An active SQLAlchemy Session object.
+
+    Note:
+        In case of an unhandled exception during the request, the
+        'finally' block still executes, ensuring the session is closed.
     """
     database = SESSION_LOCAL()
     try:

@@ -55,7 +55,6 @@ Usage Notes:
 from datetime import datetime, timezone
 from typing import Optional, Any
 
-from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -66,16 +65,27 @@ class Base(DeclarativeBase):
     """
     Base class for all declarative models in the Kyzo application.
 
-    This class inherits from SQLAlchemy's `DeclarativeBase` and serves
-    as the central registry for the ORM mapping. All database models
-    must inherit from this class to be recognized by the SQLAlchemy
-    mapper and to be included in the database schema generation.
+    This class serves as the central registry for the SQLAlchemy Object-Relational
+    Mapper (ORM).
+
+    Key Responsibilities:
+    ---------------------
+    - Registry: Tracks all classes that inherit from it to map them to
+      database tables.
+    - Metadata: Holds the `MetaData` object, which is required for
+      schema generation.
+    - Type Safety: Enables full PEP 484 type hinting support through
+      SQLAlchemy 2.0's `Mapped` and `mapped_column` syntax.
+
+    Usage:
+    ------
+    All database models (Subject, Question, User, etc.) must inherit from
+    this class to be managed by the SQLAlchemy engine and to participate
+    in the session-based database transactions.
     """
 
-db = SQLAlchemy(model_class=Base)
 
-
-class Subject(db.Model):
+class Subject(Base):
     """
     Represents a high-level academic field or school subject (e.g., Mathematics, Biology).
 
@@ -103,7 +113,7 @@ class Subject(db.Model):
         return f"{self.name} (active = {self.is_active})"
 
 
-class Test(db.Model):
+class Test(Base):
     """
     Represents an individual assessment session for a user.
 
@@ -162,7 +172,7 @@ class Test(db.Model):
         return f"Test-ID: {self.id} (done = {self.is_done})"
 
 
-class TestQuestion(db.Model):
+class TestQuestion(Base):
     """
     Represents the association between a specific test run and a single question.
 
@@ -214,7 +224,7 @@ class TestQuestion(db.Model):
         return f"Test-Question-ID: {self.id} (done = {self.is_done})"
 
 
-class Topic(db.Model):
+class Topic(Base):
     """
     Represents a specific subject area or learning module (e.g., 'Photosynthesis',
     'Linear Equations').
@@ -247,7 +257,10 @@ class Topic(db.Model):
 
     subject: Mapped["Subject"] = relationship("Subject", back_populates="topics")
     questions: Mapped[list["Question"]] = relationship("Question", back_populates="topic")
-    user_competences: Mapped[list["UserCompetence"]] = relationship("UserCompetence", back_populates="topic")
+    user_competences: Mapped[list["UserCompetence"]] = relationship(
+        "UserCompetence",
+        back_populates="topic"
+    )
 
     def __repr__(self):
         return f"<topic(id={self.id}, name='{self.name}', is_active={self.is_active})>"
@@ -256,7 +269,7 @@ class Topic(db.Model):
         return f"{self.name} (active = {self.is_active})"
 
 
-class User(db.Model):
+class User(Base):
     """
     Represents a registered person within the Kyzo App (Student, Teacher, or Admin).
 
@@ -312,7 +325,7 @@ class User(db.Model):
         return f"{self.name} (active = {self.is_active})"
 
 
-class UserCompetence(db.Model):
+class UserCompetence(Base):
     """
     Tracks and stores the aggregated knowledge level (mastery) of a user per topic.
 
@@ -362,7 +375,7 @@ class UserCompetence(db.Model):
 
 
 
-class Question(db.Model):
+class Question(Base):
     """
     Represents an individual learning item or quiz question.
 
@@ -423,7 +436,7 @@ class Question(db.Model):
         return f"Question-ID: {self.id} (active = {self.is_active})"
 
 
-class QuestionInput(db.Model):
+class QuestionInput(Base):
     """
     Represents the raw data source provided by a user to generate questions.
 
@@ -473,7 +486,7 @@ class QuestionInput(db.Model):
         return f"Question-Input-ID: {self.id} (user = {self.user_id})"
 
 
-class QuestionOrigin(db.Model):
+class QuestionOrigin(Base):
     """
     A many-to-many junction table linking Questions to their original Inputs.
 
