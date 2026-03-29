@@ -1,4 +1,3 @@
-from .user_schemas import UserCreate, UserRead, UserUpdate
 from .knowledge_schemas import (
     SubjectCreate,
     SubjectRead,
@@ -9,6 +8,7 @@ from .knowledge_schemas import (
     TopicStatus,
     TopicUpdate
 )
+
 from .questions_schemas import (
     QuestionOption,
     QuestionExplanation,
@@ -22,4 +22,18 @@ from .questions_schemas import (
     QuestionRead,
     QuestionStatus,
     QuestionUpdate
+)
+
+from .tests_schemas import (
+    TestCreate,
+    TestFinalize,
+    TestQuestionCreate,
+    TestQuestionFinalize,
+    TestQuestionRead,
+    TestRead
+)
+from .user_schemas import (
+    UserCreate,
+    UserRead,
+    UserUpdate
 )

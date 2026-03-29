@@ -115,25 +115,37 @@ class Subject(Base):
 
 class Test(Base):
     """
-    Represents an individual assessment session for a user.
+    SQLAlchemy model representing an individual assessment session for a student.
 
-    A test can be either subject-wide (general) or focused on a specific topic.
-    It tracks the user's performance, difficulty level, and stores AI-generated
-    feedback upon completion.
+    This model serves as the central hub for the adaptive learning logic. It
+    tracks a user's progress through a specific set of questions, calculates
+    performance metrics (score/difficulty), and stores AI-generated feedback.
+
+    The test can be configured in two modes:
+    1. **General Mode**: Defined by `subject_id` only (covers the entire subject).
+    2. **Focused Mode**: Defined by `subject_id` and `topic_id` (specific drill).
 
     Attributes:
         id (int): Primary key for the test instance.
-        user_id (int): Foreign key linking to the user who took the test.
-        subject_id (int): Foreign key linking to the academic subject.
-        topic_id (int, optional): Foreign key to a specific topic. If null,
-            it represents a general subject test.
-        grade (int): The school grade level the test was designed for.
-        difficulty (float): The dynamic difficulty level of the test (1.0 to 10.0).
-        score (int, optional): The final percentage or points achieved (0-100).
-        ai_feedback_summary (str, optional): LLM-generated summary of the test results.
-        is_done (bool): Flag indicating if the test session is completed.
-        started_at (datetime): Timestamp when the test was initialized (UTC).
-        completed_at (datetime, optional): Timestamp when the test was finished (UTC).
+        user_id (int): Foreign key referencing the student (User).
+        subject_id (int): Foreign key referencing the academic subject.
+        topic_id (Optional[int]): Foreign key referencing a specific topic.
+            Null signifies a broad subject-level assessment.
+        grade (int): Target school grade level (1-13).
+        difficulty (float): The dynamic difficulty level of the session (1.0-10.0).
+        score (Optional[int]): Total points achieved by the student.
+            Updated upon finalization.
+        max_score (Optional[int]): The maximum possible points for this session.
+        ai_feedback_summary (Optional[str]): Qualitative LLM-generated analysis
+            of the student's performance.
+        is_done (bool): State flag. True if the test is submitted and finalized.
+        started_at (datetime): UTC timestamp of session initialization.
+        completed_at (Optional[datetime]): UTC timestamp of session completion.
+
+    Relationships:
+        user (User): The student who owns this test session.
+        test_question (list[TestQuestion]): The collection of questions
+            instantiated for this specific test run.
     """
     __tablename__ = 'tests'
 
@@ -146,7 +158,9 @@ class Test(Base):
     grade: Mapped[int] = mapped_column(Integer, nullable=False)
     difficulty: Mapped[float] = mapped_column(Float, nullable=False)
     score: Mapped[Optional[int]] = mapped_column(Integer, default=None, nullable=True)
+    max_score: Mapped[Optional[int]] = mapped_column(Integer, default=None, nullable=True)
     ai_feedback_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     is_done: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -160,7 +174,7 @@ class Test(Base):
     )
 
     user: Mapped["User"] = relationship("User", back_populates="tests")
-    test_questions: Mapped[list["TestQuestion"]] = relationship(
+    test_question: Mapped[list["TestQuestion"]] = relationship(
         "TestQuestion",
         back_populates="test"
     )
@@ -174,28 +188,32 @@ class Test(Base):
 
 class TestQuestion(Base):
     """
-    Represents the association between a specific test run and a single question.
+    SQLAlchemy model representing the instantiation of a question within a test.
 
-    This model stores the student's response, the correctness of the answer,
-    and performance metrics like time spent. It acts as the primary data
-    source for calculating mastery scores and providing granular feedback.
+    This entity acts as a junction between a 'Test' session and a 'Question'
+    template. It records the student's interaction with a specific question,
+    capturing behavioral data (time spent) and performance metrics (choice,
+    correctness, points).
 
     Attributes:
-        id (int): Primary key for the test-question association.
-        test_id (int): Foreign key linking to the parent test session.
-        question_id (int): Foreign key linking to the specific question asked.
-        student_choice (int, optional): The index of the option selected by
-            the student (e.g., 0, 1, 2).
-        is_correct (bool, optional): Flag indicating if the student's
-            choice was correct.
-        is_done (bool): Flag indicating if this specific question has
-            been answered.
-        points_earned (int, optional): Points awarded for this question,
-            usually weighted by difficulty.
-        time_spent_milliseconds (int, optional): Duration in milliseconds
-            the student spent on this question.
-        question (Question): Relationship back to the Question model.
-        test (Test): Relationship back to the Test model.
+        id (int): Primary key for this specific test-question occurrence.
+        test_id (int): Foreign key referencing the parent 'Test' session.
+        question_id (int): Foreign key referencing the original 'Question'.
+        student_choice (Optional[int]): The index of the option selected by
+            the user (0-based). Null if the question hasn't been answered yet.
+        is_correct (Optional[bool]): Evaluation result. True if student_choice
+            matches the correct answer index of the question.
+        is_done (bool): Progress flag. Becomes True once a choice is submitted.
+        points_earned (Optional[int]): Actual points awarded (weighted by
+            difficulty and correctness).
+        points_max (Optional[int]): Maximum possible points for this specific
+            question instance.
+        time_spent_milliseconds (Optional[int]): Performance metric tracking
+            how long the user viewed/processed this question.
+
+    Relationships:
+        question (Question): The underlying question content and metadata.
+        test (Test): The parent test session this question belongs to.
     """
     __tablename__ = 'test_questions'
 
@@ -207,7 +225,9 @@ class TestQuestion(Base):
     student_choice: Mapped[Optional[int]] = mapped_column(Integer, default=None, nullable=True)
     is_correct: Mapped[Optional[bool]] = mapped_column(Boolean, default=None, nullable=True)
     is_done: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     points_earned: Mapped[Optional[int]] = mapped_column(Integer, default=None, nullable=True)
+    points_max: Mapped[Optional[int]] = mapped_column(Integer, default=None, nullable=True)
     time_spent_milliseconds: Mapped[Optional[int]] = mapped_column(
         Integer,
         default=None,
@@ -215,7 +235,7 @@ class TestQuestion(Base):
     )
 
     question: Mapped["Question"] = relationship("Question", back_populates="test_occurrences")
-    test: Mapped["Test"] = relationship("Test", back_populates="test_questions")
+    test: Mapped["Test"] = relationship("Test", back_populates="test_question")
 
     def __repr__(self):
         return f"<test_question(id={self.id}, test_id='{self.test_id}', is_done={self.is_done})>"

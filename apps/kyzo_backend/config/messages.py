@@ -49,6 +49,7 @@ class QuestionMessages:
 class SchemasMessages:
     SUBJECT_NAME_LEN = "Subject name must have at least 3 characters."
     TOPIC_NAME_LEN = "Topic name must have at least 2 characters."
+    IS_DONE_MUST_BE_TRUE = "The 'is_done' flag must be True to finalize a test."
 
 @dataclass(frozen=True)
 class UserMessages:
