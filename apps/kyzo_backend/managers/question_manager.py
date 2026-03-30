@@ -160,17 +160,21 @@ class QuestionManager:
 
     def count_questions(self, subject_id: int, topic_id: Optional[int] = None) -> int | str:
         """
-        Counts the available questions for a specific subject or topic.
+        Retrieves the total count of questions filtered by subject and optionally by topic.
 
-        If topic_id is provided, it filters by that specific topic.
-        Otherwise, it counts all questions within the given subject.
+        This method performs a high-performance database count. It is designed to
+        validate question availability before initializing a test session.
+        If a topic_id is provided, the search is narrowed down to that specific topic;
+        otherwise, it aggregates all questions within the subject.
 
         Args:
-            subject_id (int): The ID of the subject.
-            topic_id (Optional[int]): The ID of the topic, defaults to None.
+            subject_id (int): The unique identifier of the subject.
+            topic_id (Optional[int], optional): The unique identifier of the topic.
+                Defaults to None (subject-wide count).
 
         Returns:
-            int: The total number of matching questions found.
+            int | str: The number of questions found (int) if successful,
+                or an error message (str) if a database exception occurs.
         """
         try:
             # pylint: disable=not-callable
