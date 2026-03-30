@@ -1,7 +1,7 @@
 import json
-from typing import Any
+from typing import Any, Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -157,6 +157,36 @@ class QuestionManager:
         except SQLAlchemyError as error:
             self._db.rollback()
             return False, f"{QuestionMessages.CREATE_QUESTION_INPUT_ERROR} {str(error)}"
+
+    def count_questions(self, subject_id: int, topic_id: Optional[int] = None) -> int | str:
+        """
+        Counts the available questions for a specific subject or topic.
+
+        If topic_id is provided, it filters by that specific topic.
+        Otherwise, it counts all questions within the given subject.
+
+        Args:
+            subject_id (int): The ID of the subject.
+            topic_id (Optional[int]): The ID of the topic, defaults to None.
+
+        Returns:
+            int: The total number of matching questions found.
+        """
+        try:
+            # pylint: disable=not-callable
+            stmt = (select(func.count())
+                    .select_from(Question)
+                    .where(Question.subject_id == subject_id))
+
+            if topic_id is not None:
+                stmt = stmt.where(Question.topic_id == topic_id)
+
+            count = self._db.execute(stmt).scalar() or 0
+
+            return count
+
+        except SQLAlchemyError as error:
+            return f"{QuestionMessages.GET_ALL_QUESTIONS_ERROR}: {str(error)}"
 
     def create_questions_from_question_input(
             self,
