@@ -179,7 +179,7 @@ async def get_questions_for_subject(subject_id: int, db: Session = Depends(get_d
         HTTPException (500): If a database error occurs during retrieval.
     """
     question_manager = QuestionManager(db)
-    success, result = question_manager.get_all_questions_for_subject(subject_id)
+    success, result = question_manager.get_questions_for_subject_topic(subject_id)
 
     if not success:
         if result == QuestionMessages.QUESTION_NOT_FOUND:
@@ -222,7 +222,7 @@ async def get_questions_for_subject_topic(
         HTTPException (500): If a database error occurs during the query.
     """
     question_manager = QuestionManager(db)
-    success, result = question_manager.get_all_questions_for_subject_topic(
+    success, result = question_manager.get_questions_for_subject_topic(
         subject_id,
         topic_id
     )

@@ -306,80 +306,43 @@ class QuestionManager:
         except SQLAlchemyError as error:
             return False, f"{QuestionMessages.GET_ALL_QUESTIONS_ERROR} {str(error)}"
 
-
-    def get_all_questions_for_subject(self, subject_id: int) -> tuple[bool, list[Question] | str]:
+    def get_questions_for_subject_topic(
+            self,
+            subject_id: int,
+            topic_id: Optional[int] = None
+    ) -> tuple[bool, list[Question] | str]:
         """
-        Retrieves all questions associated with a specific subject.
+        Retrieves all questions for a subject, optionally filtered by a specific topic.
 
-        This method filters the question pool at the curriculum level. It is
-        ideal for generating subject-wide practice exams or administrative
-        reports. By filtering directly via 'subject_id', it ensures efficient
-        data retrieval without the need for complex joins across the topic hierarchy.
+        This unified method acts as the central retrieval point for question content.
+        It supports both broad subject-wide assessments and granular, topic-specific
+        drills by dynamically adjusting the query filter based on the provided arguments.
 
         Args:
             subject_id (int): The unique database identifier of the subject.
+            topic_id (Optional[int], optional): The unique identifier of the topic.
+                If None, retrieves all questions for the subject. Defaults to None.
 
         Returns:
             tuple[bool, list[Question] | str]:
-                - If successful: (True, List of Question objects for the subject)
-                - If no questions exist: (False, "No questions found" message)
-                - If failed: (False, Error message string)
-
-        Note:
-            The returned list includes all questions, regardless of their
-            topic assignment or active status, within the given subject.
+                - (True, list[Question]): If questions were found.
+                - (False, str): If no questions exist or a database error occurred.
         """
         try:
             stmt = select(Question).where(Question.subject_id == subject_id)
+
+            if topic_id is not None:
+                stmt = stmt.where(Question.topic_id == topic_id)
+
             all_questions = self._db.execute(stmt).scalars().all()
 
             if not all_questions:
                 return False, QuestionMessages.QUESTION_NOT_FOUND
 
             return True, list(all_questions)
+
         except SQLAlchemyError as error:
-            return False, f"{QuestionMessages.GET_ALL_QUESTIONS_ERROR} {str(error)}"
-
-
-    def get_all_questions_for_subject_topic(
-            self,
-            subject_id: int,
-            topic_id: int) -> tuple[bool, list[Question] | str]:
-        """
-        Retrieves all questions belonging to a specific topic within a subject.
-
-        This is the most granular retrieval method, primarily used for targeted
-        learning sessions where a student focuses on a single curriculum unit.
-        It enforces the dual-key relationship (subject and topic) to ensure
-        data consistency and curriculum alignment.
-
-        Args:
-            subject_id (int): The unique database identifier of the subject.
-            topic_id (int): The unique database identifier of the topic.
-
-        Returns:
-            tuple[bool, list[Question] | str]:
-                - If successful: (True, List of Question objects for this specific unit)
-                - If no questions exist: (False, "No questions found" message)
-                - If failed: (False, Error message string)
-
-        Note:
-            While this method filters by both IDs, it does not implicitly verify
-            if the topic actually belongs to the subject. For strict hierarchy
-            validation, use the internal '_exist_subject_and_topic' helper beforehand.
-        """
-        try:
-            stmt = (select(Question)
-                    .where(Question.subject_id == subject_id)
-                    .where(Question.topic_id == topic_id))
-            all_questions = self._db.execute(stmt).scalars().all()
-
-            if not all_questions:
-                return False, QuestionMessages.QUESTION_NOT_FOUND
-
-            return True, list(all_questions)
-        except SQLAlchemyError as error:
-            return False, f"{QuestionMessages.GET_ALL_QUESTIONS_ERROR} {str(error)}"
+            return False, f"{QuestionMessages.GET_ALL_QUESTIONS_ERROR}: {str(error)}"
 
 
     def get_question_by_id(self, question_id: int) -> tuple[bool, Question | str | None]:
