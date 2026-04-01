@@ -3,5 +3,6 @@ from .messages import (KnowledgeMessages,
                        OpenAIMessages,
                        QuestionMessages,
                        SchemasMessages,
+                       TestMessages,
                        UserMessages)
 from .prompts import InputPrompts, InstructionsPrompts

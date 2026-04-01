@@ -51,6 +51,12 @@ class SchemasMessages:
     TOPIC_NAME_LEN = "Topic name must have at least 2 characters."
     IS_DONE_MUST_BE_TRUE = "The 'is_done' flag must be True to finalize a test."
 
+
+@dataclass(frozen=True)
+class TestMessages:
+    TEST_NOT_FOUND = "Test session not found."
+
+
 @dataclass(frozen=True)
 class UserMessages:
     """
