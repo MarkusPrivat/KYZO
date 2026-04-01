@@ -138,7 +138,8 @@ class Test(Base):
         max_score (Optional[int]): The maximum possible points for this session.
         ai_feedback_summary (Optional[str]): Qualitative LLM-generated analysis
             of the student's performance.
-        is_done (bool): State flag. True if the test is submitted and finalized.
+        is_done (bool): State flag. True if the test is submitted.
+        is_processed (bool): State flag. True if the test is finalized.
         started_at (datetime): UTC timestamp of session initialization.
         completed_at (Optional[datetime]): UTC timestamp of session completion.
 
@@ -162,6 +163,7 @@ class Test(Base):
     ai_feedback_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     is_done: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_processed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

@@ -54,7 +54,21 @@ class SchemasMessages:
 
 @dataclass(frozen=True)
 class TestMessages:
+    ANSWER_OUT_OF_RANGE = "Answer not possible: Choice exceeds available options."
+    CREATE_TEST_ERROR = "Error create Test session:"
+    GET_TEST_ERROR = "Error fetching Test session:"
+    GET_TEST_QUESTION_ERROR = "Error fetching Test question:"
+    NEXT_QUESTION_ERROR = "Error retrieving next question:"
+    NOT_DONE = "Test session not finished"
+    NO_ENOUGH_QUESTIONS = "Only {available_questions} questions found"
+    NO_MORE_QUESTIONS = "No more unanswered questions found."
+    TEST_ALREADY_DONE = "This test session is already done and cannot be resumed."
+    TEST_ALREADY_PROCESSED = "AI feedback already generated!"
+    TEST_FINALIZE_ERROR = "Error during test finalization:"
     TEST_NOT_FOUND = "Test session not found."
+    TEST_QUESTION_FINALIZE_ERROR = "Error during evaluation:"
+    TEST_QUESTION_NOT_FOUND = "Question not found."
+    TEST_QUESTION_ALREADY_DONE = "Question already answered."
 
 
 @dataclass(frozen=True)

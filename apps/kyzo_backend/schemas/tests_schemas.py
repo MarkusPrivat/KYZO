@@ -7,7 +7,7 @@ from apps.kyzo_backend.config import SchemasMessages
 from .base_schemas import BaseSchema
 
 
-class TestCreate(BaseSchema):
+class TestGenerate(BaseSchema):
     """
     Schema for initializing a new assessment session.
 

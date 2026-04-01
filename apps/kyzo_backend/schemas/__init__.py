@@ -25,7 +25,7 @@ from .questions_schemas import (
 )
 
 from .tests_schemas import (
-    TestCreate,
+    TestGenerate,
     TestFinalize,
     TestQuestionCreate,
     TestQuestionFinalize,
