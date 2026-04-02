@@ -6,7 +6,9 @@ from sqlalchemy.orm import joinedload, Session
 
 from apps.kyzo_backend.config import QuestionMessages, TestMessages
 from apps.kyzo_backend.data import TestQuestion, Test, Question
-from apps.kyzo_backend.managers import QuestionManager, KnowledgeManager, UserManager
+from apps.kyzo_backend.managers.question_manager import QuestionManager
+from apps.kyzo_backend.managers.knowledge_manager import KnowledgeManager
+from apps.kyzo_backend.managers.user_manager import UserManager
 from apps.kyzo_backend.schemas import TestGenerate, TestQuestionFinalize
 
 
