@@ -81,43 +81,34 @@ class KnowledgeManager:
         """
         Creates and attaches a new learning topic to an existing subject.
 
-        This method enforces referential integrity and prevents duplicate topics
-        within the same subject context at the business logic level.
-
-        Steps:
-        1. Validates that the 'subject_id' refers to an existing subject.
-        2. Performs a case-insensitive check to ensure the topic name is unique
-           within the scope of the parent subject.
-        3. Maps the validated schema to a Topic model instance and persists it.
-        4. Refreshes the instance to include database-generated fields.
+        Workflow:
+        1. Validate Subject: Ensures the parent subject exists via get_subject_by_id.
+        2. Duplicate Check: Ensures the topic name is unique within this subject.
+        3. Persistence: Maps the schema to a Topic model and commits to DB.
 
         Args:
-            topic_data (TopicCreate): Validated data for the new topic, including
-                                     the mandatory 'subject_id' and topic 'name'.
+            topic_data (TopicCreate): Validated data for the new topic.
 
         Returns:
             tuple[bool, Topic | str]:
-                - If successful: (True, Topic-instance)
-                - If subject missing: (False, KnowledgeMessages.SUBJECT_NOT_FOUND)
-                - If topic exists: (False, KnowledgeMessages.TOPIC_ALREADY_EXISTS)
-                - If DB error: (False, Error message string)
+                - (True, Topic): The newly created topic instance.
+                - (False, str): Error if subject missing, topic exists, or DB failure.
         """
         try:
-            success, result_subject = self.get_subject_by_id(topic_data.subject_id)
-
-            if not success:
+            success_subject, result_subject = self.get_subject_by_id(topic_data.subject_id)
+            if not success_subject:
                 return False, result_subject
-            if not result_subject:
-                return False, KnowledgeMessages.SUBJECT_NOT_FOUND
 
-            success, result_topic = self._get_topic_by_name(
+            success_topic, result_topic = self._get_topic_by_name(
                 topic_data.subject_id,
                 topic_data.name
             )
-            if not success:
-                return False, result_topic
-            if result_topic:
+
+            if success_topic:
                 return False, KnowledgeMessages.TOPIC_ALREADY_EXISTS
+
+            if not success_topic and result_topic != KnowledgeMessages.TOPIC_NOT_FOUND:
+                return False, result_topic
 
             topic_dict = topic_data.model_dump()
             new_topic = Topic(**topic_dict)
@@ -129,7 +120,7 @@ class KnowledgeManager:
 
         except SQLAlchemyError as error:
             self._db.rollback()
-            return False, f"{KnowledgeMessages.CREATE_TOPIC_ERROR} {str(error)}"
+            return False, f"{KnowledgeMessages.CREATE_TOPIC_ERROR}: {str(error)}"
 
 
     def get_all_subjects(self) -> tuple[bool, list[Subject] | str]:
@@ -182,8 +173,6 @@ class KnowledgeManager:
             success, result_subject = self.get_subject_by_id(subject_id)
             if not success:
                 return False, result_subject
-            if not result_subject:
-                return False, KnowledgeMessages.SUBJECT_NOT_FOUND
 
             stmt = select(Topic).where(Topic.subject_id == subject_id)
             all_topics = self._db.execute(stmt).scalars().all()
@@ -193,27 +182,35 @@ class KnowledgeManager:
             return False, f"{KnowledgeMessages.GET_ALL_TOPICS_FROM_SUBJECT_ERROR}: {str(error)}"
 
 
-    def get_subject_by_id(self, subject_id: int) -> tuple[bool, Subject | None | str]:
+    def get_subject_by_id(self, subject_id: int) -> tuple[bool, Subject | str]:
         """
         Fetches a single subject by its unique database ID.
+
+        Workflow:
+        1. Execute a SELECT statement with a filter on the primary key.
+        2. Use scalar_one_or_none to ensure a unique result or a safe None.
+        3. Return False if the subject is missing to trigger error handling in managers.
 
         Args:
             subject_id (int): The primary key of the subject to retrieve.
 
         Returns:
-            tuple[bool, Subject | None | str]:
-                - If found: (True, Subject-instance)
-                - If not found: (True, None)
-                - If DB error: (False, Error-Message)
+            tuple[bool, Subject | str]:
+                - (True, Subject): If the subject was found successfully.
+                - (False, str): If the subject is missing (SUBJECT_NOT_FOUND)
+                                or a database error occurred.
         """
         try:
             stmt = select(Subject).where(Subject.id == subject_id)
             subject = self._db.execute(stmt).scalar_one_or_none()
 
+            if not subject:
+                return False, KnowledgeMessages.SUBJECT_NOT_FOUND
+
             return True, subject
 
         except SQLAlchemyError as error:
-            return False, f"{KnowledgeMessages.GET_SUBJECT_ERROR} {str(error)}"
+            return False, f"{KnowledgeMessages.GET_SUBJECT_ERROR}: {str(error)}"
 
 
     def get_topic_from_subject(self, subject_id: int, topic_id: int) \
@@ -245,55 +242,53 @@ class KnowledgeManager:
 
         if not success:
             return False, result_subject
-        if not result_subject:
-            return False, KnowledgeMessages.SUBJECT_NOT_FOUND
 
         success, result_topic = self._get_topic_by_id(subject_id, topic_id)
 
         if not success:
             return False, result_topic
-        if not result_topic:
-            return False, KnowledgeMessages.TOPIC_NOT_FOUND
 
         return True, result_topic
 
-
-    def set_subject_status(self, subject_id: int, active: SubjectStatus) \
-            -> tuple[bool, Subject | None | str]:
+    def set_subject_status(
+            self,
+            subject_id: int,
+            active: SubjectStatus
+    ) -> tuple[bool, Subject | str]:
         """
         Updates the activation status of a specific subject.
 
-        This method acts as a 'soft-delete' mechanism. Deactivating a subject
-        (is_active=False) makes it unavailable for new content generation
-        and student access while preserving all existing associations
-        (topics, questions) in the database.
+        Workflow:
+        1. Fetch Subject: Uses get_subject_by_id (returns False if missing).
+        2. Guard: If success is False, return the error immediately.
+        3. Update: Apply the 'is_active' flag from the SubjectStatus schema.
+        4. Persistence: Commit the change and refresh the instance.
 
         Args:
             subject_id (int): The unique ID of the subject to modify.
-            active (SubjectStatus): A validated schema containing the
-                                   new boolean status.
+            active (SubjectStatus): A schema containing the new boolean status.
 
         Returns:
-            tuple[bool, Subject | None | str]:
-                - If updated: (True, Subject-instance)
-                - If not found: (True, None)
-                - If DB error: (False, Error-Message)
+            tuple[bool, Subject | str]:
+                - (True, Subject): If the status was successfully updated.
+                - (False, str): If the subject doesn't exist or a DB error occurred.
         """
         try:
             success, result = self.get_subject_by_id(subject_id)
 
             if not success:
                 return False, result
-            if result is None:
-                return True, None
 
             result.is_active = active.is_active
+
             self._db.commit()
             self._db.refresh(result)
+
             return True, result
+
         except SQLAlchemyError as error:
             self._db.rollback()
-            return False, f"{KnowledgeMessages.STATUS_UPDATE_ERROR} {str(error)}"
+            return False, f"{KnowledgeMessages.STATUS_UPDATE_ERROR}: {str(error)}"
 
 
     def set_topic_status_from_subject(self, subject_id: int, topic_id: int, active: TopicStatus) \
@@ -351,33 +346,37 @@ class KnowledgeManager:
         It uses dynamic attribute setting to ensure scalability as more
         subject attributes are added.
 
+        Workflow:
+        1. Fetch Subject: Uses get_subject_by_id (returns False if missing).
+        2. Guard: If success is False, return the error immediately (Not Found or DB error).
+        3. Partial Update: Iterates over fields provided in the update schema.
+        4. Persistence: Commits changes and refreshes the instance.
+
         Args:
             subject_id (int): The unique ID of the subject to update.
-            subject_update (SubjectUpdate): A schema containing the fields
-                                           to be changed (e.g., 'name').
+            subject_update (SubjectUpdate): A schema with optional fields to be changed.
 
         Returns:
-            tuple[bool, Subject | None | str]:
-                - If updated: (True, Subject-instance)
-                - If not found: (True, None)
-                - If DB error: (False, Error-Message)
+            tuple[bool, Subject | str]:
+                - (True, Subject): The updated subject instance.
+                - (False, str): Error message if subject missing or DB failure occurs.
         """
         try:
-            success, result = self.get_subject_by_id(subject_id)
+            success_subject, result_subject = self.get_subject_by_id(subject_id)
 
-            if not success:
-                return False, result
-            if result is None:
-                return True, None
+            if not success_subject:
+                return False, result_subject
 
             update_dict = subject_update.model_dump(exclude_unset=True)
 
             for key, value in update_dict.items():
-                setattr(result, key, value)
+                setattr(result_subject, key, value)
 
             self._db.commit()
-            self._db.refresh(result)
-            return True, result
+            self._db.refresh(result_subject)
+
+            return True, result_subject
+
         except SQLAlchemyError as error:
             self._db.rollback()
             return  False, f"{KnowledgeMessages.UPDATE_SUBJECT_ERROR} {str(error)}"
@@ -472,7 +471,7 @@ class KnowledgeManager:
             return False, f"{KnowledgeMessages.GET_SUBJECT_ERROR} {str(error)}"
 
 
-    def _get_topic_by_id(self, subject_id: int, topic_id: int) -> tuple[bool, Topic | None | str]:
+    def _get_topic_by_id(self, subject_id: int, topic_id: int) -> tuple[bool, Topic | str]:
         """
         Internal helper to fetch a specific topic while verifying its parent subject.
 
@@ -490,9 +489,10 @@ class KnowledgeManager:
             topic_id (int): The unique ID of the topic to retrieve.
 
         Returns:
-            tuple[bool, Topic | None | str]:
-                - If success: (True, Topic-instance OR None if no match found)
-                - If DB error: (False, Error message string)
+            tuple[bool, Topic | str]:
+                - (True, Topic): If the topic exists and belongs to the subject.
+                - (False, str): If no match is found (TOPIC_NOT_FOUND) or a
+                                database error occurs.
         """
         try:
             stmt = select(Topic).where(
@@ -500,6 +500,9 @@ class KnowledgeManager:
                 Topic.subject_id == subject_id
             )
             topic = self._db.execute(stmt).scalar_one_or_none()
+
+            if not topic:
+                return False, KnowledgeMessages.TOPIC_NOT_FOUND
 
             return True, topic
         except SQLAlchemyError as error:

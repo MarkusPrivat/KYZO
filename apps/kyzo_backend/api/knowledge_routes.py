@@ -206,45 +206,43 @@ async def get_all_topics_from_subject(subject_id: int, db: Session = Depends(get
     return result_topics
 
 
-
 @router.get("/subjects/{subject_id}", response_model=SubjectRead)
 async def get_subject(subject_id: int, db: Session = Depends(get_db)):
     """
     Retrieves detailed information for a specific subject by its unique ID.
 
-    This endpoint acts as a primary data fetcher for subject-specific dashboards.
-    It ensures that only valid, existing subjects are accessed by performing
-    a direct database lookup.
-
-    Process:
-    1. Receives the subject's primary key (ID) from the URL path.
-    2. Queries the database to locate the matching subject record.
-    3. Triggers a 404 response if the ID does not correspond to any subject.
+    Workflow:
+    1. Fetch the subject record from the KnowledgeManager.
+    2. If success is False:
+        a. Return 404 Not Found if the error matches SUBJECT_NOT_FOUND.
+        b. Return 500 Internal Server Error for technical database failures.
+    3. Return the subject record if found.
 
     Args:
         subject_id (int): The unique database identifier of the subject.
         db (Session): Database session dependency.
 
     Returns:
-        SubjectRead: The full subject record including name, description, and status.
+        SubjectRead: The full subject record.
 
     Raises:
-        HTTPException (404): If no subject matches the provided ID.
-        HTTPException (500): If a technical error occurs during data retrieval.
+        HTTPException: 404 if the subject does not exist.
+        HTTPException: 500 if a database error occurs.
     """
     knowledge_manager = KnowledgeManager(db)
 
     success, result = knowledge_manager.get_subject_by_id(subject_id)
+
     if not success:
+        if result == KnowledgeMessages.SUBJECT_NOT_FOUND:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(result)
+            )
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=result
-        )
-
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=KnowledgeMessages.SUBJECT_NOT_FOUND
+            detail=str(result)
         )
 
     return result
@@ -326,16 +324,17 @@ async def set_subject_status(subject_id: int, active: SubjectStatus, db: Session
     knowledge_manager = KnowledgeManager(db)
 
     success, result = knowledge_manager.set_subject_status(subject_id, active)
+
     if not success:
+        if result == KnowledgeMessages.SUBJECT_NOT_FOUND:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(result)
+            )
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=result
-        )
-
-    if result is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=KnowledgeMessages.SUBJECT_NOT_FOUND
+            detail=str(result)
         )
 
     return result
@@ -432,15 +431,15 @@ async def update_subject(
 
     success, result = knowledge_manager.update_subject(subject_id, subject_data)
     if not success:
+        if result == KnowledgeMessages.SUBJECT_NOT_FOUND:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=result
+            )
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=result
-        )
-
-    if result is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=KnowledgeMessages.SUBJECT_NOT_FOUND
         )
 
     return result
