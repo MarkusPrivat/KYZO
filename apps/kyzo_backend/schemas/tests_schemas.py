@@ -198,6 +198,28 @@ class TestQuestionRead(BaseSchema):
     )
 
 
+class TestQuestionStepRead(BaseSchema):
+    """
+    DTO returned after answering an individual test question.
+
+    Provides the transition state to the frontend, indicating if another
+    question follows or if the session has concluded.
+
+    Attributes:
+        next_question (Optional[TestQuestionRead]): The subsequent unanswered
+            question in the sequence. None if all questions are finished.
+        all_done (bool): Flag indicating that no more questions remain.
+    """
+    next_question: Optional[TestQuestionRead] = Field(
+        None,
+        description="The next question object to be rendered. None if all questions are answered."
+    )
+    all_done: bool = Field(
+        ...,
+        description="True if this was the last question of the test session."
+    )
+
+
 class TestRead(BaseSchema):
     """
     Data transfer object (DTO) for returning comprehensive test session details.
