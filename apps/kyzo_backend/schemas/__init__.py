@@ -30,7 +30,8 @@ from .tests_schemas import (
     TestQuestionCreate,
     TestQuestionFinalize,
     TestQuestionRead,
-    TestRead
+    TestRead,
+    TestSessionRead
 )
 from .user_schemas import (
     UserCreate,

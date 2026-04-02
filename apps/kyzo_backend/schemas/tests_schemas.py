@@ -266,3 +266,34 @@ class TestRead(BaseSchema):
         default_factory=list,
         description="The list of questions associated with this test session."
     )
+
+
+class TestSessionRead(BaseSchema):
+    """
+    Composite DTO representing the live state of a test session.
+
+    Bundles the core test metadata with the next actionable question.
+    This allows the frontend to manage transitions between questions
+    and the final completion state seamlessly.
+
+    Attributes:
+        test (TestRead): The full metadata of the current test session
+            (e.g., total score, user_id, subject_id).
+        next_question (Optional[TestQuestionRead]): The next unanswered
+            question in the sequence. Returns None if all questions
+            are already completed.
+        all_done (bool): A flag indicating if there are no more pending
+            questions left in this session.
+    """
+    test: TestRead = Field(
+        ...,
+        description="The full metadata of the current test session (score, user, subject)."
+    )
+    next_question: Optional[TestQuestionRead] = Field(
+        None,
+        description="The next unanswered question in the sequence. Returns None if all questions are completed."
+    )
+    all_done: bool = Field(
+        ...,
+        description="A flag indicating if there are no more pending questions in this session."
+    )
