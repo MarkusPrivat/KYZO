@@ -141,82 +141,85 @@ class UserManager:
             return False, f"{UserMessages.GET_ALL_USER_ERROR}: {str(error)}"
 
 
-    def get_user_by_email(self, email: str | EmailStr) -> tuple[bool, User | None | str]:
+    def get_user_by_email(self, email: str | EmailStr) -> tuple[bool, User | str]:
         """
         Retrieves a single user from the database based on their unique email address.
 
-        This method executes a SELECT statement. It distinguishes between a
-        successful query that returns no results and a database-level error.
+        This method executes a SELECT statement. It is the primary way to
+        authenticate users or check for existing accounts during registration.
 
         Args:
             email (str | EmailStr): The email address to search for.
                                     Accepts both raw strings and Pydantic EmailStr.
 
         Returns:
-            tuple[bool, User | None | str]:
-                - (True, User): If a matching user was found.
-                - (True, None): If no user exists with this email.
-                - (False, str): If a SQLAlchemyError occurred during execution.
+            tuple[bool, User | str]:
+                - (True, User): If a matching user was found successfully.
+                - (False, str): If no user exists or if a database-level error occurred.
         """
         try:
             stmt = (select(User).where(User.email == email))
             user = self._db.execute(stmt).scalar()
 
+            if not user:
+                return False, UserMessages.USER_NOT_FOUND
+
             return True, user
         except SQLAlchemyError as error:
             return False, f"{UserMessages.GET_USER_ERROR}: {str(error)}"
 
 
-    def get_user_by_id(self, user_id: int) -> tuple[bool, User | None | str]:
+    def get_user_by_id(self, user_id: int) -> tuple[bool, User | str]:
         """
         Retrieves a specific user record using their unique primary key (ID).
 
         This is the standard method for fetching user data for profile views,
-        updates, or status changes. It leverages the database index on the
-        primary key for maximum performance.
+        updates, or status changes. It leverages the primary key index for
+        high-performance lookups.
 
         Args:
             user_id (int): The unique database identifier of the user.
 
         Returns:
-            tuple[bool, User | None | str]:
-                - (True, User): If a user with this ID exists.
-                - (True, None): If the ID does not exist in the database.
-                - (False, str): If a database error occurs (e.g. connection loss).
+            tuple[bool, User | str]:
+                - (True, User): If the user was successfully found.
+                - (False, str): If the user does not exist or if a database error occurs.
         """
         try:
             stmt = (select(User).where(User.id == user_id))
-            user = self._db.execute(stmt).scalar()
+            user = self._db.execute(stmt).scalar_one_or_none()
+
+            if not user:
+                return False, UserMessages.USER_NOT_FOUND
 
             return True, user
         except SQLAlchemyError as error:
             return False, f"{UserMessages.GET_USER_ERROR}: {str(error)}"
 
 
-    def set_user_status(self, user_id: int, active: bool = True) -> tuple[bool, User | None | str]:
+    def set_user_status(self, user_id: int, active: bool = True) -> tuple[bool, User | str]:
         """
         Toggles the account activation status for a specific user.
 
-        This method performs a 'soft delete' or 'reactivation' by modifying
-        the is_active flag. It first attempts to locate the user by ID.
+        Workflow:
+        1. Fetch the user via get_user_by_id.
+        2. If success is False, return the error (either 'Not Found' or DB error).
+        3. Update the is_active flag and commit the transaction.
 
         Args:
             user_id (int): The unique ID of the user to update.
             active (bool): The target status. Defaults to True (active).
 
         Returns:
-            tuple[bool, User | None | str]:
-                - (True, User): If the status was successfully updated.
-                - (True, None): If no user with the given ID was found.
-                - (False, str): If a database error occurred during the transaction.
+            tuple[bool, User | str]:
+                - (True, User): The updated user object.
+                - (False, str): Error message if the user doesn't exist or a DB error occurs.
         """
         try:
             success, user = self.get_user_by_id(user_id)
 
             if not success:
                 return False, user
-            if user is None:
-                return True, None
 
             user.is_active = active
             self._db.commit()
@@ -228,32 +231,31 @@ class UserManager:
             return False, f"Status update error: {str(error)}"
 
 
-    def update_user(self, user_id: int, user_update: UserUpdate) -> tuple[bool, User | None | str]:
+    def update_user(self, user_id: int, user_update: UserUpdate) -> tuple[bool, User | str]:
         """
         Updates specific fields of an existing user record.
 
-        This method follows a partial update strategy. It first verifies the
-        user's existence and then applies only the fields provided in the
-        request body, preserving all other existing data.
+        Workflow:
+        1. Fetch the existing user via get_user_by_id.
+        2. Guard: If success is False, return the error (Not Found or DB error).
+        3. Partial Update: Iterate through provided fields (exclude_unset=True).
+        4. Data Normalization: Convert EmailStr to raw strings for SQLAlchemy.
+        5. Persistence: Commit changes and refresh the instance.
 
         Args:
             user_id (int): The unique identifier of the user to update.
-            user_update (UserUpdate): A schema containing optional fields for
-                                      modification (e.g., name, grade).
+            user_update (UserUpdate): A schema containing optional fields for modification.
 
         Returns:
-            tuple[bool, User | None | str]:
-                - (True, User): The updated user instance on success.
-                - (True, None): If the user_id does not exist in the database.
-                - (False, str): If a technical error or constraint violation occurred.
+            tuple[bool, User | str]:
+                - (True, User): The updated user instance.
+                - (False, str): If the user doesn't exist or a database error occurs.
         """
         try:
             success, user = self.get_user_by_id(user_id)
 
             if not success:
                 return False, user
-            if user is None:
-                return True, None
 
             update_dict = user_update.model_dump(exclude_unset=True)
 
