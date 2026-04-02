@@ -431,10 +431,6 @@ class TestManager:
         if not success_user:
             return False, result_user
 
-        success_subject, result_subject = self.knowledge_manager.get_subject_by_id(subject_id)
-        if not success_subject:
-            return False, result_subject
-
         if topic_id is not None:
             success_topic, result_topic = self.knowledge_manager.get_topic_from_subject(
                 subject_id,
@@ -442,6 +438,11 @@ class TestManager:
             )
             if not success_topic:
                 return False, result_topic
+
+        else:
+            success_subject, result_subject = self.knowledge_manager.get_subject_by_id(subject_id)
+            if not success_subject:
+                return False, result_subject
 
         return True, None
 
