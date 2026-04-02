@@ -203,8 +203,7 @@ class TestManager:
             return False, available_questions
         if available_questions < num_of_questions:
             return False, TestMessages.NO_ENOUGH_QUESTIONS.format(
-                available_questions,
-                available_questions
+                available_questions=available_questions
             )
 
         test_dict = test_data.model_dump()
