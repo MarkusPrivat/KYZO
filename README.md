@@ -26,16 +26,18 @@ Copy `apps/kyzo_backend/.env_template` to `.env` and add your key:
    python apps/kyzo_backend/run_backend.py
    ```
 
-## 📖 Database Dependencies & Order of Creation
+## 📖 Database Initialization & Seeding
 
-To ensure data integrity and avoid Foreign Key constraints, data should be created in the following hierarchical order:
+To set up your local development environment with sample data, you can use the provided 
+seeding script. This will create the database schema and populate it with initial users, 
+subjects, topics, and question inputs.
 
-1. **Users**: Can always be registered independently.
-2. **Subjects**: Can be created independently (e.g., "History", "Math").
-3. **Topics**: Require a valid `subject_id` to be linked to a specific subject.
-4. **Question Inputs**: Require a `user_id`, `subject_id`, and `topic_id`. This is the "container" for the raw text and AI drafts.
-5. **Questions**: Created from a `question_input`. They are linked to the input via the `question_origins` table to maintain traceability.
+How to Run:</br>
+From the project root, execute the following command:
+   ```bash  
+   python apps/kyzo_backend/scripts/run_seeding.py
+   ```
 
 ### Tip for Testing:
-If you are testing with a fresh database, make sure to create at least one User, one Subject, and one Topic via the Swagger UI
+After seeding you can use the Swagger UI to create questions, tests etc.</br>
 👉 http://127.0.0.1:8000/docs
