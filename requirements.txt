@@ -1,7 +1,5 @@
 dotenv
 fastapi[standard-no-fastapi-cloud-cli]
-flask
-flask_sqlalchemy
 openai
 pydantic
 pydantic[email]
