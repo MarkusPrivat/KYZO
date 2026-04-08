@@ -13,6 +13,7 @@ from apps.kyzo_backend.schemas import (QuestionCreate,
                                        QuestionUpdate,
                                        QuestionInputCreate,
                                        QuestionInputUpdate,
+                                       QuestionInputRawInput,
                                        QuestionInputExtractedQuestionsUpdate)
 from apps.kyzo_backend.services import QuestionGenerator
 
@@ -91,9 +92,10 @@ class QuestionManager:
             self._db.rollback()
             return False, f"{QuestionMessages.CREATE_QUESTION_ERROR} {str(error)}"
 
+
     def add_question_input(
             self,
-            question_count: int,
+            num_of_questions: int,
             question_input_data: QuestionInputCreate) -> tuple[bool, str]:
         """
         Orchestrates the initial ingestion and AI-processing of raw content.
@@ -106,7 +108,7 @@ class QuestionManager:
            `QuestionInput` record for future user review.
 
         Args:
-            question_count (int): The target number of questions the AI should generate.
+            num_of_questions (int): The target number of questions the AI should generate.
             question_input_data (QuestionInputCreate): A validated DTO containing
                                                        source text and metadata.
 
@@ -131,7 +133,7 @@ class QuestionManager:
             success, result_extracted_questions = (
                 self.question_generator.generate_extracted_questions_from_raw_input(
                     raw_input=question_input_data.raw_input,
-                    question_count=question_count
+                    num_of_questions=num_of_questions
                 )
             )
             if not success:
@@ -151,12 +153,13 @@ class QuestionManager:
             self._db.commit()
             self._db.refresh(new_question_input)
             return True, QuestionMessages.QUESTION_INPUT_PROCESSED.format(
-                question_count=question_count
+                num_of_questions=len(new_question_input.extracted_questions)
             )
 
         except SQLAlchemyError as error:
             self._db.rollback()
             return False, f"{QuestionMessages.CREATE_QUESTION_INPUT_ERROR} {str(error)}"
+
 
     def count_questions(self, subject_id: int, topic_id: Optional[int] = None) -> int | str:
         """
@@ -191,6 +194,7 @@ class QuestionManager:
 
         except SQLAlchemyError as error:
             return f"{QuestionMessages.GET_ALL_QUESTIONS_ERROR}: {str(error)}"
+
 
     def create_questions_from_question_input(
             self,
@@ -276,6 +280,72 @@ class QuestionManager:
             self._db.rollback()
             return False, f"{QuestionMessages.CREATE_QUESTION_ERROR}: {str(error)}"
 
+    def extract_questions_from_raw_input(
+            self,
+            question_input_id: int,
+            num_of_questions: int
+    ) -> tuple[bool, str]:
+        """
+        Extracts educational questions from an existing raw input using AI generation.
+
+        This method serves as a recovery or manual trigger mechanism if the initial
+        AI processing failed during the creation of a QuestionInput record. It
+        validates the record's state, invokes the AI generator, and persists the
+        extracted questions back to the database.
+
+        Args:
+            question_input_id (int): The unique identifier of the raw input record.
+            num_of_questions (int): The desired number of questions to be generated.
+
+        Returns:
+            tuple[bool, str]: A tuple containing:
+                - bool: True if the extraction and database update were successful,
+                  False otherwise.
+                - str: A status message indicating success or the specific
+                  reason for failure.
+
+        Raises:
+            SQLAlchemyError: If a database transaction error occurs,
+            triggering an automatic rollback.
+        """
+        try:
+            success, result_question_input = self.get_question_input_by_id(question_input_id)
+
+            if not success or not result_question_input:
+                return False, QuestionMessages.QUESTION_INPUT_NOT_FOUND
+
+            if result_question_input.is_processed:
+                return False, QuestionMessages.QUESTION_INPUT_ALREADY_PROCESSED
+
+            raw_input_data = QuestionInputRawInput(**result_question_input.raw_input)
+
+            success, ai_result = self.question_generator.generate_extracted_questions_from_raw_input(
+                raw_input=raw_input_data,
+                num_of_questions=num_of_questions
+            )
+
+            if not success:
+                return False, f"{OpenAIMessages.GENERATION_FAILED} {ai_result}"
+
+            if isinstance(ai_result, QuestionInputExtractedQuestionsUpdate):
+                result_question_input.extracted_questions = [
+                    question.model_dump() for question in ai_result.extracted_questions
+                ]
+
+            result_question_input.is_processed = True
+
+            self._db.commit()
+            self._db.refresh(result_question_input)
+
+            return True, QuestionMessages.QUESTION_INPUT_PROCESSED.format(
+                num_of_questions=len(result_question_input.extracted_questions)
+            )
+
+        except SQLAlchemyError as error:
+            self._db.rollback()
+            return False, f"{QuestionMessages.CREATE_QUESTION_INPUT_ERROR}: {str(error)}"
+
+
     def get_all_questions(self) -> tuple[bool, list[Question] | str]:
         """
         Retrieves all questions from the database without any filters.
@@ -305,6 +375,7 @@ class QuestionManager:
             return True, list(all_questions)
         except SQLAlchemyError as error:
             return False, f"{QuestionMessages.GET_ALL_QUESTIONS_ERROR} {str(error)}"
+
 
     def get_questions_for_subject_topic(
             self,
@@ -377,6 +448,7 @@ class QuestionManager:
             return True, question
         except SQLAlchemyError as error:
             return False, f"{QuestionMessages.GET_QUESTION_ERROR} {error}"
+
 
     def get_question_input_by_id(
             self,
@@ -574,6 +646,7 @@ class QuestionManager:
             return False, result
 
         return True, result
+
 
     @staticmethod
     def _get_questions_from_json(raw_data: Any) -> list[dict]:

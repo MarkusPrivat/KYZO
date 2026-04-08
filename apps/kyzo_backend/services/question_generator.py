@@ -22,7 +22,7 @@ class QuestionGenerator:
     def generate_extracted_questions_from_raw_input(
             self,
             raw_input: QuestionInputRawInput,
-            question_count: int
+            num_of_questions: int
     ) -> tuple[bool, QuestionInputExtractedQuestionsUpdate | str]:
         """
         Orchestrates the AI-driven extraction of question drafts from source material.
@@ -34,7 +34,7 @@ class QuestionGenerator:
         Args:
             raw_input (QuestionInputRawInput): The validated source material,
                                                including the core text content.
-            question_count (int): The target number of questions the AI is
+            num_of_questions (int): The target number of questions the AI is
                                   instructed to generate from the context.
 
         Returns:
@@ -47,7 +47,7 @@ class QuestionGenerator:
             template defined in InputPrompts.
         """
         multiple_choice_instruction = InputPrompts.MULTIPLE_CHOICE_INSTRUCTION.format(
-            question_count=question_count
+            num_of_questions=num_of_questions
         )
 
         input_prompt = f"{multiple_choice_instruction}\n{raw_input.content}"

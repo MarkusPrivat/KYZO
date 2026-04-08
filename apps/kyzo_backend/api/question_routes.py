@@ -121,6 +121,67 @@ async def finalize_input(question_input_id: int, db: Session = Depends(get_db)):
     return result
 
 
+@router.post("/inputs/{question_input_id}/ai-generate")
+async def extract_questions_from_raw_input(
+        question_input_id: int,
+        num_of_questions: int,
+        db: Session = Depends(get_db)):
+    """
+    Manually triggers AI question generation for a specific raw input record.
+
+    This endpoint allows users to (re-)run the AI extraction process for a
+    previously saved QuestionInput. It is primarily used as a fallback
+    mechanism if the automatic generation during the initial upload failed
+    or was skipped.
+
+    Args:
+        question_input_id (int): The unique ID of the QuestionInput to process.
+        num_of_questions (int): The number of questions the AI should attempt
+            to generate from the source text.
+        db (Session): Database session injected via FastAPI dependency.
+
+    Returns:
+        str: A success message containing the count of generated questions
+            upon successful completion.
+
+    Raises:
+        HTTPException:
+            - 404 Not Found: If the `question_input_id` does not exist.
+            - 400 Bad Request: If the input has already been processed or
+              the AI generation parameters are invalid.
+            - 500 Internal Server Error: If a database error (SQLAlchemy)
+              or an unexpected generation error occurs.
+    """
+    question_manager = QuestionManager(db)
+
+    success, result = question_manager.extract_questions_from_raw_input(
+        question_input_id,
+        num_of_questions
+    )
+
+    if not success:
+        if result == QuestionMessages.QUESTION_INPUT_NOT_FOUND:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=result
+            )
+
+        if "Error" in result or QuestionMessages.CREATE_QUESTION_ERROR in result:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result
+            )
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result
+        )
+
+    return result
+
+
+
+
 @router.get("/list-all", response_model=list[QuestionRead])
 async def get_questions(db: Session = Depends(get_db)):
     """

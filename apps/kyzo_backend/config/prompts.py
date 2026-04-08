@@ -4,7 +4,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class InputPrompts():
     MULTIPLE_CHOICE_INSTRUCTION = """
-    Analysiere den folgenden Text und erstelle daraus genau {question_count} Multiple-Choice-Fragen.
+    Analysiere den folgenden Text und erstelle daraus genau {num_of_questions} Multiple-Choice-Fragen.
 
     Regeln:
     1. Die Fragen müssen didaktisch wertvoll sein.
