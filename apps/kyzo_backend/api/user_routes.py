@@ -1,7 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from apps.kyzo_backend.config import UserMessages
 from apps.kyzo_backend.core import get_db
 from apps.kyzo_backend.schemas import UserCreate, UserRead, UserUpdate
 from apps.kyzo_backend.managers import UserManager
@@ -12,217 +11,136 @@ router = APIRouter(
     tags=["Users"]
 )
 
+def get_user_manager(db: Session = Depends(get_db)):
+    return UserManager(db)
 
 
 @router.get("/list-all", response_model=list[UserRead])
-async def get_all_users(db: Session = Depends(get_db)):
+async def get_all_users(user_manager: UserManager = Depends(get_user_manager)):
     """
     Retrieves a complete list of all registered users.
 
-    This endpoint is primarily for administrative purposes to oversee
-    the user base. It returns the public profile data (UserRead) for
-    every account in the system.
+    This endpoint orchestrates the retrieval of the entire user base
+    via the UserManager. It returns a collection of user profiles
+    formatted according to the UserRead schema.
 
     Args:
-        db (Session): Injected database session.
+        user_manager (UserManager): Injected manager via FastAPI Depends.
 
     Returns:
-        list[UserRead]: A list of all user profiles.
-
-    Raises:
-        HTTPException: 404 if no users exist in the database.
-        HTTPException: 500 if a database error occurs.
-    """
-    user_manager = UserManager(db)
-
-    success, result = user_manager.get_all_users()
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=result
-        )
-
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=UserMessages.NO_USERS
-        )
-
-    return result
-
-
-@router.get("/{user_id}", response_model=UserRead)
-async def get_user(user_id: int, db: Session = Depends(get_db)):
-    """
-    Retrieves the profile details of a specific user by their ID.
-
-    Workflow:
-    1. Request the user record from the UserManager.
-    2. If unsuccessful (success=False):
-        a. Return 404 Not Found if the specific 'USER_NOT_FOUND' message is returned.
-        b. Return 500 Internal Server Error for any other database-level failures.
-    3. Return the user record if found.
-
-    Args:
-        user_id (int): The unique database identifier of the user.
-        db (Session): Injected SQLAlchemy session via FastAPI.
-
-    Returns:
-        UserRead: The user profile data (serialized via Pydantic).
-
-    Raises:
-        HTTPException: 404 if the user ID does not exist.
-        HTTPException: 500 if a SQLAlchemyError or connection issue occurs.
-    """
-    user_manager = UserManager(db)
-
-    success, result = user_manager.get_user_by_id(user_id)
-
-    if not success:
-        if result == UserMessages.USER_NOT_FOUND:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(result)
-            )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(result)
-        )
-
-    return result
-
-
-@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-async def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
-    """
-    Registers a new user in the Kyzo database.
-
-    Workflow:
-    1. Check for existing accounts: Uses the UserManager to look up the email.
-    2. Conflict Handling: If a user is found (success=True), registration is blocked.
-    3. Error Handling: Differentiates between 'Not Found' (allowed) and DB errors.
-    4. Creation: Delegates the password hashing and persistence to the UserManager.
-
-    Args:
-        user_data (UserCreate): The validated registration data (email, password, etc.).
-        db (Session): The database session injected via FastAPI Dependency.
-
-    Returns:
-        User: The newly created user record, serialized via UserRead schema.
+        list[UserRead]: A list of all user profile records.
 
     Raises:
         HTTPException:
-            - 409 (Conflict) if the email is already registered.
-            - 400 (Bad Request) if the creation logic fails.
-            - 500 (Internal Server Error) for database exceptions.
+            - 404 (Not Found): If the database contains no user records.
+            - 500 (Internal Server Error): If a database transaction fails.
     """
-    user_manager = UserManager(db)
+    return user_manager.get_all_users()
 
-    success_lookup, result_lookup = user_manager.get_user_by_email(user_data.email)
 
-    if success_lookup:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=UserMessages.EMAIL_ALREADY_EXIST
-        )
+@router.get("/{user_id}", response_model=UserRead)
+async def get_user(user_id: int, user_manager: UserManager = Depends(get_user_manager)):
+    """
+    Retrieves the profile details of a specific user by their unique ID.
 
-    if not success_lookup and result_lookup != UserMessages.USER_NOT_FOUND:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(result_lookup)
-        )
+    This endpoint delegates the retrieval logic to the UserManager. If the user
+    is found, the record is automatically serialized into the UserRead format.
+    Error handling (404 for missing records or 500 for database issues) is
+    managed internally by the UserManager.
 
-    success_create, result_create = user_manager.add_user(user_data)
-    if not success_create:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(result_create)
-        )
+    Args:
+        user_id (int): The unique database identifier of the user.
+        user_manager (UserManager): Injected manager instance via FastAPI Depends.
 
-    return result_create
+    Returns:
+        UserRead: The sanitized user profile data.
+
+    Raises:
+        HTTPException:
+            - 404 (Not Found): If the user_id does not exist.
+            - 500 (Internal Server Error): If a database transaction failure occurs.
+    """
+    return user_manager.get_user_by_id(user_id)
+
+
+@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+async def register_user(
+        user_data: UserCreate,
+        user_manager: UserManager = Depends(get_user_manager)):
+    """
+    Registers a new user account in the system.
+
+    This endpoint delegates the entire registration process to the UserManager,
+    including existence checks, data normalization, and persistence.
+
+    Args:
+        user_data (UserCreate): The validated registration data.
+        user_manager (UserManager): Injected manager for user-related operations.
+
+    Returns:
+        UserRead: The newly created user record.
+
+    Raises:
+        HTTPException:
+            - 409 (Conflict): If the email is already associated with an account.
+            - 500 (Internal Server Error): If a database or system error occurs.
+    """
+    return user_manager.add_user(user_data)
 
 
 @router.put("/{user_id}/status", response_model=UserRead)
-async def set_user_status(user_id: int, active: bool, db: Session = Depends(get_db)):
+async def set_user_status(
+        user_id: int,
+        active: bool,
+        user_manager: UserManager = Depends(get_user_manager)):
     """
     Toggles the activation status of a specific user.
 
-    Workflow:
-    1. Call the UserManager to update the 'is_active' flag.
-    2. If unsuccessful (success=False):
-        a. Return 404 if the user was not found.
-        b. Return 500 for any other technical database error.
-    3. Return the updated user object.
+    Updates the 'is_active' flag for the given user ID. This operation is
+    handled by the UserManager, which ensures the user exists before
+    committing the status change to the database.
 
     Args:
         user_id (int): The unique ID of the user to be updated.
-        active (bool): The target status (True/False).
-        db (Session): Injected database session.
+        active (bool): The target status (True for active, False for inactive).
+        user_manager (UserManager): Injected manager instance via FastAPI Depends.
 
     Returns:
-        UserRead: The updated user record.
+        UserRead: The updated user record with the new status.
 
     Raises:
-        HTTPException: 404 if the user ID does not exist.
-        HTTPException: 500 if a database error occurs.
+        HTTPException:
+            - 404 (Not Found): If the user ID does not exist.
+            - 500 (Internal Server Error): If the database update fails.
     """
-    user_manager = UserManager(db)
-
-    success, result = user_manager.set_user_status(user_id, active)
-
-    if not success:
-        if result == UserMessages.USER_NOT_FOUND:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(result)
-            )
-
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(result)
-        )
-
-    return result
+    return user_manager.set_user_status(user_id, active)
 
 
 @router.put("/{user_id}/edit", response_model=UserRead)
-async def update_user(user_id: int, update_data: UserUpdate, db: Session = Depends(get_db)):
+async def update_user(
+        user_id: int,
+        update_data: UserUpdate,
+        user_manager: UserManager = Depends(get_user_manager)):
     """
     Updates an existing user's profile information.
 
-    Workflow:
-    1. Send update data to the UserManager.
-    2. If success is False:
-        a. Return 404 Not Found if the error matches USER_NOT_FOUND.
-        b. Return 500 Internal Server Error for database-level failures.
-    3. Return the updated user object.
+    This endpoint coordinates a partial update. It delegates identity
+    verification and data integrity checks (like email uniqueness) to the
+    UserManager. If the email is being changed, the system ensures it is
+    not already occupied by another account.
 
     Args:
-        user_id (int): ID of the user to be updated.
-        update_data (UserUpdate): Data to be updated (partial updates supported).
-        db (Session): Injected database session via FastAPI.
+        user_id (int): Unique identifier of the user to be updated.
+        update_data (UserUpdate): Container for the fields to be modified.
+        user_manager (UserManager): Injected manager instance for user logic.
 
     Returns:
-        UserRead: The updated user record.
+        UserRead: The updated and refreshed user record.
 
     Raises:
-        HTTPException: 404 if the user ID doesn't exist.
-        HTTPException: 500 if a technical database error occurs.
+        HTTPException:
+            - 404 (Not Found): If no user exists with the given ID.
+            - 409 (Conflict): If the requested new email address is already taken.
+            - 500 (Internal Server Error): If a database transaction failure occurs.
     """
-    user_manager = UserManager(db)
-
-    success, result = user_manager.update_user(user_id, update_data)
-
-    if not success:
-        if result == UserMessages.USER_NOT_FOUND:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(result)
-            )
-
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(result)
-        )
-
-    return result
+    return user_manager.update_user(user_id, update_data)
