@@ -11,7 +11,20 @@ router = APIRouter(
     tags=["Users"]
 )
 
-def get_user_manager(db: Session = Depends(get_db)):
+def get_user_manager(db: Session = Depends(get_db)) -> UserManager:
+    """
+    Dependency provider for the UserManager.
+
+    This function facilitates the injection of a UserManager instance into
+    API routes. It automatically retrieves the database session via
+    FastAPI's dependency system.
+
+    Args:
+        db (Session): The SQLAlchemy database session.
+
+    Returns:
+        UserManager: A new instance of the UserManager initialized with the DB session.
+    """
     return UserManager(db)
 
 
