@@ -1,3 +1,4 @@
+from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -32,432 +33,425 @@ class KnowledgeManager:
         """
         self._db = db
 
-
-    def add_subject(self, subject_data: SubjectCreate) -> tuple[bool, Subject | str]:
+    def add_subject(self, subject_data: SubjectCreate) -> Subject:
         """
-            Persists a new academic subject in the database after validation.
+        Persists a new academic subject in the database after validation.
 
-            This method performs a two-step process:
-            1. It checks if a subject with the same name already exists (case-insensitive)
-                to prevent duplicates.
-            2. If unique, it creates a new Subject record and commits it to the database.
+        This method ensures the subject name is unique (case-insensitive) before
+        creating a new record.
 
-            Args:
-                subject_data (SubjectCreate): A validated Pydantic schema containing
-                                             the new subject's attributes (e.g., name).
+        Args:
+            subject_data (SubjectCreate): Pydantic schema with subject attributes.
 
-            Returns:
-                tuple[bool, Subject | str]:
-                    - If successful: (True, Subject-instance) - The newly created object.
-                    - If name exists: (False, KnowledgeMessages.SUBJECT_ALREADY_EXISTS)
-                    - If DB error: (False, Error message string)
+        Returns:
+            Subject: The newly created and persisted Subject instance.
 
-            Raises:
-                Note: Internal SQLAlchemyErrors are caught and returned as a boolean/string tuple
-                      to allow the API layer to handle the response gracefully.
-            """
+        Raises:
+            HTTPException:
+                - 409 (Conflict): If a subject with the same name already exists.
+                - 500 (Internal Server Error): If a database transaction fails.
+        """
+        if self._is_subject_name_taken(subject_data.name):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=KnowledgeMessages.SUBJECT_ALREADY_EXISTS
+            )
         try:
-            success, result_subject = self._get_subject_by_name(subject_data.name)
-            if not success:
-                return False, result_subject
-
-            if result_subject is not None:
-                return False, KnowledgeMessages.SUBJECT_ALREADY_EXISTS
-
             subject_dict = subject_data.model_dump()
             new_subject = Subject(**subject_dict)
 
             self._db.add(new_subject)
             self._db.commit()
             self._db.refresh(new_subject)
-            return True, new_subject
+            return new_subject
 
         except SQLAlchemyError as error:
             self._db.rollback()
-            return False, f"{KnowledgeMessages.CREATE_SUBJECT_ERROR} {str(error)}"
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{KnowledgeMessages.CREATE_SUBJECT_ERROR} {str(error)}"
+            ) from error
 
-
-    def add_topic_to_subject(self, topic_data: TopicCreate) -> tuple[bool, Topic | str]:
+    def add_topic_to_subject(self, topic_data: TopicCreate) -> Topic:
         """
-        Creates and attaches a new learning topic to an existing subject.
+        Persists a new learning topic within a specific subject after validation.
 
-        Workflow:
-        1. Validate Subject: Ensures the parent subject exists via get_subject_by_id.
-        2. Duplicate Check: Ensures the topic name is unique within this subject.
-        3. Persistence: Maps the schema to a Topic model and commits to DB.
+        This method ensures the integrity of the knowledge hierarchy by verifying
+        the parent subject's existence and ensuring the topic name is unique
+        within that subject's scope.
 
         Args:
-            topic_data (TopicCreate): Validated data for the new topic.
+            topic_data (TopicCreate): Validated Pydantic schema for the new topic.
 
         Returns:
-            tuple[bool, Topic | str]:
-                - (True, Topic): The newly created topic instance.
-                - (False, str): Error if subject missing, topic exists, or DB failure.
-        """
-        try:
-            success_subject, result_subject = self.get_subject_by_id(topic_data.subject_id)
-            if not success_subject:
-                return False, result_subject
+            Topic: The newly created and persisted Topic instance.
 
-            success_topic, result_topic = self._get_topic_by_name(
-                topic_data.subject_id,
-                topic_data.name
+        Raises:
+            HTTPException:
+                - 404 (Not Found): If the parent subject_id does not exist.
+                - 409 (Conflict): If a topic with the same name already exists in this subject.
+                - 500 (Internal Server Error): If a database transaction failure occurs.
+        """
+        self.get_subject_by_id(topic_data.subject_id)
+
+        if self._is_topic_name_taken_in_subject(topic_data.name, topic_data.subject_id):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=KnowledgeMessages.TOPIC_ALREADY_EXISTS
             )
 
-            if success_topic:
-                return False, KnowledgeMessages.TOPIC_ALREADY_EXISTS
-
-            if not success_topic and result_topic != KnowledgeMessages.TOPIC_NOT_FOUND:
-                return False, result_topic
-
+        try:
             topic_dict = topic_data.model_dump()
             new_topic = Topic(**topic_dict)
 
             self._db.add(new_topic)
             self._db.commit()
             self._db.refresh(new_topic)
-            return True, new_topic
+            return new_topic
 
         except SQLAlchemyError as error:
             self._db.rollback()
-            return False, f"{KnowledgeMessages.CREATE_TOPIC_ERROR}: {str(error)}"
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{KnowledgeMessages.CREATE_TOPIC_ERROR} {str(error)}"
+            ) from error
 
-
-    def get_all_subjects(self) -> tuple[bool, list[Subject] | str]:
+    def get_all_subjects(self) -> list[Subject]:
         """
-        Retrieves all subjects currently stored in the database.
+        Retrieves a comprehensive list of all subjects in the database.
 
-        This method fetches every subject entry without filtering by
-        activation status. It is primarily used for administrative
-        overviews or populating selection lists.
+        This method provides a full collection of subject records. It is used
+        for populating navigation elements, dashboards, and administrative
+        overviews.
 
         Returns:
-            tuple[bool, list[Subject] | str]:
-                - If successful: (True, [Subject, ...]) - A list of Subject instances.
-                - If DB error: (False, KnowledgeMessages.GET_ALL_SUBJECTS_ERROR + detail)
+            list[Subject]: A list containing all retrieved Subject instances.
+
+        Raises:
+            HTTPException:
+                - 404 (Not Found): If no subjects are found in the database.
+                - 500 (Internal Server Error): If a database transaction failure occurs.
         """
         try:
             stmt = select(Subject)
             all_subjects = self._db.execute(stmt).scalars().all()
 
-            return True, list(all_subjects)
+            if not all_subjects:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=KnowledgeMessages.NO_SUBJECTS
+                )
+
+            return list(all_subjects)
+
         except SQLAlchemyError as error:
-            return False, f"{KnowledgeMessages.GET_ALL_SUBJECTS_ERROR} {str(error)}"
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{KnowledgeMessages.GET_ALL_SUBJECTS_ERROR} {str(error)}"
+            ) from error
 
-
-    def get_all_topic_from_subject(self, subject_id: int) -> tuple[bool, list[Topic] | str]:
+    def get_all_topic_from_subject(self, subject_id: int) -> list[Topic]:
         """
-        Fetches all topics associated with a specific subject ID.
+        Retrieves all learning topics associated with a specific subject.
 
-        This method acts as a filtered getter. It first ensures the parent subject
-        exists to provide accurate feedback (distinguishing between 'subject not
-        found' and 'subject has no topics').
-
-        Steps:
-        1. Verifies the existence of the subject by its ID.
-        2. Executes a filtered select statement on the Topic table using a
-           foreign key constraint (subject_id).
-        3. Returns the result as a list of Topic model instances.
+        This method performs a two-step validation: first, it ensures the parent
+        subject exists. Then, it fetches all linked topics. This allows for
+        clear distinction between a missing subject and a subject that simply
+        has no topics assigned yet.
 
         Args:
             subject_id (int): The unique identifier of the parent subject.
 
         Returns:
-            tuple[bool, list[Topic] | str]:
-                - If successful: (True, [Topic, ...]) - Note: Can be an empty list
-                  if the subject exists but has no topics assigned yet.
-                - If subject missing: (False, KnowledgeMessages.SUBJECT_NOT_FOUND)
-                - If DB error: (False, Error message string)
-        """
-        try:
-            success, result_subject = self.get_subject_by_id(subject_id)
-            if not success:
-                return False, result_subject
+            list[Topic]: A list of Topic instances belonging to the subject.
 
+        Raises:
+            HTTPException:
+                - 404 (Not Found): If the parent subject does not exist (via get_subject_by_id)
+                  OR if the subject exists but contains no topics.
+                - 500 (Internal Server Error): If a database transaction failure occurs.
+        """
+        self.get_subject_by_id(subject_id)
+
+        try:
             stmt = select(Topic).where(Topic.subject_id == subject_id)
             all_topics = self._db.execute(stmt).scalars().all()
 
-            return True, list(all_topics)
+            if not all_topics:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=KnowledgeMessages.NO_TOPICS_FOR_SUBJECTS
+                )
+
+            return list(all_topics)
+
         except SQLAlchemyError as error:
-            return False, f"{KnowledgeMessages.GET_ALL_TOPICS_FROM_SUBJECT_ERROR}: {str(error)}"
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{KnowledgeMessages.GET_ALL_TOPICS_FROM_SUBJECT_ERROR} {str(error)}"
+            ) from error
 
-
-    def get_subject_by_id(self, subject_id: int) -> tuple[bool, Subject | str]:
+    def get_subject_by_id(self, subject_id: int) -> Subject:
         """
-        Fetches a single subject by its unique database ID.
+        Retrieves a single subject by its unique database identifier.
 
-        Workflow:
-        1. Execute a SELECT statement with a filter on the primary key.
-        2. Use scalar_one_or_none to ensure a unique result or a safe None.
-        3. Return False if the subject is missing to trigger error handling in managers.
+        This method serves as a primary lookup and validation utility. It is
+        frequently used as a guard clause in hierarchical operations to ensure
+        the existence of a parent subject before proceeding with dependent tasks.
 
         Args:
             subject_id (int): The primary key of the subject to retrieve.
 
         Returns:
-            tuple[bool, Subject | str]:
-                - (True, Subject): If the subject was found successfully.
-                - (False, str): If the subject is missing (SUBJECT_NOT_FOUND)
-                                or a database error occurred.
+            Subject: The retrieved Subject instance.
+
+        Raises:
+            HTTPException:
+                - 404 (Not Found): If no subject exists with the given ID.
+                - 500 (Internal Server Error): If a database transaction failure occurs.
         """
         try:
             stmt = select(Subject).where(Subject.id == subject_id)
             subject = self._db.execute(stmt).scalar_one_or_none()
 
             if not subject:
-                return False, KnowledgeMessages.SUBJECT_NOT_FOUND
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=KnowledgeMessages.SUBJECT_NOT_FOUND
+                )
 
-            return True, subject
+            return subject
 
         except SQLAlchemyError as error:
-            return False, f"{KnowledgeMessages.GET_SUBJECT_ERROR}: {str(error)}"
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{KnowledgeMessages.GET_SUBJECT_ERROR} {str(error)}"
+            ) from error
 
-
-    def get_topic_from_subject(self, subject_id: int, topic_id: int) \
-            -> tuple[bool, Topic | None | str]:
+    def get_topic_from_subject(self, subject_id: int, topic_id: int) -> Topic:
         """
-        Verifies the existence of a specific topic within the context of a subject.
+        Retrieves a specific topic while strictly enforcing its subject association.
 
-        This is a core validation method used to ensure logical hierarchy and
-        data integrity. It prevents "orphan" access by checking the parent
-        subject first, followed by the specific topic associated with that subject.
-
-        Validation Chain:
-        1. Subject Existence: Confirms the 'subject_id' exists in the database.
-        2. Topic-Subject Bond: Confirms the 'topic_id' exists and is correctly
-           mapped to the provided 'subject_id' (handled by _get_topic_by_id).
+        This method acts as a security and integrity guard. It ensures that the
+        requested topic is not only existent but specifically belongs to the
+        provided parent subject, preventing unauthorized cross-subject access.
 
         Args:
-            subject_id (int): The unique ID of the parent subject.
-            topic_id (int): The unique ID of the topic to retrieve.
+            subject_id (int): The unique identifier of the parent subject.
+            topic_id (int): The unique identifier of the topic to retrieve.
 
         Returns:
-            tuple[bool, Topic | None | str]:
-                - If found: (True, Topic-instance)
-                - If subject missing: (False, KnowledgeMessages.SUBJECT_NOT_FOUND)
-                - If topic missing/mismatched: (False, KnowledgeMessages.TOPIC_NOT_FOUND)
-                - If DB error: (False, Error message string)
+            Topic: The validated Topic instance.
+
+        Raises:
+            HTTPException:
+                - 404 (Not Found): If the subject does not exist OR the topic
+                  does not exist within that specific subject's scope.
+                - 500 (Internal Server Error): If a database transaction failure occurs.
         """
-        success, result_subject = self.get_subject_by_id(subject_id)
+        self.get_subject_by_id(subject_id)
 
-        if not success:
-            return False, result_subject
+        topic = self._get_topic_by_id(subject_id, topic_id)
 
-        success, result_topic = self._get_topic_by_id(subject_id, topic_id)
-
-        if not success:
-            return False, result_topic
-
-        return True, result_topic
+        return topic
 
     def set_subject_status(
             self,
             subject_id: int,
             active: SubjectStatus
-    ) -> tuple[bool, Subject | str]:
+    ) -> Subject:
         """
-        Updates the activation status of a specific subject.
+        Updates the operational status (active/inactive) of a specific subject.
 
-        Workflow:
-        1. Fetch Subject: Uses get_subject_by_id (returns False if missing).
-        2. Guard: If success is False, return the error immediately.
-        3. Update: Apply the 'is_active' flag from the SubjectStatus schema.
-        4. Persistence: Commit the change and refresh the instance.
+        This method acts as a global toggle for a subject's visibility. It
+        leverages the centralized 'get_subject_by_id' guard to ensure existence
+        before applying the new status and persisting the change.
 
         Args:
-            subject_id (int): The unique ID of the subject to modify.
-            active (SubjectStatus): A schema containing the new boolean status.
+            subject_id (int): The unique identifier of the subject to modify.
+            active (SubjectStatus): Schema containing the target boolean status.
 
         Returns:
-            tuple[bool, Subject | str]:
-                - (True, Subject): If the status was successfully updated.
-                - (False, str): If the subject doesn't exist or a DB error occurred.
+            Subject: The updated Subject instance with the new status applied.
+
+        Raises:
+            HTTPException:
+                - 404 (Not Found): If no subject exists with the given ID.
+                - 500 (Internal Server Error): If a database transaction failure occurs.
         """
         try:
-            success, result = self.get_subject_by_id(subject_id)
+            subject = self.get_subject_by_id(subject_id)
 
-            if not success:
-                return False, result
-
-            result.is_active = active.is_active
+            subject.is_active = active.is_active
 
             self._db.commit()
-            self._db.refresh(result)
+            self._db.refresh(subject)
 
-            return True, result
+            return subject
 
         except SQLAlchemyError as error:
             self._db.rollback()
-            return False, f"{KnowledgeMessages.STATUS_UPDATE_ERROR}: {str(error)}"
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{KnowledgeMessages.STATUS_UPDATE_ERROR} {str(error)}"
+            ) from error
 
-
-    def set_topic_status_from_subject(self, subject_id: int, topic_id: int, active: TopicStatus) \
-            -> tuple[bool, Topic | str]:
+    def set_topic_status_from_subject(
+            self,
+            subject_id: int,
+            topic_id: int,
+            active: TopicStatus
+    ) -> Topic:
         """
-        Toggles the activation status of a specific topic within a subject.
+        Toggles the activation status of a specific topic within a subject's scope.
 
-        This method implements a soft-delete mechanism. Deactivating a topic
-        makes it (and potentially its associated questions) unavailable for
-        active learning sessions while preserving the data for historical
-        records and analytics.
-
-        Steps:
-        1. Hierarchy Check: Uses 'get_topic_from_subject' to ensure the topic
-           exists and belongs to the specified subject.
-        2. State Mutation: Updates the 'is_active' flag based on the input schema.
-        3. Persistence: Commits the change and refreshes the object to ensure
-           consistency with the database state.
+        This method implements a visibility toggle (soft-delete). It leverages
+        'get_topic_from_subject' to strictly enforce the knowledge hierarchy
+        before applying the status change and persisting the transaction.
 
         Args:
-            subject_id (int): The unique ID of the parent subject.
-            topic_id (int): The unique ID of the topic to modify.
-            active (TopicStatus): A validated Pydantic schema containing the
-                                 new 'is_active' boolean value.
+            subject_id (int): The unique identifier of the parent subject.
+            topic_id (int): The unique identifier of the topic to modify.
+            active (TopicStatus): Schema containing the target activation state.
 
         Returns:
-            tuple[bool, Topic | str]:
-                - If updated: (True, Topic-instance)
-                - If hierarchy fails: (False, KnowledgeMessages.SUBJECT_NOT_FOUND
-                  or TOPIC_NOT_FOUND)
-                - If DB error: (False, Error message string)
+            Topic: The updated Topic instance with the new status applied.
+
+        Raises:
+            HTTPException:
+                - 404 (Not Found): If the subject does not exist OR the topic
+                  does not exist within that subject.
+                - 500 (Internal Server Error): If a database transaction failure occurs.
         """
         try:
-            success, result_topic = self.get_topic_from_subject(subject_id, topic_id)
+            topic = self.get_topic_from_subject(subject_id, topic_id)
 
-            if not success:
-                return False, result_topic
+            topic.is_active = active.is_active
 
-            result_topic.is_active = active.is_active
             self._db.commit()
-            self._db.refresh(result_topic)
-            return True, result_topic
+            self._db.refresh(topic)
+
+            return topic
+
         except SQLAlchemyError as error:
             self._db.rollback()
-            return False, f"{KnowledgeMessages.STATUS_UPDATE_ERROR} {error}"
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{KnowledgeMessages.STATUS_UPDATE_ERROR} {str(error)}"
+            ) from error
 
-
-    def update_subject(self, subject_id: int, subject_update: SubjectUpdate) \
-            -> tuple[bool, Subject | None | str]:
+    def update_subject(self, subject_id: int, subject_update: SubjectUpdate) -> Subject:
         """
         Updates the metadata of an existing subject.
 
         This method performs a partial update (PATCH-style). Only the fields
-        provided in the SubjectUpdate schema are modified in the database.
-        It uses dynamic attribute setting to ensure scalability as more
-        subject attributes are added.
-
-        Workflow:
-        1. Fetch Subject: Uses get_subject_by_id (returns False if missing).
-        2. Guard: If success is False, return the error immediately (Not Found or DB error).
-        3. Partial Update: Iterates over fields provided in the update schema.
-        4. Persistence: Commits changes and refreshes the instance.
+        explicitly provided in the SubjectUpdate schema are modified. It ensures
+        uniqueness and integrity through the centralized 'get_subject_by_id' guard.
 
         Args:
             subject_id (int): The unique ID of the subject to update.
-            subject_update (SubjectUpdate): A schema with optional fields to be changed.
+            subject_update (SubjectUpdate): Schema containing the fields to be changed.
 
         Returns:
-            tuple[bool, Subject | str]:
-                - (True, Subject): The updated subject instance.
-                - (False, str): Error message if subject missing or DB failure occurs.
+            Subject: The updated and persisted subject instance.
+
+        Raises:
+            HTTPException:
+                - 404 (Not Found): If no subject exists with the given ID.
+                - 500 (Internal Server Error): If a database transaction failure occurs.
         """
+        subject = self.get_subject_by_id(subject_id)
+
         try:
-            success_subject, result_subject = self.get_subject_by_id(subject_id)
+            update_data = subject_update.model_dump(exclude_unset=True)
 
-            if not success_subject:
-                return False, result_subject
-
-            update_dict = subject_update.model_dump(exclude_unset=True)
-
-            for key, value in update_dict.items():
-                setattr(result_subject, key, value)
+            for key, value in update_data.items():
+                setattr(subject, key, value)
 
             self._db.commit()
-            self._db.refresh(result_subject)
+            self._db.refresh(subject)
 
-            return True, result_subject
+            return subject
 
         except SQLAlchemyError as error:
             self._db.rollback()
-            return  False, f"{KnowledgeMessages.UPDATE_SUBJECT_ERROR} {str(error)}"
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{KnowledgeMessages.UPDATE_SUBJECT_ERROR} {str(error)}"
+            ) from error
 
-
-    def update_topic_from_subject(self, subject_id: int, topic_id: int, topic_update: TopicUpdate) \
-            -> tuple[bool, Topic | str]:
+    def update_topic_from_subject(
+            self,
+            subject_id: int,
+            topic_id: int,
+            topic_update: TopicUpdate
+    ) -> Topic:
         """
         Updates the metadata of an existing topic within a specific subject context.
 
-        This method performs a partial update (PATCH-style). Only the fields
-        explicitly provided in the TopicUpdate schema will be modified,
-        preserving all other existing attributes.
-
-        Steps:
-        1. Authorization & Hierarchy: Calls 'get_topic_from_subject' to verify
-           the topic belongs to the parent subject.
-        2. Dynamic Mapping: Iterates through the provided update fields and
-           applies them to the database model instance.
-        3. State Persistence: Commits changes to the database and refreshes
-           the instance to reflect the updated state.
+        This method performs a partial update (PATCH-style). It ensures that only
+        fields explicitly provided in the request are modified, while strictly
+        enforcing the parent-child relationship between the subject and the topic.
 
         Args:
-            subject_id (int): ID of the subject the topic belongs to.
-            topic_id (int): ID of the topic to be updated.
-            topic_update (TopicUpdate): A schema containing the fields to change
-                                       (e.g., name, description).
+            subject_id (int): Unique ID of the parent subject.
+            topic_id (int): Unique ID of the topic to be updated.
+            topic_update (TopicUpdate): Schema containing the optional fields to change.
 
         Returns:
-            tuple[bool, Topic | str]:
-                - If updated: (True, Updated Topic-instance)
-                - If validation fails: (False, KnowledgeMessages.SUBJECT_NOT_FOUND
-                  or TOPIC_NOT_FOUND)
-                - If DB error: (False, Error message string)
+            Topic: The updated and persisted Topic instance.
+
+        Raises:
+            HTTPException:
+                - 404 (Not Found): If the subject doesn't exist or the topic
+                  is not associated with it.
+                - 500 (Internal Server Error): If a database transaction failure occurs.
 
         Note:
-            Fields that are 'None' in the schema but not explicitly 'set' in the
-            request are ignored thanks to 'exclude_unset=True'.
+            Fields not explicitly set in the request are ignored during the
+            update process (via 'exclude_unset=True').
         """
+        topic = self.get_topic_from_subject(subject_id, topic_id)
+
         try:
-            success, result_topic = self.get_topic_from_subject(subject_id, topic_id)
-
-            if not success:
-                return False, result_topic
-
             update_dict = topic_update.model_dump(exclude_unset=True)
             for key, value in update_dict.items():
-                setattr(result_topic, key, value)
+                setattr(topic, key, value)
 
             self._db.commit()
-            self._db.refresh(result_topic)
-            return True, result_topic
+            self._db.refresh(topic)
+
+            return topic
+
         except SQLAlchemyError as error:
             self._db.rollback()
-            return False, f"{KnowledgeMessages.UPDATE_TOPIC_ERROR} {error}"
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{KnowledgeMessages.UPDATE_TOPIC_ERROR} {str(error)}"
+            ) from error
 
-    def _get_subject_by_name(self, subject_name: str) -> tuple[bool, Subject | None | str]:
+    def _get_subject_by_name(self, subject_name: str) -> Subject:
         """
         Internal helper to retrieve a subject by its name using a case-insensitive search.
 
-        This method is a critical component for ensuring the uniqueness of subjects
-        at the top level of the knowledge hierarchy. It prevents the creation of
-        redundant subject entries (e.g., 'Mathematics' vs 'mathematics').
-
-        Logic:
-            - Utilizes 'func.lower' to normalize both the database field and the
-              input string for a reliable comparison.
-            - Returns a single record or None if no match is found.
+        This method ensures the uniqueness of subjects within the knowledge hierarchy
+        by performing normalized string comparisons (case-insensitive). It is
+        primarily used for validation during creation or name-change operations.
 
         Args:
             subject_name (str): The plain-text name of the subject to find.
 
         Returns:
-            tuple[bool, Subject | None | str]:
-                - If found: (True, Subject-instance)
-                - If not found: (True, None)
-                - If DB error: (False, Error message string)
+            Subject: The retrieved SQLAlchemy Subject instance.
+
+        Raises:
+            HTTPException:
+                - 404 (Not Found): If no subject with the given name exists.
+                - 500 (Internal Server Error): If a database transaction failure occurs.
 
         Note:
-            This is a low-level query method. It does not perform any business
-            validation or status checks (is_active).
+            This is a low-level query method. It does not perform status checks
+            (e.g., 'is_active').
         """
         try:
             stmt = (
@@ -466,33 +460,38 @@ class KnowledgeManager:
             )
             subject = self._db.execute(stmt).scalar_one_or_none()
 
-            return True, subject
+            if not subject:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=KnowledgeMessages.SUBJECT_NOT_FOUND
+                )
+            return subject
         except SQLAlchemyError as error:
-            return False, f"{KnowledgeMessages.GET_SUBJECT_ERROR} {str(error)}"
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{KnowledgeMessages.GET_SUBJECT_ERROR} {str(error)}"
+            ) from error
 
-
-    def _get_topic_by_id(self, subject_id: int, topic_id: int) -> tuple[bool, Topic | str]:
+    def _get_topic_by_id(self, subject_id: int, topic_id: int) -> Topic:
         """
         Internal helper to fetch a specific topic while verifying its parent subject.
 
-        This method acts as a security and integrity layer. Instead of just
-        looking up a topic by its primary key, it enforces the hierarchical
-        link to the subject. This prevents "cross-subject" access where a
-        valid topic ID is combined with a mismatched subject ID.
-
-        Query Logic:
-            SELECT * FROM topics
-            WHERE id = :topic_id AND subject_id = :subject_id;
+        This method acts as a security and integrity layer. It enforces the
+        hierarchical link by ensuring the topic not only exists but is also
+        correctly mapped to the provided subject_id. This prevents cross-subject
+        data leakage.
 
         Args:
             subject_id (int): The unique ID of the subject the topic must belong to.
             topic_id (int): The unique ID of the topic to retrieve.
 
         Returns:
-            tuple[bool, Topic | str]:
-                - (True, Topic): If the topic exists and belongs to the subject.
-                - (False, str): If no match is found (TOPIC_NOT_FOUND) or a
-                                database error occurs.
+            Topic: The validated Topic instance.
+
+        Raises:
+            HTTPException:
+                - 404 (Not Found): If no topic matches the ID/subject_id combination.
+                - 500 (Internal Server Error): If a database transaction failure occurs.
         """
         try:
             stmt = select(Topic).where(
@@ -502,48 +501,83 @@ class KnowledgeManager:
             topic = self._db.execute(stmt).scalar_one_or_none()
 
             if not topic:
-                return False, KnowledgeMessages.TOPIC_NOT_FOUND
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=KnowledgeMessages.TOPIC_NOT_FOUND
+                )
 
-            return True, topic
+            return topic
+
         except SQLAlchemyError as error:
-            return False, f"{KnowledgeMessages.GET_TOPIC_FROM_SUBJECT_ERROR} {error}"
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{KnowledgeMessages.GET_TOPIC_ERROR} {str(error)}"
+            ) from error
 
-
-    def _get_topic_by_name(self, subject_id: int, topic_name: str) \
-            -> tuple[bool, Topic | None | str]:
+    def _is_subject_name_taken(self, subject_name: str) -> bool:
         """
-        Internal helper to locate a topic by its name within a specific subject context.
+        Checks if a subject name already exists in the database (case-insensitive).
 
-        This method is primarily used for duplicate prevention. It performs a
-        case-insensitive search to ensure that topic names remain unique
-        within each subject, while allowing the same topic name to exist
-        across different subjects.
-
-        Logic:
-            - Filters by 'subject_id' to isolate the search scope.
-            - Uses 'func.lower' for a case-insensitive name comparison.
+        This is an internal validation helper used to prevent duplicate subject entries
+        during creation or renaming processes.
 
         Args:
-            subject_id (int): The ID of the subject to search within.
-            topic_name (str): The name of the topic to look for.
+            subject_name (str): The name to check against existing records.
 
         Returns:
-            tuple[bool, Topic | None | str]:
-                - If found: (True, Topic-instance)
-                - If not found: (True, None)
-                - If DB error: (False, Error message string)
+            bool: True if a subject with this name exists, False otherwise.
 
-        Note:
-            This method does not check if the subject itself exists; it only
-            queries the Topic table based on the provided IDs.
+        Raises:
+            HTTPException:
+                - 500 (Internal Server Error): If a database transaction or
+                  connection failure occurs during the query.
+        """
+        try:
+            stmt = (select(Subject)
+                    .where(func.lower(Subject.name) == func.lower(subject_name))
+                    )
+            result = self._db.execute(stmt).scalar_one_or_none()
+
+            return result is not None
+
+        except SQLAlchemyError as error:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{KnowledgeMessages.GET_SUBJECT_ERROR} {str(error)}"
+            ) from error
+
+    def _is_topic_name_taken_in_subject(self, topic_name: str, subject_id: int) -> bool:
+        """
+        Checks if a topic name already exists within a specific subject (case-insensitive).
+
+        This internal helper ensures that there are no duplicate topic names under
+        the same parent subject, maintaining a clear structure for the user.
+
+        Args:
+            topic_name (str): The name of the topic to check.
+            subject_id (int): The ID of the parent subject to search within.
+
+        Returns:
+            bool: True if the name is already taken in this subject, False otherwise.
+
+        Raises:
+            HTTPException:
+                - 500 (Internal Server Error): If a database transaction failure occurs.
         """
         try:
             stmt = (
                 select(Topic)
-                .where(Topic.subject_id == subject_id)
-                .where(func.lower(Topic.name) == func.lower(topic_name))
+                .where(
+                    func.lower(Topic.name) == func.lower(topic_name),
+                    Topic.subject_id == subject_id
+                )
             )
-            topic = self._db.execute(stmt).scalar_one_or_none()
-            return True, topic
+            result = self._db.execute(stmt).scalar_one_or_none()
+
+            return result is not None
+
         except SQLAlchemyError as error:
-            return False, f"{KnowledgeMessages.GET_TOPIC_ERROR} {str(error)}"
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{KnowledgeMessages.GET_TOPIC_ERROR} {str(error)}"
+            ) from error
