@@ -23,28 +23,27 @@ class QuestionGenerator:
             self,
             raw_input: QuestionInputRawInput,
             num_of_questions: int
-    ) -> tuple[bool, QuestionInputExtractedQuestionsUpdate | str]:
+    ) -> QuestionInputExtractedQuestionsUpdate:
         """
         Orchestrates the AI-driven extraction of question drafts from source material.
 
         This method merges instructional templates with the raw source content and
-        requests a structured JSON response from the LLM. It focuses on maintaining
-        the requested quantity and pedagogical quality of the generated items.
+        requests a structured response from the LLM. It serves as the high-level
+        interface for question generation, handling prompt construction and
+        quantity enforcement.
 
         Args:
-            raw_input (QuestionInputRawInput): The validated source material,
-                                               including the core text content.
-            num_of_questions (int): The target number of questions the AI is
-                                  instructed to generate from the context.
+            raw_input (QuestionInputRawInput): Validated source material containing
+                                               the core text content.
+            num_of_questions (int): The target number of questions to be generated.
 
         Returns:
-            tuple[bool, QuestionInputExtractedQuestionsUpdate | str]:
-                - If successful: (True, A validated DTO containing the list of drafted questions)
-                - If failed: (False, A descriptive error message from the LLM service)
+            QuestionInputExtractedQuestionsUpdate: A validated collection of drafted questions.
 
-        Note:
-            The quality of the output depends heavily on the 'MULTIPLE_CHOICE_INSTRUCTION'
-            template defined in InputPrompts.
+        Raises:
+            HTTPException:
+                - 502 (Bad Gateway): If the LLM service is unavailable or fails.
+                - 500 (Internal Server Error): If an unexpected processing error occurs.
         """
         multiple_choice_instruction = InputPrompts.MULTIPLE_CHOICE_INSTRUCTION.format(
             num_of_questions=num_of_questions
@@ -52,9 +51,4 @@ class QuestionGenerator:
 
         input_prompt = f"{multiple_choice_instruction}\n{raw_input.content}"
 
-        success, result = self.llm.get_extracted_questions_from_raw_input(input_prompt)
-
-        if not success:
-            return False, result
-
-        return True, result
+        return self.llm.get_extracted_questions_from_raw_input(input_prompt)

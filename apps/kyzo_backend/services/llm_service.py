@@ -1,4 +1,6 @@
 import openai
+
+from fastapi import HTTPException, status
 from openai import OpenAI
 
 from apps.kyzo_backend.config import fastapi_settings,  InstructionsPrompts, OpenAIMessages
@@ -37,31 +39,26 @@ class LLMService:
     def get_extracted_questions_from_raw_input(
             self,
             prompt: str
-    ) -> tuple[bool, QuestionInputExtractedQuestionsUpdate | str | None]:
+    ) -> QuestionInputExtractedQuestionsUpdate:
         """
         Processes raw text input and extracts structured questions using the LLM.
 
-        This method sends the raw input to the OpenAI Responses API, utilizing
-        predefined pedagogical instructions. The response is automatically
-        parsed and validated against the QuestionInputExtractedQuestionsUpdate
-        schema.
+        This method communicates with the OpenAI API to transform unstructured
+        source text into a structured schema. It handles API communication,
+        pedagogical instruction enforcement, and schema validation.
 
         Args:
-            prompt (str): The raw source text (e.g., from a PDF or manual input)
-                from which questions should be generated.
+            prompt (str): The raw source text from which questions should be generated.
 
         Returns:
-            tuple[bool, QuestionInputExtractedQuestionsUpdate | str | None]:
-                A tuple where the first element indicates success (True/False).
-                If True, the second element is the parsed
-                QuestionInputExtractedQuestionsUpdate object.
-                If False, the second element is a string containing the error
-                message for the user/logs.
+            QuestionInputExtractedQuestionsUpdate: The LLM-parsed and validated
+                                                    question collection.
 
-        Note:
-            Specific OpenAI errors (Connection, Rate Limit, etc.) are caught
-            internally and returned as a failure state with a descriptive
-            message from OpenAIMessages.
+        Raises:
+            HTTPException:
+                - 502 (Bad Gateway): If the connection to the OpenAI API fails or
+                  a rate limit is hit.
+                - 500 (Internal Server Error): For unexpected parsing or server errors.
         """
         try:
             response = self.client.responses.parse(
@@ -73,7 +70,15 @@ class LLMService:
                 text_format=QuestionInputExtractedQuestionsUpdate
             )
 
-            return True, response.output_parsed
+            return response.output_parsed
 
         except openai.OpenAIError as error:
-            return False, f"{OpenAIMessages.LLM_CONNECTION_ERROR} {str(error)}"
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"{OpenAIMessages.LLM_CONNECTION_ERROR} {str(error)}"
+            ) from error
+        except Exception as error:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{OpenAIMessages.UNEXPECTED_ERROR} {str(error)}"
+            ) from error

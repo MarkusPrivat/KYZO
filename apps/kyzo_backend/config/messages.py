@@ -25,6 +25,7 @@ class KnowledgeMessages:
 class OpenAIMessages:
     LLM_CONNECTION_ERROR = "Server connection error:"
     GENERATION_FAILED = "AI generation failed:"
+    UNEXPECTED_ERROR = "An unexpected error occurred during LLM processing:"
 
 
 @dataclass(frozen=True)
