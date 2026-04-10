@@ -51,7 +51,7 @@ class TestFinalize(BaseSchema):
     initiates the scoring logic and AI feedback generation on the server.
 
     Attributes:
-        is_active (bool): Must be True to signal completion.
+        is_done (bool): Must be True to signal completion.
         completed_at (datetime): The client-side timestamp of when the
             user clicked 'Submit'.
     """
@@ -147,25 +147,6 @@ class TestQuestionFinalize(BaseSchema):
         ge=0,
         description="Engagement time in milliseconds (used for performance analytics)."
     )
-
-    @field_validator("student_choice")
-    @classmethod
-    def validate_choice_format(cls, value: int) -> int:
-        """
-        Ensures the choice index is a valid non-negative integer.
-
-        Args:
-            value (int): The index provided by the client.
-
-        Returns:
-            int: The validated index.
-
-        Raises:
-            ValueError: If the index is negative.
-        """
-        if value < 0:
-            raise ValueError("The selected option index cannot be negative.")
-        return value
 
 
 class TestQuestionRead(BaseSchema):
@@ -313,7 +294,8 @@ class TestSessionRead(BaseSchema):
     )
     next_question: Optional[TestQuestionRead] = Field(
         None,
-        description="The next unanswered question in the sequence. Returns None if all questions are completed."
+        description="The next unanswered question in the sequence. "
+                    "Returns None if all questions are completed."
     )
     all_done: bool = Field(
         ...,
