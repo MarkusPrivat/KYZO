@@ -61,7 +61,7 @@ class FastAPISettings(BaseSettings):
     OPENAI_API_KEY: str = Field(...)
 
     OPENAI_MODEL: str = Field("gpt-4o-mini", description="The AI model used for generation")
-    LLM_TEMPERATURE: float = Field(0.7, ge=0.0, le=2.0, description="Creativity level of the AI")
+    LLM_TEMPERATURE: float = Field(0.0, ge=0.0, le=2.0, description="Creativity level of the AI")
     LLM_MAX_TOKENS: int = Field(5000, description="Limit for the AI response size")
 
     model_config = SettingsConfigDict(
