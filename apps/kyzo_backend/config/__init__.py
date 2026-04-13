@@ -5,4 +5,4 @@ from .messages import (KnowledgeMessages,
                        SchemasMessages,
                        TestMessages,
                        UserMessages)
-from .prompts import InputPrompts, InstructionsPrompts
+from .prompts import InstructionsPrompts

@@ -116,13 +116,16 @@ class QuestionManager:
                 - 502 (Bad Gateway): If the LLM extraction service fails.
                 - 500 (Internal Server Error): If database persistence fails.
         """
-        self._validate_hierarchy(
+        subject_name, topic_name = self._validate_hierarchy_and_get_names(
             question_input_data.subject_id,
             question_input_data.topic_id
         )
 
         extracted_questions = (
             self.question_generator.generate_extracted_questions_from_raw_input(
+                subject_name=subject_name,
+                topic_name=topic_name,
+                grade=question_input_data.grade,
                 raw_input=question_input_data.raw_input,
                 num_of_questions=num_of_questions
             )
@@ -302,6 +305,11 @@ class QuestionManager:
         """
         question_input = self.get_question_input_by_id(question_input_id)
 
+        subject_name, topic_name = self._validate_hierarchy_and_get_names(
+            question_input.subject_id,
+            question_input.topic_id
+        )
+
         if question_input.is_processed:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -312,6 +320,9 @@ class QuestionManager:
             raw_input_data = QuestionInputRawInput(**question_input.raw_input)
 
             ai_result = self.question_generator.generate_extracted_questions_from_raw_input(
+                subject_name=subject_name,
+                topic_name=topic_name,
+                grade=question_input.grade,
                 raw_input=raw_input_data,
                 num_of_questions=num_of_questions
             )
@@ -682,3 +693,31 @@ class QuestionManager:
         knowledge_manager = KnowledgeManager(self._db)
 
         return knowledge_manager.get_topic_from_subject(subject_id, topic_id)
+
+
+    def _validate_hierarchy_and_get_names(self, subject_id: int, topic_id: int) -> tuple[str, str]:
+        """
+        Verifies the hierarchical integrity and retrieves the names for subject and topic.
+
+        This method ensures that the requested topic is a child of the specified subject
+        and returns their human-readable names to be used in AI prompts.
+
+        Args:
+            subject_id (int): The unique identifier of the parent subject.
+            topic_id (int): The unique identifier of the topic.
+
+        Returns:
+            tuple[str, str]: A tuple containing (subject_name, topic_name).
+
+        Raises:
+            HTTPException:
+                - 404 (Not Found): If the subject or topic does not exist or the
+                  link is invalid.
+                - 500 (Internal Server Error): If a database error occurs.
+        """
+        knowledge_manager = KnowledgeManager(self._db)
+
+        subject = knowledge_manager.get_subject_by_id(subject_id)
+        topic = knowledge_manager.get_topic_from_subject(subject_id, topic_id)
+
+        return subject.name, topic.name

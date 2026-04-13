@@ -1,4 +1,5 @@
 import openai
+import json
 
 from fastapi import HTTPException, status
 from openai import OpenAI
@@ -38,26 +39,27 @@ class LLMService:
 
     def get_extracted_questions_from_raw_input(
             self,
-            prompt: str
+            prompt_instructions: str,
+            prompt_input: str
     ) -> QuestionInputExtractedQuestionsUpdate:
         """
         Processes raw text input and extracts structured questions using the LLM.
 
-        This method communicates with the OpenAI API to transform unstructured
-        source text into a structured schema. It handles API communication,
-        pedagogical instruction enforcement, and schema validation.
+        This method communicates with the OpenAI API using Structured Outputs to
+        transform unstructured source text into a structured schema. It separates
+        pedagogical logic (instructions) from the content (input) for better
+        reliability.
 
         Args:
-            prompt (str): The raw source text from which questions should be generated.
+            prompt_instructions (str): Guidelines and role definitions for the AI.
+            prompt_input (str): The raw source material and specific request.
 
         Returns:
-            QuestionInputExtractedQuestionsUpdate: The LLM-parsed and validated
-                                                    question collection.
+            QuestionInputExtractedQuestionsUpdate: The LLM-parsed question collection.
 
         Raises:
             HTTPException:
-                - 502 (Bad Gateway): If the connection to the OpenAI API fails or
-                  a rate limit is hit.
+                - 502 (Bad Gateway): If the OpenAI API connection fails or triggers filters.
                 - 500 (Internal Server Error): For unexpected parsing or server errors.
         """
         try:
@@ -65,8 +67,8 @@ class LLMService:
                 model=self.model,
                 temperature=self.temperature,
                 max_output_tokens=self.llm_max_tokens,
-                instructions=InstructionsPrompts.TEACHER_PROMPT,
-                input=prompt,
+                instructions=prompt_instructions,
+                input=prompt_input,
                 text_format=QuestionInputExtractedQuestionsUpdate
             )
 
@@ -75,10 +77,10 @@ class LLMService:
         except openai.OpenAIError as error:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"{OpenAIMessages.LLM_CONNECTION_ERROR} {str(error)}"
+                detail=f"{OpenAIMessages.LLM_CONNECTION_ERROR}: {str(error)}"
             ) from error
         except Exception as error:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"{OpenAIMessages.UNEXPECTED_ERROR} {str(error)}"
+                detail=f"{OpenAIMessages.UNEXPECTED_ERROR}: {str(error)}"
             ) from error
