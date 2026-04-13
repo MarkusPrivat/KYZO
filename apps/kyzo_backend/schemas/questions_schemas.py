@@ -81,7 +81,7 @@ class QuestionInputExtractedQuestions(BaseSchema):
     options: list[QuestionOption] = Field(
         ...,
         min_length=2,
-        description="A list of generated answer choices, including at least one correct option."
+        description="A list of generated answer choices, including one correct option."
     )
     answer: int = Field(
         ...,
@@ -90,7 +90,7 @@ class QuestionInputExtractedQuestions(BaseSchema):
     )
     explanations: Optional[list[QuestionExplanation]] = Field(
         None,
-        description="Optional AI-generated reasoning or pedagogical feedback for the question."
+        description="Optional AI-generated reasoning or pedagogical feedback for each question"
     )
     difficulty: int = Field(
         5,
