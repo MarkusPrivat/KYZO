@@ -1,6 +1,7 @@
 dotenv
 fastapi[standard-no-fastapi-cloud-cli]
 openai
+python-multipart
 pydantic
 pydantic[email]
 pydantic_settings
