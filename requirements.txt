@@ -1,6 +1,7 @@
 dotenv
 fastapi[standard-no-fastapi-cloud-cli]
 openai
+Pillow
 python-multipart
 pydantic
 pydantic[email]
