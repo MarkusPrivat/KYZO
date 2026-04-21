@@ -1,12 +1,13 @@
 import openai
-import json
 
 from fastapi import HTTPException, status
 from openai import OpenAI
 
-from apps.kyzo_backend.config import fastapi_settings,  InstructionsPrompts, OpenAIMessages
-from apps.kyzo_backend.schemas import QuestionInputExtractedQuestionsUpdate
-
+from apps.kyzo_backend.config import (fastapi_settings,
+                                      InputPrompts,
+                                      InstructionsPrompts,
+                                      OpenAIMessages)
+from apps.kyzo_backend.schemas import OCRResult, QuestionInputExtractedQuestionsUpdate
 
 
 class LLMService:
@@ -72,6 +73,14 @@ class LLMService:
                 text_format=QuestionInputExtractedQuestionsUpdate
             )
 
+            # Debugging
+            usage = response.usage
+            parsed_data = response.output_parsed
+            print("\n=== AI RESPONSE DEBUG ===")
+            print(f"Tokens: {usage.total_tokens} (In: {usage.input_tokens} | Out: {usage.output_tokens})")
+            print(parsed_data.model_dump_json(indent=4))
+            print("=============================================\n")
+
             return response.output_parsed
 
         except openai.OpenAIError as error:
@@ -79,6 +88,66 @@ class LLMService:
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"{OpenAIMessages.LLM_CONNECTION_ERROR}: {str(error)}"
             ) from error
+        except Exception as error:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{OpenAIMessages.UNEXPECTED_ERROR}: {str(error)}"
+            ) from error
+
+    def generate_raw_input_from_scan(
+            self,
+            base64_image: str,
+            mime_type: str = "image/jpeg"
+    ) -> OCRResult:
+        """
+        Performs AI-driven OCR to extract structured text from an image.
+
+        This method leverages the OpenAI Vision API and Structured Outputs to transform
+        visual document data (scans/photos) into a machine-readable format. It uses
+        pedagogical instructions to ensure that educational content, such as tables
+        and fill-in-the-blank texts, is correctly interpreted and formatted as Markdown.
+
+        Args:
+            base64_image (str): The optimized image data as a base64-encoded string.
+            mime_type (str): The MIME type of the image. Defaults to "image/jpeg".
+
+        Returns:
+            OCRResult: An object containing the extracted text and a confidence score.
+
+        Raises:
+            HTTPException:
+                - 502 (Bad Gateway): If the OpenAI API connection fails or a vision
+                  processing error occurs.
+                - 500 (Internal Server Error): For unexpected failures during parsing
+                  or response handling.
+        """
+        vision_input = InputPrompts.get_ocr_input(mime_type, base64_image)
+
+        try:
+            response = self.client.responses.parse(
+                model=self.model,
+                temperature=self.temperature,
+                instructions=InstructionsPrompts.OCR_INSTRUCTION,
+                input=vision_input,
+                text_format=OCRResult
+            )
+
+            # Debugging
+            usage = response.usage
+            parsed_data = response.output_parsed
+            print("\n=== AI RESPONSE DEBUG ===")
+            print(f"Tokens: {usage.total_tokens} (In: {usage.input_tokens} | Out: {usage.output_tokens})")
+            print(parsed_data.model_dump_json(indent=4))
+            print("=============================================\n")
+
+            return parsed_data
+
+        except openai.OpenAIError as error:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"{OpenAIMessages.LLM_CONNECTION_ERROR}: {str(error)}"
+            ) from error
+
         except Exception as error:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
