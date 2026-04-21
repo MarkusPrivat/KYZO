@@ -1,9 +1,10 @@
 from dataclasses import dataclass
+from typing import Any
 
 
 class InputPrompts:
     @staticmethod
-    def get_ocr_input(mime_type: str, base64_image: str) -> list[dict]:
+    def get_ocr_input(mime_type: str, base64_image: str) -> list[Any]:
         """
         Constructs the structured input payload for the OpenAI Vision API.
 
