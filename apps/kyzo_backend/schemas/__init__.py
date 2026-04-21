@@ -10,6 +10,7 @@ from .knowledge_schemas import (
 )
 
 from .questions_schemas import (
+    OCRResult,
     QuestionOption,
     QuestionExplanation,
     QuestionInputRawInput,

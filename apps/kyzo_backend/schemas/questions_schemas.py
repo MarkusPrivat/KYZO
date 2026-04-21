@@ -7,6 +7,27 @@ from apps.kyzo_backend.config.config import InputType
 from .base_schemas import BaseSchema
 
 
+class OCRResult(BaseSchema):
+    """
+    Schema for the structured output of the AI-driven OCR process.
+
+    This model encapsulates the raw text extracted from document scans
+    and provides a heuristic quality assessment to help the system
+    decide if the extraction is reliable enough for further processing.
+    """
+    extracted_text: str = Field(
+        ...,
+        min_length=1,
+        description="The full text extracted from the provided image(s)."
+    )
+
+    confidence_score: int = Field(
+        ...,
+        ge=1,
+        le=10,
+        description="A heuristic quality score from 1 (unreadable) to 10 (perfectly clear). "
+    )
+
 
 class QuestionOption(BaseSchema):
     """
