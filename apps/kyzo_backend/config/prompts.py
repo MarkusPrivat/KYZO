@@ -1,12 +1,47 @@
 from dataclasses import dataclass
 
 
+class InputPrompts:
+    @staticmethod
+    def get_ocr_input(mime_type: str, base64_image: str) -> list[dict]:
+        """
+        Constructs the structured input payload for the OpenAI Vision API.
+
+        This method encapsulates the multi-modal message format required by
+        the Responses API, combining a textual trigger with the base64-encoded
+        image data. It uses the 'auto' detail setting to allow the model
+        to optimize for both cost and accuracy.
+
+        Args:
+            mime_type (str): The MIME type of the image (e.g., 'image/jpeg', 'image/png').
+            base64_image (str): The optimized image data as a base64-encoded string.
+
+        Returns:
+            list[dict]: A list containing the 'user' role message with
+                        text and image content blocks.
+        """
+        return [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": "Führe die OCR-Extraktion gemäß der Instruktionen für dieses Dokument durch."
+                    },
+                    {
+                        "type": "input_image",
+                        "image_url": {
+                            "url": f"data:{mime_type};base64,{base64_image}",
+                            "detail": "auto",
+                        },
+                    },
+                ],
+            }
+        ]
+
+
 @dataclass(frozen=True)
 class InstructionsPrompts():
-    TEACHER_PROMPT = """
-    Du bist ein erfahrener Lehrer und Experte für Didaktik. Antworte immer auf Deutsch.
-    """
-
     MULTIPLE_CHOICE_INSTRUCTION = """
     ### ROLLE
     Du bist eine expertengestützte pädagogische KI, spezialisiert auf die Erstellung hochwertiger Lernmaterialien. Deine Aufgabe ist es, Kernkonzepte aus Rohmaterial zu extrahieren und in strukturierte Multiple-Choice-Fragen zu transformieren.
