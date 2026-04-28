@@ -74,15 +74,13 @@ class QuestionInputRawInput(BaseSchema):
     original source.
     """
     content: str = Field(
-        ...,
-        min_length=10,
+        "",
         description="The full text content extracted from the source for AI analysis."
     )
     source_ref: Optional[str] = Field(
-        None,
+        "",
         description="A unique identifier for the source material, such as a filename, URL, or UUID."
     )
-    #TODO: define JSON structure
 
 
 class QuestionInputExtractedQuestions(BaseSchema):
@@ -296,6 +294,24 @@ class QuestionInputCreate(BaseSchema):
         description="Optional pre-generated drafts. Usually left empty during initial creation "
                     "and populated later by the AI extraction service."
     )
+
+    @model_validator(mode="after")
+    def validate_raw_input_dependency(self) -> 'QuestionInputCreate':
+        """
+        Validates that 'raw_input' has sufficient content if the
+        input type is not 'scan'. For 'scan', empty content is permitted
+        to allow for later OCR processing.
+        """
+        if self.input_type != InputType.SCAN:
+
+            raw: Optional[QuestionInputRawInput] = self.raw_input
+
+            if len(raw.content.strip()) < 10:
+                raise ValueError(
+                    f"For input type '{self.input_type}', 'raw_input.content' "
+                    "must be provided and at least 10 characters long."
+                )
+        return self
 
 
 class QuestionInputRead(BaseSchema):
