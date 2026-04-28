@@ -31,10 +31,7 @@ class InputPrompts:
                     },
                     {
                         "type": "input_image",
-                        "image_url": {
-                            "url": f"data:{mime_type};base64,{base64_image}",
-                            "detail": "auto",
-                        },
+                        "image_url": f"data:{mime_type};base64,{base64_image}"
                     },
                 ],
             }
