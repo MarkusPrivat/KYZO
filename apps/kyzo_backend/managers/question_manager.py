@@ -1,7 +1,9 @@
+import base64
 import json
 from typing import Any, Optional
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, UploadFile
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -15,7 +17,7 @@ from apps.kyzo_backend.schemas import (QuestionCreate,
                                        QuestionInputCreate,
                                        QuestionInputUpdate,
                                        QuestionInputRawInput)
-from apps.kyzo_backend.services import QuestionGenerator
+from apps.kyzo_backend.services import ImageProcessingService, LLMService, QuestionGenerator
 
 
 class QuestionManager:
@@ -44,7 +46,10 @@ class QuestionManager:
             db (Session): An active SQLAlchemy session used for all persistence operations.
         """
         self._db = db
+        self.image_service = ImageProcessingService()
+        self.llm_service = LLMService()
         self.question_generator = QuestionGenerator()
+
 
     def add_question(self, question_data: QuestionCreate) -> Question:
         """
@@ -88,47 +93,64 @@ class QuestionManager:
                 detail=f"{QuestionMessages.CREATE_QUESTION_ERROR} {str(error)}"
             ) from error
 
-    def add_question_input(
+    async def add_question_input_with_file(
             self,
             num_of_questions: int,
-            question_input_data: QuestionInputCreate
+            input_data_json: str,
+            files: Optional[list[UploadFile]] = None
     ) -> str:
         """
-        Orchestrates the ingestion, AI-processing, and storage of raw content.
+        Orchestrates the question generation pipeline for both text and file inputs.
 
-        This method follows a robust pipeline:
-        1. **Hierarchy Guard**: Ensures the target subject and topic are valid.
-        2. **AI Generation**: Extracts structured question drafts from the raw text.
-        3. **Persistence**: Merges raw metadata with AI-generated drafts and stores
-           them as a buffered 'QuestionInput' record for future review.
+        This method validates the incoming JSON metadata, processes optional image uploads
+        via an OCR service, and uses an LLM to generate structured questions from the
+        resulting text. Finally, it persists the raw input and generated questions
+        to the database.
 
         Args:
-            num_of_questions (int): Target number of questions to generate.
-            question_input_data (QuestionInputCreate): Source text and metadata.
+            num_of_questions (int): Number of questions to generate.
+            input_data_json (str): JSON string containing QuestionInputCreate data.
+            files (Optional[list[UploadFile]]): List of uploaded images/scans.
 
         Returns:
-            str: A success message confirming the number of questions processed
-                 and stored in the review buffer.
+            str: Success message with the count of generated questions.
 
         Raises:
-            HTTPException:
-                - 404 (Not Found): If subject or topic hierarchy is invalid.
-                - 502 (Bad Gateway): If the LLM extraction service fails.
-                - 500 (Internal Server Error): If database persistence fails.
+            HTTPException: For validation errors, LLM failures, or database issues.
         """
+        question_input_data = self._validate_input_data_json(input_data_json)
+        self._validate_input_data_content_or_file(question_input_data, files)
+
         subject_name, topic_name = self._validate_hierarchy_and_get_names(
             question_input_data.subject_id,
             question_input_data.topic_id
         )
 
-        extracted_questions = (
-            self.question_generator.generate_extracted_questions_from_raw_input(
-                subject_name=subject_name,
-                topic_name=topic_name,
-                grade=question_input_data.grade,
-                raw_input=question_input_data.raw_input,
-                num_of_questions=num_of_questions
-            )
+        if files:
+            source_refs = []
+            content_parts = []
+
+            for file in files:
+                processed_file = await self.image_service.process_upload(file)
+
+                ocr_result = self.llm_service.generate_raw_input_from_scan(
+                    base64_image=processed_file["base64"],
+                    mime_type=processed_file["mime_type"]
+                )
+
+                content_parts.append(f"--- Content of {file.filename} ---"
+                                     f"\n{ocr_result.extracted_text}")
+                source_refs.append(processed_file['file_id'])
+
+            question_input_data.raw_input.content = "\n\n".join(content_parts)
+            question_input_data.raw_input.source_ref = f"Scans: {', '.join(source_refs)}"
+
+        extracted_questions = self.question_generator.generate_extracted_questions_from_raw_input(
+            subject_name=subject_name,
+            topic_name=topic_name,
+            grade=question_input_data.grade,
+            raw_input=question_input_data.raw_input,
+            num_of_questions=num_of_questions
         )
 
         try:
@@ -138,7 +160,6 @@ class QuestionManager:
             question_input_dict["extracted_questions"] = full_data["extracted_questions"]
 
             new_question_input = QuestionInput(**question_input_dict)
-
             self._db.add(new_question_input)
             self._db.commit()
             self._db.refresh(new_question_input)
@@ -721,3 +742,63 @@ class QuestionManager:
         topic = knowledge_manager.get_topic_from_subject(subject_id, topic_id)
 
         return subject.name, topic.name
+
+    @staticmethod
+    def _validate_input_data_content_or_file(
+            question_input_data: QuestionInputCreate,
+            files: Optional[list[UploadFile]] = None
+    ):
+        """
+        Enforces the exclusive input rule: either raw text content or a file must be provided.
+
+        This validator ensures that the API doesn't receive ambiguous instructions by
+        verifying that exactly one source of information is present. It prevents
+        empty requests as well as conflicting requests containing both text and a scan.
+
+        Args:
+            question_input_data (QuestionInputCreate): The validated metadata containing
+                                                       potential text content.
+            files (Optional[UploadFile]): The uploaded file, if any.
+
+        Raises:
+            HTTPException (400): If both text content and a file are provided,
+                                 or if both are missing.
+        """
+        has_content = bool(question_input_data.raw_input and question_input_data.raw_input.content)
+        has_file = bool(files and len(files) > 0)
+
+        if has_content == has_file:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=QuestionMessages.QUESTION_INPUT_CONTENT_OR_FILE
+            )
+
+    @staticmethod
+    def _validate_input_data_json(input_data_json: str) -> QuestionInputCreate:
+        """
+        Parses and validates the raw JSON string from the multipart form input_data_json.
+
+        This helper method bridges the gap between the incoming form-data string
+        and the structured Pydantic model. It ensures that the input_data_json complies
+        with the 'QuestionInputCreate' schema before any further processing occurs.
+
+        Args:
+            input_data_json (str): The JSON-encoded string containing question input details.
+
+        Returns:
+            QuestionInputCreate: A validated Pydantic model instance.
+
+        Raises:
+            HTTPException (422): If the string is not valid JSON or fails
+                                  Pydantic model validation.
+        """
+        try:
+            data_dict = json.loads(input_data_json)
+            input_data = QuestionInputCreate(**data_dict)
+        except (json.JSONDecodeError, ValidationError) as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"I{QuestionMessages.QUESTION_INPUT_JSON_INVALID} {str(error)}"
+            ) from error
+
+        return input_data
