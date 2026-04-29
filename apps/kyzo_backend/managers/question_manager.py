@@ -50,7 +50,6 @@ class QuestionManager:
         self.llm_service = LLMService()
         self.question_generator = QuestionGenerator()
 
-
     def add_question(self, question_data: QuestionCreate) -> Question:
         """
         Creates and persists a new question in the database after hierarchy validation.
@@ -96,7 +95,7 @@ class QuestionManager:
     async def add_question_input_with_file(
             self,
             num_of_questions: int,
-            input_data_json: str,
+            question_input_data: QuestionInputCreate,
             files: Optional[list[UploadFile]] = None
     ) -> str:
         """
@@ -109,7 +108,7 @@ class QuestionManager:
 
         Args:
             num_of_questions (int): Number of questions to generate.
-            input_data_json (str): JSON string containing QuestionInputCreate data.
+            question_input_data (QuestionInputCreate): QuestionInputCreate data.
             files (Optional[list[UploadFile]]): List of uploaded images/scans.
 
         Returns:
@@ -118,7 +117,6 @@ class QuestionManager:
         Raises:
             HTTPException: For validation errors, LLM failures, or database issues.
         """
-        question_input_data = self._validate_input_data_json(input_data_json)
         self._validate_input_data_content_or_file(question_input_data, files)
 
         subject_name, topic_name = self._validate_hierarchy_and_get_names(
@@ -715,7 +713,6 @@ class QuestionManager:
 
         return knowledge_manager.get_topic_from_subject(subject_id, topic_id)
 
-
     def _validate_hierarchy_and_get_names(self, subject_id: int, topic_id: int) -> tuple[str, str]:
         """
         Verifies the hierarchical integrity and retrieves the names for subject and topic.
@@ -751,9 +748,8 @@ class QuestionManager:
         """
         Enforces the exclusive input rule: either raw text content or a file must be provided.
 
-        This validator ensures that the API doesn't receive ambiguous instructions by
-        verifying that exactly one source of information is present. It prevents
-        empty requests as well as conflicting requests containing both text and a scan.
+        Refined to handle the case where raw_input.content might be an empty string
+        due to the 'scan' type initialization.
 
         Args:
             question_input_data (QuestionInputCreate): The validated metadata containing
@@ -764,7 +760,11 @@ class QuestionManager:
             HTTPException (400): If both text content and a file are provided,
                                  or if both are missing.
         """
-        has_content = bool(question_input_data.raw_input and question_input_data.raw_input.content)
+        has_content = (
+                question_input_data.raw_input is not None and
+                bool(question_input_data.raw_input.content.strip())
+        )
+
         has_file = bool(files and len(files) > 0)
 
         if has_content == has_file:
@@ -772,33 +772,3 @@ class QuestionManager:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=QuestionMessages.QUESTION_INPUT_CONTENT_OR_FILE
             )
-
-    @staticmethod
-    def _validate_input_data_json(input_data_json: str) -> QuestionInputCreate:
-        """
-        Parses and validates the raw JSON string from the multipart form input_data_json.
-
-        This helper method bridges the gap between the incoming form-data string
-        and the structured Pydantic model. It ensures that the input_data_json complies
-        with the 'QuestionInputCreate' schema before any further processing occurs.
-
-        Args:
-            input_data_json (str): The JSON-encoded string containing question input details.
-
-        Returns:
-            QuestionInputCreate: A validated Pydantic model instance.
-
-        Raises:
-            HTTPException (422): If the string is not valid JSON or fails
-                                  Pydantic model validation.
-        """
-        try:
-            data_dict = json.loads(input_data_json)
-            input_data = QuestionInputCreate(**data_dict)
-        except (json.JSONDecodeError, ValidationError) as error:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"I{QuestionMessages.QUESTION_INPUT_JSON_INVALID} {str(error)}"
-            ) from error
-
-        return input_data

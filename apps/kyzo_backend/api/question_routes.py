@@ -1,11 +1,13 @@
 from typing import Optional, Annotated
 
-from fastapi import APIRouter, Depends, status, File, UploadFile, Form
+from fastapi import APIRouter, Depends, File, Form, HTTPException, status, UploadFile
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from apps.kyzo_backend.core import get_db
 from apps.kyzo_backend.managers import QuestionManager
 from apps.kyzo_backend.schemas import (
+    QuestionInputCreate,
     QuestionInputUpdate,
     QuestionInputRead,
     QuestionUpdate,
@@ -36,12 +38,26 @@ def get_question_manager(db: Session = Depends(get_db)) -> QuestionManager:
     return QuestionManager(db)
 
 
+def parse_question_input(input_data_json: str = Form(...)) -> QuestionInputCreate:
+    try:
+        return QuestionInputCreate.model_validate_json(input_data_json)
+    except ValidationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=error.errors()
+        ) from error
+
+
 @router.post("/input/add", status_code=status.HTTP_201_CREATED, response_model=str)
 async def add_question(
-    num_of_questions: int,
-    input_data_json: str = Form(...),
-    files: UploadFile = File(default=[]),
-    question_manager: QuestionManager = Depends(get_question_manager)
+        num_of_questions: int,
+        input_data: QuestionInputCreate = Depends(parse_question_input),
+        # files: UploadFile = File(default=[]),
+        files: list[UploadFile] = File(
+                ...,
+                description="Select one or more images (JPG, PNG) or PDF files."
+            ),
+        question_manager: QuestionManager = Depends(get_question_manager)
 ):
     """
     Initiates the question generation pipeline from either raw text or a scanned document.
@@ -52,8 +68,8 @@ async def add_question(
 
     Args:
         num_of_questions (int): The target number of questions to generate.
-        input_data_json (str): A JSON-string containing the 'QuestionInputCreate' model
-                         data (subject_id, topic_id, grade, user_id, and optional content).
+        input_data (QuestionInputCreate): data (subject_id, topic_id, grade,
+                                          user_id, and optional content).
         files (Optional[UploadFile]): A scanned image or PDF file. Must be provided
                                      if no text content is included in the meta_data.
         question_manager (QuestionManager): Injected manager to handle validation,
@@ -69,12 +85,13 @@ async def add_question(
             - 404 (Not Found): If the subject or topic IDs are invalid.
             - 502 (Bad Gateway): If the LLM service fails to process the input.
     """
-    files = [files] # TODO: Kann gelöscht werden sobald die Tests durch sind.
+    # files = [files]  # TODO: Kann gelöscht werden sobald die Tests durch sind.
     return await question_manager.add_question_input_with_file(
         num_of_questions,
-        input_data_json,
+        input_data,
         files
     )
+
 
 @router.post(
     "/inputs/{question_input_id}/finalize",
