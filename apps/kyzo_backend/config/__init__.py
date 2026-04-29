@@ -1,5 +1,6 @@
 from .config import fastapi_settings, UserRole, InputType
-from .messages import (KnowledgeMessages,
+from .messages import (ImageProcessMessages,
+                       KnowledgeMessages,
                        OpenAIMessages,
                        QuestionMessages,
                        SchemasMessages,

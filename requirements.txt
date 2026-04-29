@@ -1,6 +1,7 @@
 dotenv
 fastapi[standard-no-fastapi-cloud-cli]
 openai
+pdf2image
 Pillow
 python-multipart
 pydantic

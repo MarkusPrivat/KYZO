@@ -1,9 +1,7 @@
-import base64
 import json
 from typing import Any, Optional
 
 from fastapi import HTTPException, status, UploadFile
-from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -99,23 +97,33 @@ class QuestionManager:
             files: Optional[list[UploadFile]] = None
     ) -> str:
         """
-        Orchestrates the question generation pipeline for both text and file inputs.
+        Orchestrates the full pipeline for generating questions from
+        text or multi-format file inputs.
 
-        This method validates the incoming JSON metadata, processes optional image uploads
-        via an OCR service, and uses an LLM to generate structured questions from the
-        resulting text. Finally, it persists the raw input and generated questions
-        to the database.
+        This high-level workflow coordinates several specialized services:
+        1. Validates the integrity of the input metadata and category hierarchy.
+        2. Processes file uploads (Images/PDFs) by converting them into optimized
+           text via Vision-OCR if 'files' are provided.
+        3. Triggers the LLM-based question generation engine using the aggregated content.
+        4. Persists the raw input, metadata, and generated questions in a single
+           atomic database transaction.
 
         Args:
-            num_of_questions (int): Number of questions to generate.
-            question_input_data (QuestionInputCreate): QuestionInputCreate data.
-            files (Optional[list[UploadFile]]): List of uploaded images/scans.
+            num_of_questions (int): The target number of questions to be generated.
+            question_input_data (QuestionInputCreate): Pydantic model containing user preferences,
+                                                       grade level, and hierarchy IDs.
+            files (Optional[list[UploadFile]]): A list of uploaded files (JPG, PNG, PDF).
+                                                Defaults to None for purely text-based inputs.
 
         Returns:
-            str: Success message with the count of generated questions.
+            str: A localized success message indicating the number of successfully
+                 generated and stored questions.
 
         Raises:
-            HTTPException: For validation errors, LLM failures, or database issues.
+            HTTPException:
+                - 400 (Bad Request) if validation fails or files are corrupt.
+                - 500 (Internal Server Error) if the LLM fails, Poppler is misconfigured,
+                  or a database SQLAlchemyError occurs.
         """
         self._validate_input_data_content_or_file(question_input_data, files)
 
@@ -125,23 +133,8 @@ class QuestionManager:
         )
 
         if files:
-            source_refs = []
-            content_parts = []
-
-            for file in files:
-                processed_file = await self.image_service.process_upload(file)
-
-                ocr_result = self.llm_service.generate_raw_input_from_scan(
-                    base64_image=processed_file["base64"],
-                    mime_type=processed_file["mime_type"]
-                )
-
-                content_parts.append(f"--- Content of {file.filename} ---"
-                                     f"\n{ocr_result.extracted_text}")
-                source_refs.append(processed_file['file_id'])
-
-            question_input_data.raw_input.content = "\n\n".join(content_parts)
-            question_input_data.raw_input.source_ref = f"Scans: {', '.join(source_refs)}"
+            (question_input_data.raw_input.content,
+             question_input_data.raw_input.source_ref) = await self._get_raw_input_from_files(files)
 
         extracted_questions = self.question_generator.generate_extracted_questions_from_raw_input(
             subject_name=subject_name,
@@ -688,6 +681,41 @@ class QuestionManager:
             return raw_data
 
         return []
+
+    async def _get_raw_input_from_files(self, files: list[UploadFile]) -> tuple[str, str]:
+        """
+        Processes a list of uploaded files, performs OCR, and aggregates the results.
+
+        Each file is optimized and stored. If a file contains multiple pages (like a PDF),
+        each page is processed individually. The extracted text from all sources
+        is concatenated into a single string.
+
+        Args:
+            files (list[UploadFile]): The uploaded image or PDF files.
+
+        Returns:
+            tuple[str, str]: A tuple containing (full_content, source_references).
+        """
+        source_refs = []
+        content_parts = []
+
+        for file in files:
+            processed_elements = await self.image_service.process_upload(file)
+
+            for element in processed_elements:
+                ocr_result = self.llm_service.generate_raw_input_from_scan(
+                    base64_image=element["base64"],
+                    mime_type=element["mime_type"]
+                )
+
+                header = f"--- Source: {element['file_id']} ({file.filename}) ---"
+                content_parts.append(f"{header}\n{ocr_result.extracted_text}")
+                source_refs.append(element['file_id'])
+
+        full_content = "\n\n".join(content_parts)
+        combined_source_ref = f"Scans: {', '.join(source_refs)}"
+
+        return full_content, combined_source_ref
 
     def _validate_hierarchy(self, subject_id: int, topic_id: int) -> Topic:
         """

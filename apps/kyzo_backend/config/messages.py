@@ -2,6 +2,13 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
+class ImageProcessMessages:
+    CORRUPT_FILE = "The uploaded PDF is corrupt or password protected."
+    POPPLER_NOT_FOUND = "PDF processing service (Poppler) not configured on server."
+    UNEXPECTED_ERROR = "Unexpected error:"
+
+
+@dataclass(frozen=True)
 class KnowledgeMessages:
     CREATE_SUBJECT_ERROR = "Error adding subject:"
     CREATE_TOPIC_ERROR = "Error adding topic:"
