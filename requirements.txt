@@ -1,5 +1,6 @@
 dotenv
 fastapi[standard-no-fastapi-cloud-cli]
+google-genai
 openai
 pdf2image
 Pillow
