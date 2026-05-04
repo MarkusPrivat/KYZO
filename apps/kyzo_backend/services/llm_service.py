@@ -1,6 +1,8 @@
 import openai
 
 from fastapi import HTTPException, status
+from google import genai
+from google.genai import types
 from openai import OpenAI
 
 from apps.kyzo_backend.config import (fastapi_settings,
@@ -8,6 +10,29 @@ from apps.kyzo_backend.config import (fastapi_settings,
                                       InstructionsPrompts,
                                       OpenAIMessages)
 from apps.kyzo_backend.schemas import OCRResult, QuestionInputExtractedQuestionsUpdate
+
+
+class GeminiLLMService:
+    def __init__(self):
+        self.client = genai.Client(api_key=fastapi_settings.GEMINI_API_KEY)
+        self.model = fastapi_settings.GEMINI_MODEL
+        self.temperature = fastapi_settings.LLM_TEMPERATURE
+        self.max_output_tokens = fastapi_settings.LLM_MAX_TOKENS
+
+    def test(self):
+        """Test mit der aktuellen Konfiguration."""
+        try:
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents="Schreibe einen kurzen Witz, max 200 Zeichen.",
+                config=types.GenerateContentConfig(
+                    temperature=self.temperature,
+                    max_output_tokens=self.max_output_tokens
+                )
+            )
+            print(f"Gemma Antwort: {response}")
+        except Exception as e:
+            print(f"Fehler beim Gemma-Test: {e}")
 
 
 class LLMService:
@@ -153,3 +178,16 @@ class LLMService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"{OpenAIMessages.UNEXPECTED_ERROR}: {str(error)}"
             ) from error
+
+def main():
+    try:
+        # 1. Instanz erstellen
+        gemini_service = GeminiLLMService()
+        # 2. Methode auf der Instanz aufrufen
+        gemini_service.test()
+    except Exception as e:
+        print(f"Fehler beim Testen von Gemini: {e}")
+
+
+if __name__ == '__main__':
+    main()

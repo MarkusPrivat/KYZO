@@ -59,8 +59,11 @@ class FastAPISettings(BaseSettings):
     SQLALCHEMY_DATABASE_URI: str = ""
 
     OPENAI_API_KEY: str = Field(...)
+    GEMINI_API_KEY: str = Field(...)
 
     OPENAI_MODEL: str = Field("gpt-4o-mini", description="The AI model used for generation")
+    GEMINI_MODEL: str = Field("gemma-4-26b-a4b-it", description="The AI model used for generation")
+
     LLM_TEMPERATURE: float = Field(0.0, ge=0.0, le=2.0, description="Creativity level of the AI")
     LLM_MAX_TOKENS: int = Field(5000, description="Limit for the AI response size")
 
