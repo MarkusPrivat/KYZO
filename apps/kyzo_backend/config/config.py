@@ -1,9 +1,34 @@
 import enum
-from typing import Any
 
 from pathlib import Path
+from typing import Any
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class InputType(enum.Enum):
+    """
+    Specifies the source format of raw data used for question generation.
+
+    Values:
+        MANUAL: Content entered directly as text or via copy-paste.
+        SCAN: Content extracted from document uploads like PDFs or images.
+    """
+    MANUAL = 'manual'
+    SCAN = 'scan'
+
+
+class LLMProvider(enum.Enum):
+    """
+    Supported Large Language Model providers for the application.
+
+    Attributes:
+        OPENAI: Represents the OpenAI service suite (e.g., GPT models).
+        GOOGLE: Represents the Google GenAI service suite (e.g., Gemma or Gemini models).
+    """
+    OPENAI = "openai"
+    GOOGLE = "gemma"
 
 
 class UserRole(enum.Enum):
@@ -20,37 +45,28 @@ class UserRole(enum.Enum):
     ADMIN = 'admin'
 
 
-class InputType(enum.Enum):
-    """
-    Specifies the source format of raw data used for question generation.
-
-    Values:
-        MANUAL: Content entered directly as text or via copy-paste.
-        SCAN: Content extracted from document uploads like PDFs or images.
-    """
-    MANUAL = 'manual'
-    SCAN = 'scan'
-
-
 class FastAPISettings(BaseSettings):
     """
     Central configuration container for the Kyzo backend.
 
     This class leverages Pydantic Settings to automatically load and validate
     configuration from environment variables and a .env file. It manages
-    paths, database URIs, security keys, and LLM parameters.
+    file system paths, database URIs, security credentials, and multi-provider
+    LLM parameters (OpenAI & Google/Gemma).
 
     Attributes:
         PROJECT_ROOT (Path): The absolute path to the repository's root directory.
         DATA_DIR (Path): Directory for persistent application data (SQLite, uploads).
         DATABASE_PATH (Path): Full path to the SQLite database file.
         SQLALCHEMY_DATABASE_URI (str): The connection string for the SQLAlchemy engine.
-        FLASK_SECRET_KEY (str): Secret key used for cryptographic signing and sessions.
         OPENAI_API_KEY (str): Authentication token for the OpenAI API.
-        OPENAI_MODEL (str): The specific OpenAI model ID (e.g., 'gpt-4o-mini').
-        LLM_TEMPERATURE (float): Sampling temperature (0.0 to 2.0).
-            Lower is more deterministic, higher is more creative.
-        LLM_MAX_TOKENS (int): The maximum length of the generated AI response.
+        GEMINI_API_KEY (str): Authentication token for the Google GenAI/Gemini API.
+        OPENAI_MODEL (str): Model ID for OpenAI-specific tasks (e.g., 'gpt-4o-mini').
+        GEMINI_MODEL (str): Model ID for Google/Gemma tasks (e.g., 'gemma-4-26b-a4b-it').
+        LLM_TEMPERATURE (float): Global sampling temperature (0.0 to 2.0).
+            Lower is more deterministic (ideal for OCR), higher is more creative.
+        LLM_MAX_TOKENS (int): The maximum length of the generated AI response,
+            applied across all configured providers.
     """
     PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent.parent.parent
     DATA_DIR: Path = PROJECT_ROOT / 'apps' / 'kyzo_backend' / 'data'
@@ -59,9 +75,9 @@ class FastAPISettings(BaseSettings):
     SQLALCHEMY_DATABASE_URI: str = ""
 
     OPENAI_API_KEY: str = Field(...)
-    GEMINI_API_KEY: str = Field(...)
-
     OPENAI_MODEL: str = Field("gpt-4o-mini", description="The AI model used for generation")
+
+    GEMINI_API_KEY: str = Field(...)
     GEMINI_MODEL: str = Field("gemma-4-26b-a4b-it", description="The AI model used for generation")
 
     LLM_TEMPERATURE: float = Field(0.0, ge=0.0, le=2.0, description="Creativity level of the AI")
@@ -96,15 +112,18 @@ class FastAPISettings(BaseSettings):
         if not self.SQLALCHEMY_DATABASE_URI:
             self.SQLALCHEMY_DATABASE_URI = f"sqlite:///{self.DATABASE_PATH.as_posix()}"
 
-
-    @field_validator("OPENAI_API_KEY")
+    @field_validator("OPENAI_API_KEY", "GEMINI_API_KEY")
     @classmethod
-    def check_not_empty(cls, value: str) -> str:
+    def check_not_empty(cls, value: str, info) -> str:
         """
         Ensures that critical security keys are not provided as empty strings.
 
+        This validator checks multiple fields defined in the decorator to ensure
+        they are present and contain non-whitespace characters.
+
         Args:
             value (str): The value of the configuration field being validated.
+            info: Pydantic validation info (contains the field name).
 
         Returns:
             str: The validated string.
@@ -113,7 +132,7 @@ class FastAPISettings(BaseSettings):
             ValueError: If the key is missing, empty, or contains only whitespace.
         """
         if not value or value.strip() == "":
-            raise ValueError("Value cannot be empty!")
+            raise ValueError(f"The {info.field_name} cannot be empty!")
         return value
 
 
