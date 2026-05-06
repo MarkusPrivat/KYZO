@@ -79,7 +79,15 @@ def create_app() -> FastAPI:
     return backend_app
 
 
-app = create_app()
+
 
 if __name__ == "__main__":
-    uvicorn.run("run_backend:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run(
+        "run_backend:create_app",
+        host="127.0.0.1",
+        port=8000,
+        reload=True,
+        factory=True
+    )
+else:
+    app = create_app()
