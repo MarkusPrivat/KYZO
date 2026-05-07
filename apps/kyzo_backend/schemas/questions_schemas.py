@@ -34,6 +34,12 @@ class ExtractedQuestionMetadata(BaseSchema):
         le=13,
         description="The target school grade level (1-13) to calibrate difficulty and language."
     )
+    num_of_questions: int = Field(
+        ...,
+        ge=1,
+        le=15,
+        description="Number of question to be generated."
+    )
     raw_input: QuestionInputRawInput = Field(
         ...,
         description="The structured raw source material (text and metadata) for the AI to analyze."
