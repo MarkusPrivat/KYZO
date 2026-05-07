@@ -6,16 +6,17 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from apps.kyzo_backend.config import QuestionMessages
+from apps.kyzo_backend.config import QuestionMessages, LLMProvider
 from apps.kyzo_backend.data import Question, QuestionInput, QuestionOrigin, Topic
 from apps.kyzo_backend.managers import KnowledgeManager
-from apps.kyzo_backend.schemas import (QuestionCreate,
+from apps.kyzo_backend.schemas import (ExtractedQuestionMetadata,
+                                       QuestionCreate,
                                        QuestionStatus,
                                        QuestionUpdate,
                                        QuestionInputCreate,
                                        QuestionInputUpdate,
                                        QuestionInputRawInput)
-from apps.kyzo_backend.services import ImageProcessingService, LLMService, QuestionGenerator
+from apps.kyzo_backend.services import ImageProcessingService, OpenaiLLMService, QuestionGenerator
 
 
 class QuestionManager:
@@ -45,7 +46,7 @@ class QuestionManager:
         """
         self._db = db
         self.image_service = ImageProcessingService()
-        self.llm_service = LLMService()
+        self.llm_service = OpenaiLLMService()
         self.question_generator = QuestionGenerator()
 
     def add_question(self, question_data: QuestionCreate) -> Question:
@@ -93,6 +94,7 @@ class QuestionManager:
     async def add_question_input_with_file(
             self,
             num_of_questions: int,
+            llm_provider: LLMProvider,
             question_input_data: QuestionInputCreate,
             files: Optional[list[UploadFile]] = None
     ) -> str:
@@ -136,19 +138,26 @@ class QuestionManager:
             (question_input_data.raw_input.content,
              question_input_data.raw_input.source_ref) = await self._get_raw_input_from_files(files)
 
-        extracted_questions = self.question_generator.generate_extracted_questions_from_raw_input(
+        extraction_metadata = ExtractedQuestionMetadata(
             subject_name=subject_name,
             topic_name=topic_name,
             grade=question_input_data.grade,
+            num_of_questions=num_of_questions,
             raw_input=question_input_data.raw_input,
-            num_of_questions=num_of_questions
+            llm_provider=llm_provider
+        )
+
+        ai_result = self.question_generator.generate_extracted_questions_from_raw_input(
+            extraction_metadata=extraction_metadata
         )
 
         try:
             question_input_dict = question_input_data.model_dump()
 
-            full_data = extracted_questions.model_dump()
-            question_input_dict["extracted_questions"] = full_data["extracted_questions"]
+            question_input_dict["extracted_questions"] = [
+                question.model_dump() for question in ai_result.extracted_questions
+            ]
+            question_input_dict["is_processed"] = True
 
             new_question_input = QuestionInput(**question_input_dict)
             self._db.add(new_question_input)
@@ -292,35 +301,38 @@ class QuestionManager:
     def extract_questions_from_raw_input(
             self,
             question_input_id: int,
-            num_of_questions: int
+            num_of_questions: int,
+            llm_provider: LLMProvider
     ) -> str:
         """
         Extracts educational questions from an existing raw input record using AI.
 
         This method acts as a recovery or re-processing mechanism. It fetches an
-        existing QuestionInput, triggers a new AI generation cycle, and updates
-         the record with the newly extracted drafts.
+        existing QuestionInput, validates the pedagogical hierarchy, and triggers
+        a structured AI generation cycle using the specified LLM provider. The
+        resulting drafts are then persisted back to the database.
 
         Args:
             question_input_id (int): The unique identifier of the raw input record.
-            num_of_questions (int): The desired number of questions to be generated.
+            num_of_questions (int): The target number of questions to be generated.
+            llm_provider (LLMProvider): The AI service provider (OpenAI/Google)
+                                         to be used for this extraction.
 
         Returns:
-            str: A status message confirming the number of questions processed.
+            str: A localized status message confirming the number of questions
+                 successfully processed and stored.
 
         Raises:
             HTTPException:
-                - 400 (Bad Request): If the record has already been promoted to questions.
-                - 404 (Not Found): If the QuestionInput ID does not exist.
-                - 502 (Bad Gateway): If the AI service fails.
-                - 500 (Internal Server Error): If a database transaction error occurs.
+                - 400 (Bad Request): If the record has already been processed.
+                - 404 (Not Found): If the QuestionInput ID, Subject, or Topic
+                  does not exist.
+                - 502 (Bad Gateway): If the external AI service (Google/OpenAI)
+                  is unavailable or returns a server error.
+                - 500 (Internal Server Error): If a database transaction fails
+                  or an unexpected processing error occurs.
         """
         question_input = self.get_question_input_by_id(question_input_id)
-
-        subject_name, topic_name = self._validate_hierarchy_and_get_names(
-            question_input.subject_id,
-            question_input.topic_id
-        )
 
         if question_input.is_processed:
             raise HTTPException(
@@ -328,21 +340,31 @@ class QuestionManager:
                 detail=QuestionMessages.QUESTION_INPUT_ALREADY_PROCESSED
             )
 
+        subject_name, topic_name = self._validate_hierarchy_and_get_names(
+            question_input.subject_id,
+            question_input.topic_id
+        )
+
         try:
             raw_input_data = QuestionInputRawInput(**question_input.raw_input)
-
-            ai_result = self.question_generator.generate_extracted_questions_from_raw_input(
+            extraction_metadata = ExtractedQuestionMetadata(
                 subject_name=subject_name,
                 topic_name=topic_name,
                 grade=question_input.grade,
+                num_of_questions=num_of_questions,
                 raw_input=raw_input_data,
-                num_of_questions=num_of_questions
+                llm_provider=llm_provider
             )
 
-            full_data = ai_result.model_dump()
-            extracted_list = full_data["extracted_questions"]
+            ai_result = self.question_generator.generate_extracted_questions_from_raw_input(
+                extraction_metadata=extraction_metadata
+            )
 
-            question_input.extracted_questions = extracted_list
+            extracted_list = ai_result.extracted_questions
+
+            question_input.extracted_questions = [
+                question.model_dump() for question in extracted_list
+            ]
             question_input.is_processed = True
 
             self._db.commit()

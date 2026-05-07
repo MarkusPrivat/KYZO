@@ -2,40 +2,138 @@ import openai
 
 from fastapi import HTTPException, status
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 from openai import OpenAI
 
 from apps.kyzo_backend.config import (fastapi_settings,
                                       InputPrompts,
                                       InstructionsPrompts,
-                                      OpenAIMessages)
+                                      AIMessages)
 from apps.kyzo_backend.schemas import OCRResult, QuestionInputExtractedQuestionsUpdate
 
 
-class GeminiLLMService:
+class GoogleLLMService:
+    """
+    Service layer for interacting with the Google GenAI (Gemini/Gemma) API.
+
+    This service encapsulates the Google GenAI client and provides a high-level
+    interface for generating structured content and performing vision-based tasks.
+    It is designed to handle modern Google models like Gemini 3.x and Gemma-4,
+    leveraging native Pydantic support for structured JSON outputs.
+
+    Attributes:
+        client (genai.Client): The initialized Google GenAI client.
+        gemini_model (str): The specific gemini model ID.
+        temperature (float): Controls the creativity/determinism of the output.
+        max_output_tokens (int): The maximum allowed token count for the response.
+    """
+
     def __init__(self):
+        """
+        Initializes the GoogleLLMService using the Google GenAI SDK.
+
+        Sets up the generative AI client with credentials and model parameters
+        sourced from the centralized application settings. This service is
+        optimized for Google-specific models like Gemini and Gemma-4.
+        """
         self.client = genai.Client(api_key=fastapi_settings.GEMINI_API_KEY)
-        self.model = fastapi_settings.GEMINI_MODEL
+        self.gemini_model = fastapi_settings.GEMINI_MODEL
         self.temperature = fastapi_settings.LLM_TEMPERATURE
         self.max_output_tokens = fastapi_settings.LLM_MAX_TOKENS
 
-    def test(self):
-        """Test mit der aktuellen Konfiguration."""
+    @staticmethod
+    def _ai_response_debug(usage, output) -> None:
+        """
+        Prints detailed technical metadata and the raw LLM output for debugging.
+
+        Logs token consumption (input, output, and specialized tokens like 'thoughts')
+        alongside the parsed or raw response body to the console. This is used
+        to monitor API costs and verify structural integrity during development.
+
+        Args:
+            usage: The usage metadata object from the Gemini's UsageMetadata.
+            output: The generated content, either as a raw string or
+                    a serialized Pydantic model.
+        """
+        print("\n========= GOOGLE RESPONSE DEBUG ===========")
+        print(f"Tokens: Total: {usage.total_token_count} (In: {usage.prompt_token_count} |"
+              f" Out: {usage.candidates_token_count}\n")
+        print("=============================================")
+        print(output)
+        print("=============================================\n")
+
+    def get_extracted_questions_from_raw_input(
+            self,
+            prompt_instructions: str,
+            prompt_input: str
+    ) -> QuestionInputExtractedQuestionsUpdate:
+        """
+        Processes raw text input and extracts structured questions using Google GenAI.
+
+        This method utilizes the Google GenAI SDK's native structured output capabilities
+        to transform unstructured text into a validated Pydantic schema. It leverages
+        system instructions for pedagogical guidance and the model's JSON mode for
+        high-reliability parsing.
+
+        Args:
+            prompt_instructions (str): Guidelines and role definitions for the AI.
+            prompt_input (str): The raw source material and specific request.
+
+        Returns:
+            QuestionInputExtractedQuestionsUpdate: The parsed and validated question collection.
+
+        Raises:
+            HTTPException:
+                - 400 (Bad Request): If the Google API client reports an issue (e.g., quota
+                  exhausted or invalid arguments).
+                - 502 (Bad Gateway): If the Google servers are overloaded or unreachable.
+                - 500 (Internal Server Error): If an unexpected API error occurs, the response
+                  structure is invalid, or parsing into the Pydantic schema fails.
+        """
         try:
             response = self.client.models.generate_content(
-                model=self.model,
-                contents="Schreibe einen kurzen Witz, max 200 Zeichen.",
+                model=self.gemini_model,
+                contents=prompt_input,
                 config=types.GenerateContentConfig(
+                    system_instruction=prompt_instructions,
                     temperature=self.temperature,
-                    max_output_tokens=self.max_output_tokens
+                    max_output_tokens=self.max_output_tokens,
+                    response_mime_type='application/json',
+                    response_schema=QuestionInputExtractedQuestionsUpdate,
                 )
             )
-            print(f"Gemma Antwort: {response}")
-        except Exception as e:
-            print(f"Fehler beim Gemma-Test: {e}")
+
+            if fastapi_settings.LLM_DEBUG:
+                self._ai_response_debug(response.usage_metadata, response.text)
+
+            if not response.parsed:
+                raise ValueError(AIMessages.INVALID_RESPONSE_STRUCTURE)
+
+            return response.parsed
+
+        except errors.ClientError as error:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"{AIMessages.GOOGLE_CLIENT_ERROR} {str(error)}"
+            ) from error
+        except errors.ServerError as error:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"{AIMessages.GOOGLE_SERVER_ERROR} {str(error)}"
+            ) from error
+        except errors.APIError as error:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{AIMessages.GOOGLE_API_ERROR} {str(error)}"
+            ) from error
+        except Exception as error:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{AIMessages.UNEXPECTED_ERROR}: {str(error)}"
+            ) from error
 
 
-class LLMService:
+class OpenaiLLMService:
     """
     Service layer for interacting with the OpenAI Responses API.
 
@@ -62,6 +160,27 @@ class LLMService:
         self.model = fastapi_settings.OPENAI_MODEL
         self.temperature = fastapi_settings.LLM_TEMPERATURE
         self.llm_max_tokens = fastapi_settings.LLM_MAX_TOKENS
+
+    @staticmethod
+    def _ai_response_debug(usage, output) -> None:
+        """
+        Prints detailed technical metadata and the raw LLM output for debugging.
+
+        Logs token consumption (input, output, and specialized tokens like 'thoughts')
+        alongside the parsed or raw response body to the console. This is used
+        to monitor API costs and verify structural integrity during development.
+
+        Args:
+            usage: The usage metadata object from the Gemini's UsageMetadata.
+            output: The generated content, either as a raw string or
+                    a serialized Pydantic model.
+        """
+        print("\n========= OPENAI RESPONSE DEBUG ===========")
+        print(f"Tokens: Total: {usage.total_tokens} (In: {usage.input_tokens} |"
+              f" Out: {usage.output_tokens})\n")
+        print("=============================================")
+        print(output.model_dump_json(indent=4))
+        print("=============================================\n")
 
     def get_extracted_questions_from_raw_input(
             self,
@@ -98,25 +217,20 @@ class LLMService:
                 text_format=QuestionInputExtractedQuestionsUpdate
             )
 
-            # Debugging
-            usage = response.usage
-            parsed_data = response.output_parsed
-            print("\n=== AI RESPONSE DEBUG ===")
-            print(f"Tokens: {usage.total_tokens} (In: {usage.input_tokens} | Out: {usage.output_tokens})")
-            print(parsed_data.model_dump_json(indent=4))
-            print("=============================================\n")
+            if fastapi_settings.LLM_DEBUG:
+                self._ai_response_debug(response.usage, response.output_parsed)
 
             return response.output_parsed
 
         except openai.OpenAIError as error:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"{OpenAIMessages.LLM_CONNECTION_ERROR}: {str(error)}"
+                detail=f"{AIMessages.LLM_CONNECTION_ERROR}: {str(error)}"
             ) from error
         except Exception as error:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"{OpenAIMessages.UNEXPECTED_ERROR}: {str(error)}"
+                detail=f"{AIMessages.UNEXPECTED_ERROR}: {str(error)}"
             ) from error
 
     def generate_raw_input_from_scan(
@@ -157,37 +271,19 @@ class LLMService:
                 text_format=OCRResult
             )
 
-            # Debugging
-            usage = response.usage
-            parsed_data = response.output_parsed
-            print("\n=== AI RESPONSE DEBUG ===")
-            print(f"Tokens: {usage.total_tokens} (In: {usage.input_tokens} | Out: {usage.output_tokens})")
-            print(parsed_data.model_dump_json(indent=4))
-            print("=============================================\n")
+            if fastapi_settings.LLM_DEBUG:
+                self._ai_response_debug(response.usage, response.output_parsed)
 
-            return parsed_data
+            return response.output_parsed
 
         except openai.OpenAIError as error:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"{OpenAIMessages.LLM_CONNECTION_ERROR}: {str(error)}"
+                detail=f"{AIMessages.LLM_CONNECTION_ERROR}: {str(error)}"
             ) from error
 
         except Exception as error:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"{OpenAIMessages.UNEXPECTED_ERROR}: {str(error)}"
+                detail=f"{AIMessages.UNEXPECTED_ERROR}: {str(error)}"
             ) from error
-
-def main():
-    try:
-        # 1. Instanz erstellen
-        gemini_service = GeminiLLMService()
-        # 2. Methode auf der Instanz aufrufen
-        gemini_service.test()
-    except Exception as e:
-        print(f"Fehler beim Testen von Gemini: {e}")
-
-
-if __name__ == '__main__':
-    main()

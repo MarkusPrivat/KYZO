@@ -1,6 +1,7 @@
-from apps.kyzo_backend.config import InstructionsPrompts
-from apps.kyzo_backend.services import LLMService
-from apps.kyzo_backend.schemas import QuestionInputRawInput, QuestionInputExtractedQuestionsUpdate
+from apps.kyzo_backend.config import LLMProvider, InstructionsPrompts
+from apps.kyzo_backend.schemas import (ExtractedQuestionMetadata,
+                                       QuestionInputExtractedQuestionsUpdate)
+from apps.kyzo_backend.services import OpenaiLLMService, GoogleLLMService
 
 
 class QuestionGenerator:
@@ -17,31 +18,25 @@ class QuestionGenerator:
         """
         Initializes the QuestionGenerator with an encapsulated LLMService.
         """
-        self.llm = LLMService()
+        self.openai_llm = OpenaiLLMService()
+        self.google_llm = GoogleLLMService()
 
     def generate_extracted_questions_from_raw_input(
             self,
-            subject_name: str,
-            topic_name: str,
-            grade: int,
-            raw_input: QuestionInputRawInput,
-            num_of_questions: int
+            extraction_metadata: ExtractedQuestionMetadata
     ) -> QuestionInputExtractedQuestionsUpdate:
         """
         Orchestrates the AI-driven extraction of question drafts from source material.
 
-        This method formats the pedagogical instruction template with specific metadata
-        (subject, topic, grade) and delegates the structured extraction to the LLM service.
-        It ensures that the AI receives a clear set of rules separately from the
-        source content.
+        This method formats the pedagogical instruction template using the provided
+        metadata and delegates the structured extraction to the selected LLM service.
+        It separates system-level pedagogical rules from the raw source content to
+        optimize model performance.
 
         Args:
-            subject_name (str): The human-readable name of the subject for AI context.
-            topic_name (str): The human-readable name of the topic for AI context.
-            grade (int): The target school grade level (1-13).
-            raw_input (QuestionInputRawInput): Validated source material containing
-                                               the core text content.
-            num_of_questions (int): The target number of questions to be generated.
+            extraction_metadata (ExtractedQuestionMetadata): A container holding all
+                necessary context including subject, topic, grade, the raw input
+                material, and the preferred LLM provider.
 
         Returns:
             QuestionInputExtractedQuestionsUpdate: A collection of AI-generated question
@@ -53,13 +48,19 @@ class QuestionGenerator:
                 - 500 (Internal Server Error): If an unexpected processing error occurs.
         """
         multiple_choice_instruction = InstructionsPrompts.MULTIPLE_CHOICE_INSTRUCTION.format(
-            subject_name=subject_name,
-            topic_name=topic_name,
-            grade=grade,
-            num_of_questions=num_of_questions
+            subject_name=extraction_metadata.subject_name,
+            topic_name=extraction_metadata.topic_name,
+            grade=extraction_metadata.grade,
+            num_of_questions=extraction_metadata.num_of_questions
         )
 
-        return self.llm.get_extracted_questions_from_raw_input(
+        if extraction_metadata.llm_provider == LLMProvider.GOOGLE:
+            return self.google_llm.get_extracted_questions_from_raw_input(
+                prompt_instructions=multiple_choice_instruction,
+                prompt_input=extraction_metadata.raw_input.content
+            )
+
+        return self.openai_llm.get_extracted_questions_from_raw_input(
             prompt_instructions=multiple_choice_instruction,
-            prompt_input=raw_input.content
+            prompt_input=extraction_metadata.raw_input.content
         )

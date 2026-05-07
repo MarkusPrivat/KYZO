@@ -1,19 +1,19 @@
-from typing import Optional, Annotated
+from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, status, UploadFile
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from apps.kyzo_backend.config import LLMProvider
 from apps.kyzo_backend.core import get_db
 from apps.kyzo_backend.managers import QuestionManager
-from apps.kyzo_backend.schemas import (
-    QuestionInputCreate,
-    QuestionInputUpdate,
-    QuestionInputRead,
-    QuestionUpdate,
-    QuestionRead,
-    QuestionStatus
-)
+from apps.kyzo_backend.schemas import (QuestionInputCreate,
+                                       QuestionInputUpdate,
+                                       QuestionInputRead,
+                                       QuestionUpdate,
+                                       QuestionRead,
+                                       QuestionStatus
+                                       )
 
 router = APIRouter(
     prefix="/api/questions",
@@ -51,45 +51,46 @@ def parse_question_input(input_data_json: str = Form(...)) -> QuestionInputCreat
 @router.post("/input/add", status_code=status.HTTP_201_CREATED, response_model=str)
 async def add_question(
         num_of_questions: int,
+        llm_provider: LLMProvider,
         input_data: QuestionInputCreate = Depends(parse_question_input),
-        # files: UploadFile = File(default=[]),
-        files: list[UploadFile] = File(
-                ...,
-                description="Select one or more images (JPG, PNG) or PDF files."
-            ),
+        files: Optional[list[UploadFile]] = File(
+            default=None,
+            description="Optional: Select one or more images (JPG, PNG) or PDF files."
+        ),
         question_manager: QuestionManager = Depends(get_question_manager)
 ):
     """
-    Initiates the question generation pipeline from either raw text or a scanned document.
+    Initiates the question generation pipeline from either raw text or uploaded files.
 
-    This endpoint accepts a hybrid multipart/form-data request. It allows the user to
-    provide metadata as a JSON string and optionally upload a file (image/PDF) for
-    AI-driven OCR and extraction.
+    This endpoint coordinates the full creation flow: metadata validation,
+    OCR processing for files (images/PDFs), AI-driven question extraction
+    via the chosen provider, and database persistence.
 
     Args:
         num_of_questions (int): The target number of questions to generate.
-        input_data (QuestionInputCreate): data (subject_id, topic_id, grade,
-                                          user_id, and optional content).
-        files (Optional[UploadFile]): A scanned image or PDF file. Must be provided
-                                     if no text content is included in the meta_data.
-        question_manager (QuestionManager): Injected manager to handle validation,
-                                            file processing, and AI orchestration.
+        llm_provider (LLMProvider): The AI service to use (e.g., 'openai' or 'google').
+        input_data (QuestionInputCreate): Metadata including subject_id, topic_id,
+                                          grade, and optional raw text content.
+        files (list[UploadFile]): One or more files for OCR. If no raw text is provided
+                                  in input_data, files are mandatory.
+        question_manager (QuestionManager): Injected manager to handle the orchestration
+                                            of file, AI, and database services.
 
     Returns:
-        str: A success message confirming the number of drafted questions.
+        str: A localized success message confirming the count of generated questions.
 
     Raises:
         HTTPException:
-            - 422 (Unprocessable Entity): If the meta_data JSON is malformed.
-            - 400 (Bad Request): If both text content and file are provided (or neither).
-            - 404 (Not Found): If the subject or topic IDs are invalid.
-            - 502 (Bad Gateway): If the LLM service fails to process the input.
+            - 400 (Bad Request): If validation fails (e.g., neither text nor files provided).
+            - 404 (Not Found): If the subject or topic IDs do not exist.
+            - 502 (Bad Gateway): If the external AI service (Google/OpenAI) fails.
+            - 500 (Internal Error): For database or unexpected processing failures.
     """
-    # files = [files]  # TODO: Kann gelöscht werden sobald die Tests durch sind.
     return await question_manager.add_question_input_with_file(
-        num_of_questions,
-        input_data,
-        files
+        num_of_questions=num_of_questions,
+        llm_provider=llm_provider,
+        question_input_data=input_data,
+        files=files
     )
 
 
@@ -127,28 +128,36 @@ async def finalize_input(
 async def extract_questions_from_raw_input(
         question_input_id: int,
         num_of_questions: int,
+        llm_provider: LLMProvider,
         question_manager: QuestionManager = Depends(get_question_manager)
 ):
     """
     Manually triggers AI question generation for a specific raw input record.
 
-    This serves as a recovery mechanism if the initial generation failed or
-    if additional questions are needed from the same source.
+    This serves as a recovery or re-processing mechanism. It allows re-running
+    the extraction for an existing record, providing flexibility to switch
+    between different AI providers or adjust the target question count.
 
     Args:
         question_input_id (int): The unique ID of the QuestionInput to process.
-        num_of_questions (int): Number of questions to be generated.
+        num_of_questions (int): Number of questions to be generated (Target count).
+        llm_provider (LLMProvider): The AI service to use (e.g., 'openai' or 'google').
         question_manager (QuestionManager): Injected manager for business logic.
 
     Returns:
         str: Success message with the count of generated questions.
 
     Raises:
-        HTTPException: 400 (Already processed), 404 (Not found), 502 (AI Error), 500 (DB Error).
+        HTTPException:
+            - 400: If the record is already processed.
+            - 404: If the record ID does not exist.
+            - 502: If the chosen AI service is unavailable.
+            - 500: For unexpected internal or database errors.
     """
     return question_manager.extract_questions_from_raw_input(
-        question_input_id,
-        num_of_questions
+        question_input_id=question_input_id,
+        num_of_questions=num_of_questions,
+        llm_provider=llm_provider
     )
 
 

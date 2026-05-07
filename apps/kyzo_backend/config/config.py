@@ -1,5 +1,4 @@
 import enum
-
 from pathlib import Path
 from typing import Any
 
@@ -21,14 +20,17 @@ class InputType(enum.Enum):
 
 class LLMProvider(enum.Enum):
     """
-    Supported Large Language Model providers for the application.
+    Supported Large Language Model service providers.
 
     Attributes:
-        OPENAI: Represents the OpenAI service suite (e.g., GPT models).
-        GOOGLE: Represents the Google GenAI service suite (e.g., Gemma or Gemini models).
+        OPENAI: Accesses the OpenAI API suite. Maps to gpt-4o-mini
+                for cost-effective and reliable performance.
+        GOOGLE: Accesses the Google GenAI API suite. Maps
+                gemini-3.1-flash-lite for superior JSON extraction and
+                pedagogical precision.
     """
     OPENAI = "openai"
-    GOOGLE = "gemma"
+    GOOGLE = "google"
 
 
 class UserRole(enum.Enum):
@@ -67,6 +69,7 @@ class FastAPISettings(BaseSettings):
             Lower is more deterministic (ideal for OCR), higher is more creative.
         LLM_MAX_TOKENS (int): The maximum length of the generated AI response,
             applied across all configured providers.
+        LLM_DEBUG (bool): If true, prints debugging messages to the console.
     """
     PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent.parent.parent
     DATA_DIR: Path = PROJECT_ROOT / 'apps' / 'kyzo_backend' / 'data'
@@ -75,13 +78,25 @@ class FastAPISettings(BaseSettings):
     SQLALCHEMY_DATABASE_URI: str = ""
 
     OPENAI_API_KEY: str = Field(...)
-    OPENAI_MODEL: str = Field("gpt-4o-mini", description="The AI model used for generation")
+    OPENAI_MODEL: str = Field(
+        "gpt-4o-mini",
+        description="Older OpenAI model, but very cost-effective"
+    )
 
     GEMINI_API_KEY: str = Field(...)
-    GEMINI_MODEL: str = Field("gemma-4-26b-a4b-it", description="The AI model used for generation")
+    GEMINI_MODEL: str = Field(
+        "gemini-3.1-flash-lite-preview",
+        description="Our cost-effective version of the flagship model "
+    )
+    GEMMA_MODEL: str = Field(
+        "gemma-4-26b-a4b-it",
+        description="Open AI Model from Google"
+    )
 
-    LLM_TEMPERATURE: float = Field(0.0, ge=0.0, le=2.0, description="Creativity level of the AI")
-    LLM_MAX_TOKENS: int = Field(5000, description="Limit for the AI response size")
+    LLM_TEMPERATURE: float = Field(0.3, ge=0.0, le=2.0, description="Creativity level of the AI")
+    LLM_MAX_TOKENS: int = Field(8000, description="Limit for the AI response size")
+
+    LLM_DEBUG: bool = Field(True, description="If true, prints debugging messages to the console")
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parent.parent / ".env",
