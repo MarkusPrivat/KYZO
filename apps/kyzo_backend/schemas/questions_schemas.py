@@ -1,10 +1,50 @@
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
 from pydantic import Field, model_validator
 
-from apps.kyzo_backend.config.config import InputType
-from .base_schemas import BaseSchema
+from apps.kyzo_backend.config import InputType, LLMProvider
+from apps.kyzo_backend.schemas.base_schemas import BaseSchema
+
+
+class ExtractedQuestionMetadata(BaseSchema):
+    """
+    Data container for pedagogical context and configuration used in the
+    AI-driven question extraction process.
+
+    This model bundles subject-specific metadata with the raw source content
+    and model preferences, ensuring a consistent contract between the
+    API layer and the LLM services.
+    """
+    subject_name: str = Field(
+        ...,
+        min_length=3,
+        max_length=100,
+        description="The human-readable name of the school subject (e.g., 'History')."
+    )
+    topic_name: str = Field(
+        ...,
+        min_length=2,
+        max_length=150,
+        description="The specific academic topic within the subject (e.g., 'Ancient Greece')."
+    )
+    grade: int = Field(
+        ...,
+        ge=1,
+        le=13,
+        description="The target school grade level (1-13) to calibrate difficulty and language."
+    )
+    raw_input: QuestionInputRawInput = Field(
+        ...,
+        description="The structured raw source material (text and metadata) for the AI to analyze."
+    )
+    llm_provider: LLMProvider = Field(
+        default=LLMProvider.OPENAI,
+        description=(
+            "The specific AI service provider to be used for extraction. "
+            "Defaults to OPENAI for general tasks; GOOGLE is recommended for higher precision."
+        )
+    )
 
 
 class OCRResult(BaseSchema):
@@ -236,6 +276,7 @@ class QuestionCreate(BaseSchema):
             )
 
         return self
+
 
 class QuestionInputExtractedQuestionsUpdate(BaseSchema):
     """
