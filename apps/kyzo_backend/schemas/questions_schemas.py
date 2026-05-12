@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import Field, model_validator
 
-from apps.kyzo_backend.config import InputType, LLMProvider
+from apps.kyzo_backend.config import InputType
 from apps.kyzo_backend.schemas.base_schemas import BaseSchema
 
 
@@ -43,13 +43,6 @@ class ExtractedQuestionMetadata(BaseSchema):
     raw_input: QuestionInputRawInput = Field(
         ...,
         description="The structured raw source material (text and metadata) for the AI to analyze."
-    )
-    llm_provider: LLMProvider = Field(
-        default=LLMProvider.OPENAI,
-        description=(
-            "The specific AI service provider to be used for extraction. "
-            "Defaults to OPENAI for general tasks; GOOGLE is recommended for higher precision."
-        )
     )
 
 

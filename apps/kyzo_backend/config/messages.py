@@ -30,12 +30,14 @@ class KnowledgeMessages:
 
 @dataclass(frozen=True)
 class AIMessages:
-    INVALID_RESPONSE_STRUCTURE = "LLM returned an empty or invalid response structure."
-    LLM_CONNECTION_ERROR = "Server connection error:"
+    EXTRACT_QUESTION_ERROR = "Extract question processing failed. Primary (Google): {google_error} | Fallback (OpenAI): {openai_error}"
     GENERATION_FAILED = "AI generation failed:"
+    GOOGLE_API_ERROR = "Google API Error:"
     GOOGLE_CLIENT_ERROR = "Google API Client Error (Quota or Invalid Request):"
     GOOGLE_SERVER_ERROR = "Google API Server Error (Overloaded?):"
-    GOOGLE_API_ERROR = "Google API Error:"
+    INVALID_RESPONSE_STRUCTURE = "LLM returned an empty or invalid response structure."
+    LLM_CONNECTION_ERROR = "Server connection error:"
+    OCR_ERROR = "OCR processing failed. Primary (Gemini): {gemini_error} | Fallback (Gemma): {gemma_error}"
     UNEXPECTED_ERROR = "An unexpected error occurred during LLM processing:"
 
 

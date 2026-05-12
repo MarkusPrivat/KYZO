@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, status, Uploa
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from apps.kyzo_backend.config import LLMProvider
 from apps.kyzo_backend.core import get_db
 from apps.kyzo_backend.managers import QuestionManager
 from apps.kyzo_backend.schemas import (QuestionInputCreate,
@@ -39,6 +38,25 @@ def get_question_manager(db: Session = Depends(get_db)) -> QuestionManager:
 
 
 def parse_question_input(input_data_json: str = Form(...)) -> QuestionInputCreate:
+    """
+    Parses and validates a JSON string from a multipart form field into a Pydantic model.
+
+    This dependency is required because FastAPI cannot natively mix 'Form' fields
+    and 'BaseModel' JSON bodies in a single multipart/form-data request. It manually
+    triggers Pydantic's validation logic.
+
+    Args:
+        input_data_json (str): The raw JSON string containing metadata for question
+                               creation (e.g., subject_id, topic_id, grade).
+
+    Returns:
+        QuestionInputCreate: The validated Pydantic data transfer object.
+
+    Raises:
+        HTTPException:
+            - 422 (Unprocessable Entity): If the provided JSON string is malformed
+              or fails to meet the schema requirements defined in QuestionInputCreate.
+    """
     try:
         return QuestionInputCreate.model_validate_json(input_data_json)
     except ValidationError as error:
@@ -51,7 +69,6 @@ def parse_question_input(input_data_json: str = Form(...)) -> QuestionInputCreat
 @router.post("/input/add", status_code=status.HTTP_201_CREATED, response_model=str)
 async def add_question(
         num_of_questions: int,
-        llm_provider: LLMProvider,
         input_data: QuestionInputCreate = Depends(parse_question_input),
         files: Optional[list[UploadFile]] = File(
             default=None,
@@ -63,16 +80,18 @@ async def add_question(
     Initiates the question generation pipeline from either raw text or uploaded files.
 
     This endpoint coordinates the full creation flow: metadata validation,
-    OCR processing for files (images/PDFs), AI-driven question extraction
-    via the chosen provider, and database persistence.
+    OCR processing for files (if provided), AI-driven question extraction
+    via an automated multi-provider fallback logic.
+    OCR: primary: Gemini 3.1, fallback: gemma-4-26b-a4b.
+    Question Generation: primary: Gemini 3.1, fallback: GPT-4o-mini.
+
 
     Args:
         num_of_questions (int): The target number of questions to generate.
-        llm_provider (LLMProvider): The AI service to use (e.g., 'openai' or 'google').
         input_data (QuestionInputCreate): Metadata including subject_id, topic_id,
                                           grade, and optional raw text content.
-        files (list[UploadFile]): One or more files for OCR. If no raw text is provided
-                                  in input_data, files are mandatory.
+        files (Optional[list[UploadFile]]): One or more files for OCR. Can be None
+                                            if raw text is provided in input_data.
         question_manager (QuestionManager): Injected manager to handle the orchestration
                                             of file, AI, and database services.
 
@@ -83,12 +102,11 @@ async def add_question(
         HTTPException:
             - 400 (Bad Request): If validation fails (e.g., neither text nor files provided).
             - 404 (Not Found): If the subject or topic IDs do not exist.
-            - 502 (Bad Gateway): If the external AI service (Google/OpenAI) fails.
+            - 502 (Bad Gateway): If the external AI service fails.
             - 500 (Internal Error): For database or unexpected processing failures.
     """
     return await question_manager.add_question_input_with_file(
         num_of_questions=num_of_questions,
-        llm_provider=llm_provider,
         question_input_data=input_data,
         files=files
     )
@@ -128,20 +146,18 @@ async def finalize_input(
 async def extract_questions_from_raw_input(
         question_input_id: int,
         num_of_questions: int,
-        llm_provider: LLMProvider,
         question_manager: QuestionManager = Depends(get_question_manager)
 ):
     """
     Manually triggers AI question generation for a specific raw input record.
 
     This serves as a recovery or re-processing mechanism. It allows re-running
-    the extraction for an existing record, providing flexibility to switch
-    between different AI providers or adjust the target question count.
+    the extraction for an existing record with an automated multi-provider
+    fallback logic (primary: Gemini 3.1, fallback: GPT-4o-mini).
 
     Args:
         question_input_id (int): The unique ID of the QuestionInput to process.
-        num_of_questions (int): Number of questions to be generated (Target count).
-        llm_provider (LLMProvider): The AI service to use (e.g., 'openai' or 'google').
+        num_of_questions (int): Target number of questions to be generated.
         question_manager (QuestionManager): Injected manager for business logic.
 
     Returns:
@@ -151,13 +167,12 @@ async def extract_questions_from_raw_input(
         HTTPException:
             - 400: If the record is already processed.
             - 404: If the record ID does not exist.
-            - 502: If the chosen AI service is unavailable.
+            - 502: If all configured AI services fail or are unavailable.
             - 500: For unexpected internal or database errors.
     """
     return question_manager.extract_questions_from_raw_input(
         question_input_id=question_input_id,
         num_of_questions=num_of_questions,
-        llm_provider=llm_provider
     )
 
 

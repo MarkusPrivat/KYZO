@@ -18,21 +18,6 @@ class InputType(enum.Enum):
     SCAN = 'scan'
 
 
-class LLMProvider(enum.Enum):
-    """
-    Supported Large Language Model service providers.
-
-    Attributes:
-        OPENAI: Accesses the OpenAI API suite. Maps to gpt-4o-mini
-                for cost-effective and reliable performance.
-        GOOGLE: Accesses the Google GenAI API suite. Maps
-                gemini-3.1-flash-lite for superior JSON extraction and
-                pedagogical precision.
-    """
-    OPENAI = "openai"
-    GOOGLE = "google"
-
-
 class UserRole(enum.Enum):
     """
     Defines the authorization levels and responsibilities for users.

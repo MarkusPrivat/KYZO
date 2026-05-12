@@ -1,3 +1,5 @@
+import base64
+
 import openai
 
 from fastapi import HTTPException, status
@@ -6,7 +8,6 @@ from google.genai import errors, types
 from openai import OpenAI
 
 from apps.kyzo_backend.config import (fastapi_settings,
-                                      InputPrompts,
                                       InstructionsPrompts,
                                       AIMessages)
 from apps.kyzo_backend.schemas import OCRResult, QuestionInputExtractedQuestionsUpdate
@@ -38,6 +39,7 @@ class GoogleLLMService:
         """
         self.client = genai.Client(api_key=fastapi_settings.GEMINI_API_KEY)
         self.gemini_model = fastapi_settings.GEMINI_MODEL
+        self.gemma_model = fastapi_settings.GEMMA_MODEL
         self.temperature = fastapi_settings.LLM_TEMPERATURE
         self.max_output_tokens = fastapi_settings.LLM_MAX_TOKENS
 
@@ -57,7 +59,7 @@ class GoogleLLMService:
         """
         print("\n========= GOOGLE RESPONSE DEBUG ===========")
         print(f"Tokens: Total: {usage.total_token_count} (In: {usage.prompt_token_count} |"
-              f" Out: {usage.candidates_token_count}\n")
+              f" Out: {usage.candidates_token_count})\n")
         print("=============================================")
         print(output)
         print("=============================================\n")
@@ -125,6 +127,79 @@ class GoogleLLMService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"{AIMessages.GOOGLE_API_ERROR} {str(error)}"
+            ) from error
+        except Exception as error:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{AIMessages.UNEXPECTED_ERROR}: {str(error)}"
+            ) from error
+
+    def get_generated_raw_input_from_scan(
+            self,
+            model: str,
+            base64_image: str,
+            mime_type: str = "image/jpeg"
+    ) -> OCRResult:
+        """
+        Performs AI-driven OCR to extract structured text from an image using Google GenAI models.
+
+        This method leverages multimodal capabilities to transform visual document data
+        (provided as Base64) into validated, machine-readable Markdown text. It handles
+        the binary conversion of image data and enforces a structured JSON output
+        schema via Pydantic.
+
+        Args:
+            model (str): The specific Google model identifier to use (e.g., Gemini or Gemma).
+            base64_image (str): The image data as a base64-encoded string.
+            mime_type (str): The IANA media type of the image. Defaults to "image/jpeg".
+
+        Returns:
+            OCRResult: A structured object containing the extracted text and analysis.
+
+        Raises:
+            HTTPException:
+                - 400 (Bad Request): If the image data is malformed or the API request is invalid.
+                - 502 (Bad Gateway): If the Google API service is temporarily unavailable.
+                - 500 (Internal Server Error): For unexpected errors, parsing failures,
+                  or invalid response structures.
+        """
+        try:
+            image_bytes = base64.b64decode(base64_image)
+
+            response = self.client.models.generate_content(
+                model=model,
+                contents=[
+                    types.Part.from_bytes(
+                        data=image_bytes,
+                        mime_type=mime_type
+                    ),
+                    "Extrahiere den Text aus diesem Bild gemäß den Anweisungen."
+                ],
+                config=types.GenerateContentConfig(
+                    system_instruction=InstructionsPrompts.OCR_INSTRUCTION,
+                    temperature=self.temperature,
+                    response_mime_type='application/json',
+                    response_schema=OCRResult,
+                )
+            )
+
+            if fastapi_settings.LLM_DEBUG:
+                self._ai_response_debug(response.usage_metadata, response.text)
+
+            if not response.parsed:
+                raise ValueError(AIMessages.INVALID_RESPONSE_STRUCTURE)
+
+            return response.parsed
+
+        except errors.ClientError as error:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"{AIMessages.GOOGLE_CLIENT_ERROR} {str(error)}"
+            ) from error
+        except errors.ServerError as error:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"{AIMessages.GOOGLE_SERVER_ERROR} {str(error)}"
             ) from error
         except Exception as error:
             raise HTTPException(
@@ -227,61 +302,6 @@ class OpenaiLLMService:
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"{AIMessages.LLM_CONNECTION_ERROR}: {str(error)}"
             ) from error
-        except Exception as error:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"{AIMessages.UNEXPECTED_ERROR}: {str(error)}"
-            ) from error
-
-    def generate_raw_input_from_scan(
-            self,
-            base64_image: str,
-            mime_type: str = "image/jpeg"
-    ) -> OCRResult:
-        """
-        Performs AI-driven OCR to extract structured text from an image.
-
-        This method leverages the OpenAI Vision API and Structured Outputs to transform
-        visual document data (scans/photos) into a machine-readable format. It uses
-        pedagogical instructions to ensure that educational content, such as tables
-        and fill-in-the-blank texts, is correctly interpreted and formatted as Markdown.
-
-        Args:
-            base64_image (str): The optimized image data as a base64-encoded string.
-            mime_type (str): The MIME type of the image. Defaults to "image/jpeg".
-
-        Returns:
-            OCRResult: An object containing the extracted text and a confidence score.
-
-        Raises:
-            HTTPException:
-                - 502 (Bad Gateway): If the OpenAI API connection fails or a vision
-                  processing error occurs.
-                - 500 (Internal Server Error): For unexpected failures during parsing
-                  or response handling.
-        """
-        vision_input = InputPrompts.get_ocr_input(mime_type, base64_image)
-
-        try:
-            response = self.client.responses.parse(
-                model=self.model,
-                temperature=self.temperature,
-                instructions=InstructionsPrompts.OCR_INSTRUCTION,
-                input=vision_input,
-                text_format=OCRResult
-            )
-
-            if fastapi_settings.LLM_DEBUG:
-                self._ai_response_debug(response.usage, response.output_parsed)
-
-            return response.output_parsed
-
-        except openai.OpenAIError as error:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"{AIMessages.LLM_CONNECTION_ERROR}: {str(error)}"
-            ) from error
-
         except Exception as error:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

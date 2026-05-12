@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from apps.kyzo_backend.config import QuestionMessages, LLMProvider
+from apps.kyzo_backend.config import QuestionMessages
 from apps.kyzo_backend.data import Question, QuestionInput, QuestionOrigin, Topic
 from apps.kyzo_backend.managers import KnowledgeManager
 from apps.kyzo_backend.schemas import (ExtractedQuestionMetadata,
@@ -16,7 +16,7 @@ from apps.kyzo_backend.schemas import (ExtractedQuestionMetadata,
                                        QuestionInputCreate,
                                        QuestionInputUpdate,
                                        QuestionInputRawInput)
-from apps.kyzo_backend.services import ImageProcessingService, OpenaiLLMService, QuestionGenerator
+from apps.kyzo_backend.services import ImageProcessingService, LLMOrchestrator
 
 
 class QuestionManager:
@@ -46,8 +46,7 @@ class QuestionManager:
         """
         self._db = db
         self.image_service = ImageProcessingService()
-        self.llm_service = OpenaiLLMService()
-        self.question_generator = QuestionGenerator()
+        self.llm_orchestrator = LLMOrchestrator()
 
     def add_question(self, question_data: QuestionCreate) -> Question:
         """
@@ -94,7 +93,6 @@ class QuestionManager:
     async def add_question_input_with_file(
             self,
             num_of_questions: int,
-            llm_provider: LLMProvider,
             question_input_data: QuestionInputCreate,
             files: Optional[list[UploadFile]] = None
     ) -> str:
@@ -144,10 +142,9 @@ class QuestionManager:
             grade=question_input_data.grade,
             num_of_questions=num_of_questions,
             raw_input=question_input_data.raw_input,
-            llm_provider=llm_provider
         )
 
-        ai_result = self.question_generator.generate_extracted_questions_from_raw_input(
+        ai_result = self.llm_orchestrator.generate_extracted_questions_from_raw_input(
             extraction_metadata=extraction_metadata
         )
 
@@ -302,21 +299,19 @@ class QuestionManager:
             self,
             question_input_id: int,
             num_of_questions: int,
-            llm_provider: LLMProvider
     ) -> str:
         """
         Extracts educational questions from an existing raw input record using AI.
 
         This method acts as a recovery or re-processing mechanism. It fetches an
         existing QuestionInput, validates the pedagogical hierarchy, and triggers
-        a structured AI generation cycle using the specified LLM provider. The
+        a structured AI generation cycle using an automated multi-provider
+        fallback logic (primary: Gemini 3.1, fallback: GPT-4o-mini). The
         resulting drafts are then persisted back to the database.
 
         Args:
             question_input_id (int): The unique identifier of the raw input record.
             num_of_questions (int): The target number of questions to be generated.
-            llm_provider (LLMProvider): The AI service provider (OpenAI/Google)
-                                         to be used for this extraction.
 
         Returns:
             str: A localized status message confirming the number of questions
@@ -353,10 +348,9 @@ class QuestionManager:
                 grade=question_input.grade,
                 num_of_questions=num_of_questions,
                 raw_input=raw_input_data,
-                llm_provider=llm_provider
             )
 
-            ai_result = self.question_generator.generate_extracted_questions_from_raw_input(
+            ai_result = self.llm_orchestrator.generate_extracted_questions_from_raw_input(
                 extraction_metadata=extraction_metadata
             )
 
@@ -725,7 +719,7 @@ class QuestionManager:
             processed_elements = await self.image_service.process_upload(file)
 
             for element in processed_elements:
-                ocr_result = self.llm_service.generate_raw_input_from_scan(
+                ocr_result = self.llm_orchestrator.generate_raw_input_from_scan(
                     base64_image=element["base64"],
                     mime_type=element["mime_type"]
                 )
