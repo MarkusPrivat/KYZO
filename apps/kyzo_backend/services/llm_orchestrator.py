@@ -4,7 +4,8 @@ from apps.kyzo_backend.config import AIMessages, fastapi_settings, InstructionsP
 from apps.kyzo_backend.schemas import (ExtractedQuestionMetadata,
                                        OCRResult,
                                        QuestionInputExtractedQuestionsUpdate)
-from apps.kyzo_backend.services import OpenaiLLMService, GoogleLLMService
+from .openai_service import OpenaiLLMService
+from .google_gen_ai_service import GoogleLLMService
 
 
 class LLMOrchestrator:
