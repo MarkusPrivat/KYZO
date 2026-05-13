@@ -1,3 +1,4 @@
+from pwdlib import PasswordHash
 from pydantic import ValidationError
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
@@ -47,7 +48,9 @@ def seed_data():
         print("  -> Seeding Users...")
         validated_users = [UserCreate(**user) for user in SeedData.USERS]
         for user in validated_users:
-            user_dict = user.model_dump()
+            hashed_password = PasswordHash.recommended().hash(user.password)
+            user_dict = user.model_dump(exclude={"password"})
+            user_dict["password_hash"] = hashed_password
             new_user = User(**user_dict)
             db.add(new_user)
 

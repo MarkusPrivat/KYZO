@@ -303,7 +303,7 @@ class User(Base):
         id (int): Unique identifier and primary key for the user.
         name (str): The display name or username.
         email (str): As a unique user identifier.
-        password (str, optional): Hashed password for authentication.
+        password_hash (str): Hashed password for authentication.
         grade (int): The current school grade level of the student.
         role (UserRole): The authorization level (STUDENT, TEACHER, or ADMIN).
         is_active (bool): Flag to enable or disable the account.
@@ -319,7 +319,7 @@ class User(Base):
 
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    password: Mapped[Optional[str]] = mapped_column(String(100), default=None, nullable=True)
+    password_hash: Mapped[str] = mapped_column(String(100), default=None, nullable=True)
     grade: Mapped[int] = mapped_column(Integer, nullable=False)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.STUDENT, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

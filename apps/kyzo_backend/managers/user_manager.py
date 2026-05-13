@@ -150,8 +150,8 @@ class UserManager:
 
             hashed_password = PasswordHash.recommended().hash(user_data.password)
 
-            user_dict = user_data.model_dump()
-            user_dict["password"] = hashed_password
+            user_dict = user_data.model_dump(exclude={"password"})
+            user_dict["password_hash"] = hashed_password
 
             new_user = User(**user_dict)
 

@@ -75,7 +75,7 @@ class AuthService:
             self.verify_password(password, self.dummy_hash)
             raise user_unauthorized
 
-        if not self.verify_password(password, user.password):
+        if not self.verify_password(password, user.password_hash):
             raise user_unauthorized
 
         access_token = self._create_access_token(

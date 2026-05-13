@@ -93,11 +93,11 @@ class UserCreate(BaseSchema):
         max_length=255,
         description="A valid and unique email address for login."
     )
-    # TODO: Change description
     password: str = Field(
         ...,
         min_length=8,
-        description="Plain text password, will be hashed before storage."
+        description="Plain text password, will be hashed before storage. "
+                    "Must be at least 8 characters long."
     )
     grade: int = Field(
         ...,
