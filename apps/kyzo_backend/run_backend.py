@@ -7,7 +7,8 @@ from apps.kyzo_backend.core import create_database
 from apps.kyzo_backend.api import (knowledge_router,
                                    question_router,
                                    test_router,
-                                   user_router)
+                                   user_router
+                                   )
 
 
 @asynccontextmanager

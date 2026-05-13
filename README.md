@@ -20,6 +20,8 @@ To set up the project locally, follow these steps.
 Copy `apps/kyzo_backend/.env_template` to `.env` and add your key:
    ```plaintext
    OPENAI_API_KEY=your_openai_key
+   GEMINI_API_KEY=your_gemini_key
+   AUTH_SECRET_KEY=(use 'openssl rand -hex 32' to generated a Key)
    ```
 4. **Run the backend application**:
    ```bash  

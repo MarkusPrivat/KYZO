@@ -37,6 +37,8 @@ from .tests_schemas import (
     TestSessionRead
 )
 from .user_schemas import (
+    Token,
+    TokenData,
     UserCreate,
     UserRead,
     UserUpdate

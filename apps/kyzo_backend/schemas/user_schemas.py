@@ -36,6 +36,37 @@ from pydantic import EmailStr, Field
 from apps.kyzo_backend.config import UserRole
 from .base_schemas import BaseSchema
 
+class Token(BaseSchema):
+    """
+    Represents the authentication response containing the bearer token.
+
+    This schema follows the OAuth2 specification for the access token response,
+    providing the client with the necessary credentials to access protected resources.
+    """
+    access_token: str = Field(
+        ...,
+        description="The encoded JSON Web Token (JWT) used for subsequent authorized requests."
+    )
+    token_type: str = Field(
+        ...,
+        description="The type of the token, typically 'bearer' according to OAuth2 standards."
+    )
+
+
+class TokenData(BaseSchema):
+    """
+    Internal container for validated data extracted from a decoded JWT.
+
+    This schema is used during the dependency injection process to hold the
+    identity information of a user. It ensures that the payload extracted
+    from the token's 'sub' claim is well-formed before it is used for
+    database lookups.
+    """
+    email: Optional[str | EmailStr] = Field(
+        None,
+        description="The unique identifier (subject) of the user, extracted from the 'sub' claim."
+    )
+
 
 class UserCreate(BaseSchema):
     """
@@ -62,6 +93,7 @@ class UserCreate(BaseSchema):
         max_length=255,
         description="A valid and unique email address for login."
     )
+    # TODO: Change description
     password: str = Field(
         ...,
         min_length=8,

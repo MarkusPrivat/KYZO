@@ -4,9 +4,11 @@ google-genai
 openai
 pdf2image
 Pillow
+pwdlib[argon2]
 python-multipart
 pydantic
 pydantic[email]
 pydantic_settings
+PyJWT
 sqlalchemy
 uvicorn

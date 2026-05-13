@@ -2,7 +2,7 @@ import enum
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -62,12 +62,12 @@ class FastAPISettings(BaseSettings):
     DATABASE_PATH: Path = DATA_DIR / 'kyzo-data.sqlite'
     SQLALCHEMY_DATABASE_URI: str = ""
 
+    # LLM settings:
     OPENAI_API_KEY: str = Field(...)
     OPENAI_MODEL: str = Field(
         "gpt-4o-mini",
         description="Older OpenAI model, but very cost-effective"
     )
-
     GEMINI_API_KEY: str = Field(...)
     GEMINI_MODEL: str = Field(
         "gemini-3.1-flash-lite-preview",
@@ -77,11 +77,26 @@ class FastAPISettings(BaseSettings):
         "gemma-4-26b-a4b-it",
         description="Open AI Model from Google"
     )
-
     LLM_TEMPERATURE: float = Field(0.3, ge=0.0, le=2.0, description="Creativity level of the AI")
     LLM_MAX_TOKENS: int = Field(8000, description="Limit for the AI response size")
-
     LLM_DEBUG: bool = Field(True, description="If true, prints debugging messages to the console")
+
+    # AUTH-Service settings:
+    AUTH_SECRET_KEY: str = Field(
+        ...,
+        description="A unique and secure key used to sign JWT access tokens. "
+                    "Must be kept private and should be a long random string."
+    )
+    ALGORITHM: str = Field(
+        "HS256",
+        description="The cryptographic algorithm used for signing the token payload. "
+                    "HS256 (HMAC with SHA-256) is the standard for JWT."
+    )
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        30,
+        description="Duration in minutes for which an access token remains valid "
+                    "before the user must re-authenticate."
+    )
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parent.parent / ".env",
@@ -112,9 +127,13 @@ class FastAPISettings(BaseSettings):
         if not self.SQLALCHEMY_DATABASE_URI:
             self.SQLALCHEMY_DATABASE_URI = f"sqlite:///{self.DATABASE_PATH.as_posix()}"
 
-    @field_validator("OPENAI_API_KEY", "GEMINI_API_KEY")
+    @field_validator(
+        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
+        "AUTH_SECRET_KEY",
+    )
     @classmethod
-    def check_not_empty(cls, value: str, info) -> str:
+    def check_not_empty(cls, value: str, info: ValidationInfo) -> str:
         """
         Ensures that critical security keys are not provided as empty strings.
 
@@ -131,8 +150,8 @@ class FastAPISettings(BaseSettings):
         Raises:
             ValueError: If the key is missing, empty, or contains only whitespace.
         """
-        if not value or value.strip() == "":
-            raise ValueError(f"The {info.field_name} cannot be empty!")
+        if not value or  value.strip() == "":
+            raise ValueError(f"The .env field {info.field_name} cannot be empty!")
         return value
 
 

@@ -80,6 +80,7 @@ with all error conditions communicated through HTTPExceptions. This approach
 integrates seamlessly with FastAPI's exception handling system.
 """
 from fastapi import HTTPException, status
+from pwdlib import PasswordHash
 from pydantic import EmailStr
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -118,25 +119,27 @@ class UserManager:
 
     def add_user(self, user_data: UserCreate) -> User:
         """
-        Persists a new user record in the database after verifying availability.
+        Persists a new user record in the database after hashing the password.
 
-        This method performs an existence check for the email, converts the
-        Pydantic schema into a SQLAlchemy model, and handles the full
-        transaction lifecycle (commit, refresh, and rollback on failure).
+        This method performs a multistep registration flow:
+        1. Verifies that the email address is not already in use.
+        2. Transforms the plain-text password into a secure cryptographic hash.
+        3. Converts the Pydantic DTO into a SQLAlchemy model.
+        4. Manages the database transaction (commit/rollback) and refreshes
+           the instance to include server-side defaults (like the unique ID).
 
         Args:
             user_data (UserCreate): Validated data transfer object containing
-                                    the new user's attributes.
+                                    the registration details.
 
         Returns:
-            User: The successfully created and persisted SQLAlchemy User instance
-                  including its generated unique ID.
+            User: The successfully persisted SQLAlchemy User instance.
 
         Raises:
             HTTPException:
-                - 409 (Conflict): If the email address is already registered.
+                - 409 (Conflict): If a user with the given email already exists.
                 - 500 (Internal Server Error): If a database integrity error or
-                  connection issue occurs during persistence.
+                  connection issue occurs during the transaction.
         """
         try:
             if self._is_email_taken(user_data.email):
@@ -145,7 +148,11 @@ class UserManager:
                     detail=UserMessages.EMAIL_ALREADY_EXIST
                 )
 
+            hashed_password = PasswordHash.recommended().hash(user_data.password)
+
             user_dict = user_data.model_dump()
+            user_dict["password"] = hashed_password
+
             new_user = User(**user_dict)
 
             self._db.add(new_user)
@@ -194,34 +201,29 @@ class UserManager:
                 detail=f"{UserMessages.GET_ALL_USER_ERROR} {str(error)}"
             ) from error
 
-    def get_user_by_email(self, email: str | EmailStr) -> User:
+    def get_user_by_email(self, email: str | EmailStr) -> User | None:
         """
         Retrieves a single user from the database based on their unique email address.
 
         This is the primary method for authentication processes or for
-        verifying account existence during registration.
+        verifying account existence during registration. It returns the user object
+        or None, allowing callers to handle missing records (e.g., for security
+        timing measures).
 
         Args:
             email (str | EmailStr): The email address to search for. Supports
                                     raw strings and Pydantic's EmailStr type.
 
         Returns:
-            User: The SQLAlchemy User instance if a match is found.
+            User | None: The SQLAlchemy User instance if found, otherwise None.
 
         Raises:
             HTTPException:
-                - 404 (Not Found): If no user is registered with this email.
                 - 500 (Internal Server Error): If a database transaction fails.
         """
         try:
             stmt = (select(User).where(User.email == email))
             user = self._db.execute(stmt).scalar_one_or_none()
-
-            if not user:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=UserMessages.USER_NOT_FOUND
-                )
 
             return user
         except SQLAlchemyError as error:
