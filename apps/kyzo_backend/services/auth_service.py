@@ -1,9 +1,12 @@
+"""
+Service layer handling user authentication and JWT access token generation.
+"""
 from datetime import datetime, timedelta, timezone
 
 import jwt
 from fastapi import HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from pwdlib import PasswordHash
-from pydantic import EmailStr
 from sqlalchemy.orm import Session
 
 from apps.kyzo_backend.config import fastapi_settings
@@ -42,26 +45,29 @@ class AuthService:
         self.password_hash = PasswordHash.recommended()
         self.dummy_hash = self.password_hash.hash("dummypassword")
 
-    def authenticate_user(self, email: str | EmailStr, password: str) -> str:
+    def authenticate_user(self, form_data: OAuth2PasswordRequestForm) -> str:
         """
         Orchestrates the complete user authentication flow.
 
         This method verifies user credentials by performing a database lookup
         and a cryptographic password check. It is designed to be resilient
-        against timing attacks by ensuring that password verification is
-        attempted even if the user does not exist.
+        against timing attacks by ensuring that a constant-time password verification
+        is attempted against a dummy hash even if the requested user does not exist.
 
         Args:
-            email (str | EmailStr): The unique email address of the user.
-            password (str): The plain-text password provided by the user.
+            form_data (OAuth2PasswordRequestForm): FastAPI's built-in container
+                extracting the 'username' (mapped to email) and 'password' from the
+                multipart form request.
 
         Returns:
-            str: A signed JWT access token upon successful authentication.
+            str: A signed, cryptographically secure JWT access token containing
+                the user identity ('sub') and the assigned role ('scope').
 
         Raises:
             HTTPException:
-                - 401 (Unauthorized): If the user is not found, the password
-                  is incorrect, or the account is otherwise invalid.
+                - 401 (Unauthorized): If the user is not found, the provided
+                  password does not match the stored cryptographic hash, or the
+                  account is otherwise disabled.
         """
         user_unauthorized = HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -69,17 +75,17 @@ class AuthService:
             headers={"WWW-Authenticate": "Bearer"}
         )
 
-        user = self.user_manager.get_user_by_email(email)
+        user = self.user_manager.get_user_by_email(form_data.username)
 
         if not user:
-            self.verify_password(password, self.dummy_hash)
+            self.verify_password(form_data.password, self.dummy_hash)
             raise user_unauthorized
 
-        if not self.verify_password(password, user.password_hash):
+        if not self.verify_password(form_data.password, user.password_hash):
             raise user_unauthorized
 
         access_token = self._create_access_token(
-            data={"sub": user.email},
+            data={"sub": user.email, "scope": user.role.value},
             expires_delta=timedelta(
                 minutes=fastapi_settings.ACCESS_TOKEN_EXPIRE_MINUTES
             )

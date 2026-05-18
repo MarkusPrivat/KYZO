@@ -55,6 +55,7 @@ class Token(BaseSchema):
 
 class TokenData(BaseSchema):
     """
+    TODO: DOCSTRING UPDATE + Description!
     Internal container for validated data extracted from a decoded JWT.
 
     This schema is used during the dependency injection process to hold the
@@ -66,6 +67,7 @@ class TokenData(BaseSchema):
         None,
         description="The unique identifier (subject) of the user, extracted from the 'sub' claim."
     )
+    scopes: list[str] = Field([], description="")
 
 
 class UserCreate(BaseSchema):

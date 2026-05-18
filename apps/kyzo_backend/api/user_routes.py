@@ -1,22 +1,28 @@
+"""
+API routes for user management and authentication for the Kyzo backend.
+"""
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from .auth_depends import get_current_active_user
+from apps.kyzo_backend.api.depends.role_depends import (
+    require_admin,
+    require_teacher_or_admin,
+    require_student_teacher_or_admin
+)
 from apps.kyzo_backend.core import get_db
 from apps.kyzo_backend.data import User
-from apps.kyzo_backend.schemas import Token, UserCreate, UserRead, UserUpdate
 from apps.kyzo_backend.managers import UserManager
+from apps.kyzo_backend.schemas import Token, UserCreate, UserRead, UserUpdate
 from apps.kyzo_backend.services.auth_service import AuthService
-
-
 
 router = APIRouter(
     prefix="/api/users",
     tags=["Users"]
 )
+
 
 def get_user_manager(db: Session = Depends(get_db)) -> UserManager:
     """
@@ -52,54 +58,74 @@ def get_auth_service(db: Session = Depends(get_db)) -> AuthService:
     return AuthService(db)
 
 
-
 @router.get("/users/me/", response_model=UserRead)
 async def get_current_user(
-    current_user: Annotated[User, Depends(get_current_active_user)],
+        current_user: Annotated[User, Depends(require_student_teacher_or_admin)],
 ) -> User:
     """
     Retrieves the profile information of the currently authenticated user.
 
-    This endpoint acts as a protected resource that requires a valid
-    JWT access token. It leverages the dependency injection system to
-    verify the token and ensure the user's account is active.
+    This endpoint acts as a protected resource that requires a valid JWT access
+    token. It leverages the RBAC dependency layer to ensure the user is
+    authenticated, active, and belongs to a recognized system role.
+
+    Args:
+        current_user (User): The authenticated and active user instance
+            resolved by the role dependency.
 
     Returns:
-        User: The SQLAlchemy User model containing the account details,
-              automatically serialized into a 'UserRead' Pydantic schema.
+        User: The SQLAlchemy User model instance containing the account details,
+            which is automatically serialized into the UserRead Pydantic schema.
 
     Security:
         - Bearer Auth (JWT)
         - Requires an active account
+        - Authorized roles: STUDENT, TEACHER, ADMIN
     """
     return current_user
 
 
 @router.get("/list-all", response_model=list[UserRead])
-async def get_all_users(user_manager: UserManager = Depends(get_user_manager)):
+async def get_all_users(
+        _current_user: Annotated[User, Depends(require_admin)],
+        user_manager: UserManager = Depends(get_user_manager)
+):
     """
     Retrieves a complete list of all registered users.
 
-    This endpoint orchestrates the retrieval of the entire user base
-    via the UserManager. It returns a collection of user profiles
-    formatted according to the UserRead schema.
+    This endpoint orchestrates the retrieval of the entire user base via the
+    UserManager. It returns a collection of user profiles formatted according
+    to the UserRead schema.
 
     Args:
-        user_manager (UserManager): Injected manager via FastAPI Depends.
+        _current_user (User): The authenticated administrator's user record,
+            used strictly to enforce administrative access.
+        user_manager (UserManager): Injected manager instance for database
+            operations.
 
     Returns:
-        list[UserRead]: A list of all user profile records.
+        list[UserRead]: A list of all registered user profile records.
 
     Raises:
         HTTPException:
+            - 401 (Unauthorized): If the token is missing or invalid.
+            - 403 (Forbidden): If the user is authenticated but lacks admin privileges.
             - 404 (Not Found): If the database contains no user records.
             - 500 (Internal Server Error): If a database transaction fails.
+
+    Security:
+        - Bearer Auth (JWT)
+        - Restricted to: ADMIN role only
     """
     return user_manager.get_all_users()
 
 
 @router.get("/{user_id}", response_model=UserRead)
-async def get_user(user_id: int, user_manager: UserManager = Depends(get_user_manager)):
+async def get_user(
+        _current_user: Annotated[User, Depends(require_teacher_or_admin)],
+        user_id: int,
+        user_manager: Annotated[UserManager, Depends(get_user_manager)]
+):
     """
     Retrieves the profile details of a specific user by their unique ID.
 
@@ -109,16 +135,26 @@ async def get_user(user_id: int, user_manager: UserManager = Depends(get_user_ma
     managed internally by the UserManager.
 
     Args:
-        user_id (int): The unique database identifier of the user.
-        user_manager (UserManager): Injected manager instance via FastAPI Depends.
+        _current_user (User): The authenticated teacher's or administrator's user
+            record, used strictly to enforce role-based access control.
+        user_id (int): The unique database identifier of the target user.
+        user_manager (UserManager): Injected manager instance for database
+            operations.
 
     Returns:
         UserRead: The sanitized user profile data.
 
     Raises:
         HTTPException:
-            - 404 (Not Found): If the user_id does not exist.
+            - 401 (Unauthorized): If the token is missing or invalid.
+            - 403 (Forbidden): If the user is authenticated (e.g., a student)
+              but lacks required privileges.
+            - 404 (Not Found): If the user_id does not exist in the database.
             - 500 (Internal Server Error): If a database transaction failure occurs.
+
+    Security:
+        - Bearer Auth (JWT)
+        - Restricted to: TEACHER or ADMIN roles
     """
     return user_manager.get_user_by_id(user_id)
 
@@ -132,34 +168,36 @@ async def login_for_access_token(
     Authenticates a user and returns an OAuth2 access token.
 
     This endpoint validates the user's credentials (email and password) via
-    the AuthService. Upon successful authentication, it generates a JSON Web
-    Token (JWT) that can be used for subsequent authorized requests.
+    the AuthService. Upon successful authentication, it generates a signed
+    JSON Web Token (JWT) that encodes the user's identification and identity
+    scopes for subsequent authorized requests.
 
     Args:
         form_data (OAuth2PasswordRequestForm): FastAPI-provided container
-            extracting 'username' (email) and 'password' from the request body.
-        auth_service (AuthService): Injected service to handle the auth logic.
+            extracting 'username' (email) and 'password' from the form-data request body.
+        auth_service (AuthService): Injected service handling the core authentication
+            and cryptographic verification logic.
 
     Returns:
-        Token: A container containing the 'access_token' string and 'token_type'.
+        Token: A Pydantic schema containing the generated 'access_token' string
+            and the 'token_type' (bearer).
 
     Raises:
         HTTPException:
-            - 401 (Unauthorized): If the credentials are invalid or the
-              user does not exist.
+            - 401 (Unauthorized): If the email is not found, the password
+              is incorrect, or the account is otherwise invalid.
     """
-    access_token = auth_service.authenticate_user(
-        form_data.username,
-        form_data.password
-    )
+    access_token = auth_service.authenticate_user(form_data)
     return Token(access_token=access_token, token_type="bearer")
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def register_user(
         user_data: UserCreate,
-        user_manager: UserManager = Depends(get_user_manager)):
+        user_manager: UserManager = Depends(get_user_manager)
+):
     """
+    TODO: Role base check for new teacher and admins
     Registers a new user account in the system.
 
     This endpoint delegates the entire registration process to the UserManager,
@@ -182,10 +220,14 @@ async def register_user(
 
 @router.put("/{user_id}/status", response_model=UserRead)
 async def set_user_status(
+        _current_user: Annotated[User, Depends(require_teacher_or_admin)],
         user_id: int,
         active: bool,
-        user_manager: UserManager = Depends(get_user_manager)):
+        user_manager: UserManager = Depends(get_user_manager)
+):
     """
+    TODO: Create a me endpoint version
+    TODO: Teacher are not allowed to edit admins
     Toggles the activation status of a specific user.
 
     Updates the 'is_active' flag for the given user ID. This operation is
@@ -193,27 +235,41 @@ async def set_user_status(
     committing the status change to the database.
 
     Args:
-        user_id (int): The unique ID of the user to be updated.
+        _current_user (User): The authenticated teacher's or administrator's user
+            record, used strictly to enforce role-based access control.
+        user_id (int): The unique database identifier of the target user.
         active (bool): The target status (True for active, False for inactive).
-        user_manager (UserManager): Injected manager instance via FastAPI Depends.
+        user_manager (UserManager): Injected manager instance for database
+            operations.
 
     Returns:
-        UserRead: The updated user record with the new status.
+        UserRead: The updated user record reflecting the new status.
 
     Raises:
         HTTPException:
-            - 404 (Not Found): If the user ID does not exist.
-            - 500 (Internal Server Error): If the database update fails.
+            - 401 (Unauthorized): If the token is missing or invalid.
+            - 403 (Forbidden): If the user is authenticated (e.g., a student)
+              but lacks required privileges.
+            - 404 (Not Found): If the user_id does not exist in the database.
+            - 500 (Internal Server Error): If the database transaction failure occurs.
+
+    Security:
+        - Bearer Auth (JWT)
+        - Restricted to: TEACHER or ADMIN roles
     """
     return user_manager.set_user_status(user_id, active)
 
 
 @router.put("/{user_id}/edit", response_model=UserRead)
 async def update_user(
+        _current_user: Annotated[User, Depends(require_teacher_or_admin)],
         user_id: int,
         update_data: UserUpdate,
-        user_manager: UserManager = Depends(get_user_manager)):
+        user_manager: UserManager = Depends(get_user_manager)
+):
     """
+    TODO: Create a me endpoint version
+    TODO: Teacher are not allowed to edit admins
     Updates an existing user's profile information.
 
     This endpoint coordinates a partial update. It delegates identity
@@ -222,17 +278,27 @@ async def update_user(
     not already occupied by another account.
 
     Args:
-        user_id (int): Unique identifier of the user to be updated.
-        update_data (UserUpdate): Container for the fields to be modified.
-        user_manager (UserManager): Injected manager instance for user logic.
+        _current_user (User): The authenticated teacher's or administrator's user
+            record, used strictly to enforce role-based access control.
+        user_id (int): Unique database identifier of the user to be updated.
+        update_data (UserUpdate): Pydantic container for the fields to be modified.
+        user_manager (UserManager): Injected manager instance for user database
+            operations.
 
     Returns:
         UserRead: The updated and refreshed user record.
 
     Raises:
         HTTPException:
+            - 401 (Unauthorized): If the token is missing or invalid.
+            - 403 (Forbidden): If the user is authenticated (e.g., a student)
+              but lacks required privileges.
             - 404 (Not Found): If no user exists with the given ID.
             - 409 (Conflict): If the requested new email address is already taken.
             - 500 (Internal Server Error): If a database transaction failure occurs.
+
+    Security:
+        - Bearer Auth (JWT)
+        - Restricted to: TEACHER or ADMIN roles
     """
     return user_manager.update_user(user_id, update_data)

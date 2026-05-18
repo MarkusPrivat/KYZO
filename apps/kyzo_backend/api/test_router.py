@@ -1,7 +1,19 @@
+"""
+TODO: A student can only use there own tests
+API router for test execution and lifecycle management.
+"""
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+from apps.kyzo_backend.api.depends.role_depends import (
+    require_student,
+    require_student_or_admin,
+    require_student_teacher_or_admin
+)
 from apps.kyzo_backend.core import get_db
+from apps.kyzo_backend.data import User
 from apps.kyzo_backend.managers import TestManager
 from apps.kyzo_backend.schemas import (TestRead,
                                        TestGenerate,
@@ -9,7 +21,6 @@ from apps.kyzo_backend.schemas import (TestRead,
                                        TestQuestionRead,
                                        TestQuestionStepRead,
                                        TestSessionRead)
-
 
 router = APIRouter(
     prefix="/api/test",
@@ -36,6 +47,7 @@ def get_test_manager(db: Session = Depends(get_db)) -> TestManager:
 
 @router.post("/{test_id}/question/{test_question_id}/finalize", response_model=TestQuestionStepRead)
 async def finalize_test_question(
+        _current_user: Annotated[User, Depends(require_student_or_admin)],
         test_id: int,
         test_question_id: int,
         test_question_data: TestQuestionFinalize,
@@ -55,21 +67,33 @@ async def finalize_test_question(
     4. Transition: Fetch the next pending question or signal that all are done.
 
     Args:
-        test_id (int): The unique ID of the active test session.
-        test_question_id (int): The ID of the specific question instance to finalize.
-        test_question_data (TestQuestionFinalize): Data containing the student's choice
-            and time spent.
-        test_manager (TestManager): Injected manager to handle the business logic.
+        _current_user (User): The authenticated user record, used strictly to
+            verify that the requester holds a valid application role.
+        test_id (int): The unique database identifier of the active test session.
+        test_question_id (int): The unique database identifier of the specific
+            question instance to finalize.
+        test_question_data (TestQuestionFinalize): Pydantic container containing
+            the student's choice index and time spent.
+        test_manager (TestManager): Injected manager instance for test session
+            lifecycle and evaluation logic.
 
     Returns:
-        TestQuestionStepRead: A composite object containing the 'next_question'
-            (if available) and the 'all_done' status flag.
+        TestQuestionStepRead: A composite object containing the metadata for the
+            'next_question' (if available) and the 'all_done' status flag.
 
     Raises:
-        HTTPException (404): If the test or the test-question record is not found.
-        HTTPException (400): If the question was already finalized or the choice index
-            is out of range.
-        HTTPException (500): If a database error occurs during evaluation.
+        HTTPException:
+            - 401 (Unauthorized): If the token is missing or invalid.
+            - 403 (Forbidden): If the user is authenticated but does not match
+              any recognized system roles.
+            - 400 (Bad Request): If the question was already finalized or the
+              choice index is out of range.
+            - 404 (Not Found): If the test or the test-question record is not found.
+            - 500 (Internal Server Error): If a database error occurs during evaluation.
+
+    Security:
+        - Bearer Auth (JWT)
+        - Authorized roles: STUDENT or ADMIN roles
     """
     return test_manager.finalize_test_question(
         test_id,
@@ -80,8 +104,9 @@ async def finalize_test_question(
 
 @router.post("/{test_id}/finalize", response_model=TestRead)
 async def finalize_test(
-    test_id: int,
-    test_manager: TestManager = Depends(get_test_manager)
+        _current_user: Annotated[User, Depends(require_student_or_admin)],
+        test_id: int,
+        test_manager: Annotated[TestManager, Depends(get_test_manager)]
 ):
     """
     Finalizes a test session and marks it as completed.
@@ -97,23 +122,35 @@ async def finalize_test(
     4. Update: Set 'is_done' to True and commit the session.
 
     Args:
-        test_id (int): The unique identifier of the test to be finalized.
-        test_manager (TestManager): Injected manager to handle the finalization logic.
+        _current_user (User): The authenticated student's or administrator's user
+            record, used strictly to enforce role-based access control.
+        test_id (int): The unique database identifier of the test to be finalized.
+        test_manager (TestManager): Injected manager instance for test session
+            lifecycle and evaluation logic.
 
     Returns:
         TestRead: The finalized test record with its terminal status.
 
     Raises:
-        HTTPException (404): If the test ID does not exist.
-        HTTPException (400): If the test is already processed or has unanswered questions.
-        HTTPException (500): If a technical database error occurs.
+        HTTPException:
+            - 401 (Unauthorized): If the token is missing or invalid.
+            - 403 (Forbidden): If the user is authenticated (e.g., a teacher)
+              but lacks required privileges.
+            - 400 (Bad Request): If the test is already processed or has
+              unanswered questions.
+            - 404 (Not Found): If the test ID does not exist.
+            - 500 (Internal Server Error): If a technical database error occurs.
+
+    Security:
+        - Bearer Auth (JWT)
+        - Restricted to: STUDENT or ADMIN roles
     """
     return test_manager.finalize_test_session(test_id)
 
 
-
 @router.post("/generate", response_model=TestRead, status_code=status.HTTP_201_CREATED)
 async def generate_test(
+        _current_user: Annotated[User, Depends(require_student_teacher_or_admin)],
         test_data: TestGenerate,
         num_of_questions: int,
         test_manager: TestManager = Depends(get_test_manager)
@@ -132,26 +169,40 @@ async def generate_test(
     4. On success, persist the test session, link random questions, and return the record.
 
     Args:
-        test_data (TestGenerate): Schema containing user, subject, and topic IDs.
+        _current_user (User): The authenticated user record, used strictly to
+            verify that the requester holds a valid application role.
+        test_data (TestGenerate): Pydantic container containing target user,
+            subject, and optional topic IDs.
         num_of_questions (int): Desired number of questions for the session.
-        test_manager (TestManager): Injected manager to handle the generation logic.
+        test_manager (TestManager): Injected manager instance for test session
+            lifecycle and evaluation logic.
 
     Returns:
         TestRead: The initialized test session record.
 
     Raises:
-        HTTPException (400): If not enough questions are available in the pool.
-        HTTPException (404): If the user, subject, or topic does not exist.
-        HTTPException (500): If a database error occurs during the generation process.
+        HTTPException:
+            - 401 (Unauthorized): If the token is missing or invalid.
+            - 403 (Forbidden): If the user is authenticated but does not match
+              any recognized system roles.
+            - 400 (Bad Request): If not enough matching questions are available
+              in the pool to satisfy the requested count.
+            - 404 (Not Found): If the requested user, subject, or topic does not exist.
+            - 500 (Internal Server Error): If a database error occurs during the
+              generation or random sampling process.
+
+    Security:
+        - Bearer Auth (JWT)
+        - Authorized roles: STUDENT, TEACHER, ADMIN
     """
     return test_manager.generate_test_session(test_data, num_of_questions)
 
 
-
 @router.get("/{test_id}", response_model=TestRead)
 async def get_test_by_id(
-    test_id: int,
-    test_manager: TestManager = Depends(get_test_manager)
+        _current_user: Annotated[User, Depends(require_student_teacher_or_admin)],
+        test_id: int,
+        test_manager: TestManager = Depends(get_test_manager)
 ):
     """
     Retrieves a specific test session and its associated data by ID.
@@ -166,24 +217,35 @@ async def get_test_by_id(
     3. Return the test object on success.
 
     Args:
+        _current_user (User): The authenticated user record, used strictly to
+            verify that the requester holds a valid application role.
         test_id (int): The unique database identifier of the test.
-        test_manager (TestManager): Injected manager to handle the retrieval logic.
+        test_manager (TestManager): Injected manager instance for test session
+            lifecycle and evaluation logic.
 
     Returns:
         TestRead: The complete test session record.
 
     Raises:
-        HTTPException (404): If the test ID does not exist.
-        HTTPException (500): If a technical error occurs during retrieval.
+        HTTPException:
+            - 401 (Unauthorized): If the token is missing or invalid.
+            - 403 (Forbidden): If the user is authenticated but does not match
+              any recognized system roles.
+            - 404 (Not Found): If the test ID does not exist.
+            - 500 (Internal Server Error): If a technical error occurs during retrieval.
+
+    Security:
+        - Bearer Auth (JWT)
+        - Authorized roles: STUDENT, TEACHER, ADMIN
     """
     return test_manager.get_test_by_id(test_id)
 
 
-
 @router.get("/question/{test_question_id}", response_model=TestQuestionRead)
 async def get_test_question_by_id(
-    test_question_id: int,
-    test_manager: TestManager = Depends(get_test_manager)
+        _current_user: Annotated[User, Depends(require_student_teacher_or_admin)],
+        test_question_id: int,
+        test_manager: TestManager = Depends(get_test_manager)
 ):
     """
     Retrieves a specific test question record by its unique database ID.
@@ -198,23 +260,36 @@ async def get_test_question_by_id(
     3. Return the test question object on success.
 
     Args:
-        test_question_id (int): The unique ID of the test question entry.
-        test_manager (TestManager): Injected manager to handle the retrieval logic.
+        _current_user (User): The authenticated user record, used strictly to
+            verify that the requester holds a valid application role.
+        test_question_id (int): The unique database identifier of the specific
+            test question entry.
+        test_manager (TestManager): Injected manager instance for test session
+            lifecycle and evaluation logic.
 
     Returns:
         TestQuestionRead: The test question record details.
 
     Raises:
-        HTTPException (404): If the test question ID does not exist.
-        HTTPException (500): If a technical error occurs during retrieval.
+        HTTPException:
+            - 401 (Unauthorized): If the token is missing or invalid.
+            - 403 (Forbidden): If the user is authenticated but does not match
+              any recognized system roles.
+            - 404 (Not Found): If the test question ID does not exist.
+            - 500 (Internal Server Error): If a technical error occurs during retrieval.
+
+    Security:
+        - Bearer Auth (JWT)
+        - Authorized roles: STUDENT, TEACHER, ADMIN
     """
     return test_manager.get_test_question_by_id(test_question_id)
 
 
 @router.get("/{test_id}/session", response_model=TestSessionRead)
 async def run_test_session(
-    test_id: int,
-    test_manager: TestManager = Depends(get_test_manager)
+        _current_user: Annotated[User, Depends(require_student)],
+        test_id: int,
+        test_manager: TestManager = Depends(get_test_manager)
 ):
     """
     Provides all data required to start, resume, or continue a test session.
@@ -231,16 +306,27 @@ async def run_test_session(
        question, and a completion flag.
 
     Args:
-        test_id (int): The unique identifier of the test session.
-        test_manager (TestManager): Injected manager to handle the session logic.
+        _current_user (User): The authenticated student's user record, used
+            strictly to enforce role-based access control.
+        test_id (int): The unique database identifier of the test session.
+        test_manager (TestManager): Injected manager instance for test session
+            lifecycle and evaluation logic.
 
     Returns:
-        TestSessionRead: A composite object holding the test, the next
+        TestSessionRead: A composite object holding the test metadata, the next
             question (if any), and the 'all_done' status.
 
     Raises:
-        HTTPException (404): If the test ID does not exist.
-        HTTPException (400): If the test session is already completed.
-        HTTPException (500): If a database error occurs.
+        HTTPException:
+            - 401 (Unauthorized): If the token is missing or invalid.
+            - 403 (Forbidden): If the user is authenticated (e.g., a teacher
+              or admin) but lacks required privileges.
+            - 400 (Bad Request): If the test session is already completed.
+            - 404 (Not Found): If the test ID does not exist.
+            - 500 (Internal Server Error): If a database error occurs.
+
+    Security:
+        - Bearer Auth (JWT)
+        - Restricted to: STUDENT role
     """
     return test_manager.run_test_session(test_id)
