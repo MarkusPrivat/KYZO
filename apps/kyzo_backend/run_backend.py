@@ -72,10 +72,10 @@ def create_app() -> FastAPI:
         lifespan=lifespan
     )
 
-    backend_app.include_router(knowledge_router)
-    backend_app.include_router(question_router)
-    backend_app.include_router(test_router)
-    backend_app.include_router(user_router)
+    backend_app.include_router(knowledge_router, prefix="/api/v1")
+    backend_app.include_router(question_router, prefix="/api/v1")
+    backend_app.include_router(test_router, prefix="/api/v1")
+    backend_app.include_router(user_router, prefix="/api/v1")
 
     return backend_app
 

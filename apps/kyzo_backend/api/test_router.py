@@ -23,7 +23,7 @@ from apps.kyzo_backend.schemas import (TestRead,
                                        TestSessionRead)
 
 router = APIRouter(
-    prefix="/api/test",
+    prefix="/test",
     tags=["Test"]
 )
 

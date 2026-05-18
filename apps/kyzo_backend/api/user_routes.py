@@ -19,7 +19,7 @@ from apps.kyzo_backend.schemas import Token, UserCreate, UserRead, UserUpdate
 from apps.kyzo_backend.services.auth_service import AuthService
 
 router = APIRouter(
-    prefix="/api/users",
+    prefix="/users",
     tags=["Users"]
 )
 

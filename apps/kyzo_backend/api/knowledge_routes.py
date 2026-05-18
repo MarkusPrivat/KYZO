@@ -25,7 +25,7 @@ from apps.kyzo_backend.schemas import (
 )
 
 router = APIRouter(
-    prefix="/api/knowledge",
+    prefix="/knowledge",
     tags=["Knowledge"]
 )
 
