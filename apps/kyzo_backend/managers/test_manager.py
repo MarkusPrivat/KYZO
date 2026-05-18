@@ -5,8 +5,8 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload, Session
 
-from apps.kyzo_backend.config import QuestionMessages, TestMessages
-from apps.kyzo_backend.data import TestQuestion, Test, Question
+from apps.kyzo_backend.config import QuestionMessages, TestMessages, UserRole
+from apps.kyzo_backend.data import TestQuestion, Test, User, Question
 from apps.kyzo_backend.managers.question_manager import QuestionManager
 from apps.kyzo_backend.managers.knowledge_manager import KnowledgeManager
 from apps.kyzo_backend.managers.user_manager import UserManager
@@ -47,35 +47,47 @@ class TestManager:
             self,
             test_id: int,
             test_question_id: int,
-            test_question_data: TestQuestionFinalize
+            test_question_data: TestQuestionFinalize,
+            user: User
     ) -> dict[str, Any]:
         """
-        Evaluates an individual test question and orchestrates the transition to the next state.
+        Evaluates an individual test question and orchestrates the transition to the
+        next state.
 
         Workflow:
-        1. Retrieve records (TestQuestion + Question template).
-        2. Guard: Ensure the question hasn't been answered yet.
-        3. Validate: Check if the choice index is within range.
-        4. Evaluation: Compare choice with the correct answer and assign points.
-        5. Persistence: Record points, choice, and time; mark as done.
-        6. Score Update: Increment the global test session's total score.
-        7. Navigation: Commit and fetch the next unanswered question.
+        1. Retrieve records (Test session + TestQuestion with template).
+        2. Guard: Validate if the user is authorized to access this test session.
+        3. Guard: Ensure the question hasn't been answered yet.
+        4. Validate: Check if the choice index is within the question's options range.
+        5. Evaluation: Compare the choice with the correct answer and assign points.
+        6. Persistence: Record points, choice, and timing metrics; mark as done.
+        7. Score Update: Increment the global test session's total score.
+        8. Navigation: Commit changes and fetch the next unanswered question.
 
         Args:
             test_id (int): The unique identifier of the active test session.
             test_question_id (int): The ID of the specific question-test association.
             test_question_data (TestQuestionFinalize): Submission metrics (choice, timing).
+            user (User): The authenticated user entity executing the submission.
 
         Returns:
-            dict[str, Any]: {
-                "next_question": TestQuestion | None,
-                "all_done": bool
-            }
+            dict[str, Any]: A dictionary indicating the next state:
+                - "next_question" (TestQuestion | None):
+                    The next unanswered question, if available.
+                - "all_done" (bool):
+                    True if no more questions remain in the session.
 
         Raises:
-            HTTPException (400): If already answered or choice is out of range.
-            HTTPException (404/500): Inherited from helper methods or DB failure.
+            HTTPException:
+                - 400 (Bad Request): If the question is already finalized or the answer
+                  choice is out of range.
+                - 403 (Forbidden): If the user is neither an administrator nor the owner
+                  of the session.
+                - 404 (Not Found): If the test session or question does not exist.
+                - 500 (Internal Server Error): If a database transaction or commit failure occurs.
         """
+        test_session = self.get_test_by_id(test_id, user)
+
         test_question = self.get_test_question_with_data_by_id(test_question_id)
 
         if test_question.is_done:
@@ -101,7 +113,7 @@ class TestManager:
         test_question.time_spent_milliseconds = test_question_data.time_spent_milliseconds
         test_question.is_done = True
 
-        self._add_test_points(test_id, earned_points)
+        self._add_points_to_test_session(test_session, earned_points)
 
         try:
             self._db.commit()
@@ -120,34 +132,53 @@ class TestManager:
                 detail=f"{TestMessages.TEST_QUESTION_FINALIZE_ERROR} {str(error)}"
             ) from error
 
-    def finalize_test_session(self, test_id: int) -> Test:
+    def finalize_test_session(self, test_id: int, user: User) -> Test:
         """
-        Finalizes an assessment and triggers the post-test processing logic.
+        Finalizes an assessment session and triggers post-test processing logic.
 
-        This method transitions a test from 'done' to 'processed'. It ensures that
-        the test has been officially submitted by the student and has not been
-        evaluated yet.
+        This method transitions a test session from its active/completed state ('is_done')
+        to its terminal archival state ('is_processed'). It serves as the domain-level
+        entry point for official test submissions, locking the session against future
+        mutations and preparing it for evaluation or feedback generation.
+
+        Workflow:
+        1. Retrieve record: Fetch the target test session by its unique ID.
+        2. Guard (Access): Verify that the executing user has authorization to access
+           and modify this specific test session.
+        3. Guard (State): Ensure the student has actually finished answering all
+           questions ('is_done' is True).
+        4. Guard (Idempotency): Prevent re-processing if the session has already
+           been finalized ('is_processed' is True).
+        5. Process: Mark the session as processed, commit the transaction, and refresh.
 
         Args:
-            test_id (int): The unique identifier of the test to be finalized.
+            test_id (int): The unique database identifier of the test session to finalize.
+            user (User): The authenticated user entity initiating the finalization request.
 
         Returns:
-            Test: The finalized Test object with updated 'is_processed' status.
+            Test: The finalized and refreshed SQLAlchemy Test model instance with
+                'is_processed' set to True.
 
         Raises:
-            HTTPException (400): If the test is not finished or already processed.
-            HTTPException (404): If the test_id is not found.
-            HTTPException (500): If a database error occurs.
+            HTTPException:
+                - 400 (Bad Request): If the test session is not yet completed by the user,
+                  or if it has already been processed in a previous request.
+                - 403 (Forbidden): If the user is neither an administrator nor the
+                  verified owner of the test session.
+                - 404 (Not Found): If no test session matches the provided test_id
+                  (propagated from get_test_by_id).
+                - 500 (Internal Server Error): If a technical database transaction failure
+                  occurs during the commit.
         """
-        test = self.get_test_by_id(test_id)
+        test_session = self.get_test_by_id(test_id, user)
 
-        if not test.is_done:
+        if not test_session.is_done:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=TestMessages.NOT_DONE
             )
 
-        if test.is_processed:
+        if test_session.is_processed:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=TestMessages.TEST_ALREADY_PROCESSED
@@ -157,12 +188,12 @@ class TestManager:
             # TODO: AI Feedback Generation
             # Aufruf eines AI-Services, um die Performance zu analysieren
 
-            test.is_processed = True
+            test_session.is_processed = True
 
             self._db.commit()
-            self._db.refresh(test)
+            self._db.refresh(test_session)
 
-            return test
+            return test_session
 
         except SQLAlchemyError as error:
             self._db.rollback()
@@ -174,36 +205,47 @@ class TestManager:
     def generate_test_session(
             self,
             test_data: TestGenerate,
-            num_of_questions: int
+            num_of_questions: int,
+            user: User
     ) -> Test:
         """
-        Orchestrates the creation of a complete test session.
+        Orchestrates the creation of a complete randomized test session.
 
         This method follows a strict transactional workflow:
-        1. Validates referenced entities (User, Subject, Topic).
-        2. Verifies question availability in the pool.
-        3. Initializes the Test header and flushes to obtain an ID.
-        4. Selects random questions and links them to the session.
-        5. Commits the transaction or rolls back on database failure.
+        1. Validates referenced database entities (User, Subject, Topic) via foreign keys.
+        2. Guard (Access): Verifies resource ownership unless the requesting user is an Admin.
+        3. Inventory Check: Checks the total pool volume of available questions matching filters.
+        4. Guard (Availability): Aborts if requested question count exceeds available pool size.
+        5. Assembly: Initializes the Test header, flushes to obtain a technical ID, links
+           randomized question samples, and commits the full transaction.
 
         Args:
-            test_data (TestGenerate): Data containing IDs for user, subject, and topic.
-            num_of_questions (int): The required number of questions for the test.
+            test_data (TestGenerate): Pydantic data container containing target filters
+                such as user_id, subject_id, and optional topic_id.
+            num_of_questions (int): The required number of questions to slice into this session.
+            user (User): The authenticated user entity initiating the generation request.
 
         Returns:
-            Test: The fully populated and persisted Test object.
+            Test: The fully populated and refreshed SQLAlchemy Test session model instance.
 
         Raises:
             HTTPException:
-                - 400 (Bad Request): If not enough questions are available.
-                - 404 (Not Found): If foreign keys or specific questions aren't found.
-                - 500 (Internal Server Error): On database-level failures.
+                - 400 (Bad Request): If the question pool does not hold enough unique questions
+                  to satisfy the requested `num_of_questions`.
+                - 403 (Forbidden): If a non-admin user attempts to create a test session
+                  bound to another user's ID (via _validate_user_ownership).
+                - 404 (Not Found): If referenced foreign keys (user, subject, topic) do not exist.
+                - 500 (Internal Server Error): If a database transaction, insert, or sampling
+                  failure occurs.
         """
         self._check_foreignkey_exist(
             test_data.user_id,
             test_data.subject_id,
             test_data.topic_id
         )
+
+        if user != UserRole.ADMIN:
+            self._validate_user_ownership(test_data, user)
 
         available_questions = self.question_manager.count_questions(
             test_data.subject_id,
@@ -245,22 +287,34 @@ class TestManager:
                 detail=f"{TestMessages.CREATE_TEST_ERROR} {str(error)}"
             ) from error
 
-    def get_test_by_id(self, test_id: int) -> Test:
+    def get_test_by_id(
+            self,
+            test_id: int,
+            user: User
+    ) -> Test:
         """
-        Retrieves a complete test session by its unique identifier.
+        Retrieves a complete test session by its unique identifier after validating access.
 
-        This method utilizes eager loading (joinedload) to fetch the test header
+        This method utilizes eager loading (joinedload) to fetch the core test header
         along with its associated question instances in a single database round-trip.
+        Before returning the resource, it runs an ownership validation check against
+        the requesting user.
 
         Args:
-            test_id (int): The unique database ID of the test session.
+            test_id (int): The unique database identifier of the target test session.
+            user (User): The authenticated user entity requesting the test session data.
 
         Returns:
-            Test: The Test object with its 'test_question' collection pre-loaded.
+            Test: The populated SQLAlchemy Test model instance with its 'test_question'
+                collection fully preloaded.
 
         Raises:
-            HTTPException (404): If the test is not found.
-            HTTPException (500): If a database error occurs during retrieval.
+            HTTPException:
+                - 403 (Forbidden): If the user is neither an administrator nor the
+                  assigned owner of the test session.
+                - 404 (Not Found): If no test session matches the provided test_id.
+                - 500 (Internal Server Error): If a technical database exception or
+                  query failure occurs during retrieval.
         """
         try:
             stmt = (
@@ -277,6 +331,7 @@ class TestManager:
                     detail=TestMessages.TEST_NOT_FOUND
                 )
 
+            self._validate_test_session_access(result_test, user)
             return result_test
 
         except SQLAlchemyError as error:
@@ -285,24 +340,33 @@ class TestManager:
                 detail=f"{TestMessages.GET_TEST_ERROR} {str(error)}"
             ) from error
 
-    def get_test_question_by_id(self, test_question_id: int) -> TestQuestion:
+    def get_test_question_by_id(
+            self,
+            test_question_id: int,
+            user: User
+    ) -> TestQuestion:
         """
-        Retrieves a specific test-question instance by its unique ID.
+        Retrieves a specific test-question instance by its unique ID after verifying access rights.
 
-        This method is used during the evaluation phase to fetch the association
-        between a test session and a question. It provides the necessary context
-        (maximum points, completion status, etc.) to process an answer.
+        This method fetches the association record between a test session and a question template.
+        It provides critical context (such as maximum points, student choices, and completion
+        status) and applies strict role-based data ownership boundaries before returning the
+        resource.
 
         Args:
-            test_question_id (int): The unique identifier of the TestQuestion record.
+            test_question_id (int): The unique database identifier of the TestQuestion record.
+            user (User): The authenticated user entity requesting the record.
 
         Returns:
-            TestQuestion: The requested TestQuestion instance.
+            TestQuestion: The requested SQLAlchemy TestQuestion instance.
 
         Raises:
             HTTPException:
-                - 404 (Not Found): If no record exists with the given ID.
-                - 500 (Internal Server Error): If a database exception occurs.
+                - 403 (Forbidden): If a student attempts to retrieve a test question
+                  linked to a test session that does not belong to them.
+                - 404 (Not Found): If no TestQuestion record matches the provided ID.
+                - 500 (Internal Server Error): If a technical database or query execution
+                  failure occurs.
         """
         try:
             stmt = (
@@ -317,6 +381,8 @@ class TestManager:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=TestMessages.TEST_QUESTION_NOT_FOUND
                 )
+
+            self._validate_test_question_access(result_test_question, user)
 
             return result_test_question
 
@@ -370,31 +436,46 @@ class TestManager:
                 detail=f"{TestMessages.GET_TEST_QUESTION_ERROR}: {str(error)}"
             ) from error
 
-    def run_test_session(self, test_id: int) -> dict:
+    def run_test_session(
+            self,
+            test_id: int,
+            user: User
+    ) -> dict:
         """
-        Provides all necessary data to start or resume a test session.
+        Provides all necessary data to start or resume an active test session.
 
-        This method retrieves the test metadata and determines the next pending
-        question to be answered. It allows the frontend to immediately render
-        the current state of the session.
+        This method retrieves the test session's metadata and dynamically calculates
+        the next pending question to be answered. It serves as the primary data provider
+        for the frontend to instantly render the correct state of an ongoing quiz or exam.
+
+        Workflow:
+        1. Retrieve record: Fetch the target test session by its unique ID.
+        2. Guard (State): Ensure the test session hasn't already been completed ('is_done').
+        3. Guard (Access): Verify that the executing user is authorized to access this session.
+        4. Navigation: Query the next pending unanswered question belonging to the session.
 
         Args:
-            test_id (int): The unique identifier of the test session to run.
+            test_id (int): The unique database identifier of the test session to execute.
+            user (User): The authenticated user entity requesting the test execution.
 
         Returns:
-            dict: A dictionary containing:
-                - "test": The Test metadata object.
-                - "next_question": The next pending TestQuestion instance,
-                  or None if all questions are completed.
-                - "all_done": A boolean flag indicating if the session has
-                  no more pending questions.
+            dict: A state dictionary containing the following keys:
+                - "test" (Test): The core SQLAlchemy Test metadata object.
+                - "next_question" (TestQuestion | None): The next pending question instance,
+                  or None if no unanswered questions remain.
+                - "all_done" (bool): A boolean flag indicating whether the session has
+                  reached the end of its question pool.
 
         Raises:
             HTTPException:
-                - 400 (Bad Request): If the test is already marked as finalized.
-                - 404 (Not Found): If the test_id does not exist (via get_test_by_id).
+                - 400 (Bad Request): If the test session is already flagged as completed.
+                - 403 (Forbidden): If the user is neither an administrator nor the
+                  assigned owner of the test session.
+                - 404 (Not Found): If no test session matches the provided test_id.
+                - 500 (Internal Server Error): If a database exception occurs while fetching
+                  the session state or navigation steps.
         """
-        test = self.get_test_by_id(test_id)
+        test = self.get_test_by_id(test_id, user)
 
         if test.is_done:
             raise HTTPException(
@@ -410,28 +491,22 @@ class TestManager:
             "all_done": not next_question
         }
 
-    def _add_test_points(self, test_id: int, points: int) -> Test:
+    @staticmethod
+    def _add_points_to_test_session(test_session: Test, points: int) -> None:
         """
         Updates the cumulative score of a test session.
 
-        This helper method fetches the test header and increments the 'score'
-        field by the given amount. It ensures that the score is initialized
-        to zero if it was previously null.
+        This helper method manipulates the test tracking object and increments the
+        'score' field by the given amount. It ensures that the score is safely
+        initialized to zero if it was previously unassigned (Null).
 
         Args:
-            test_id (int): The unique identifier of the test.
-            points (int): The number of points to add.
-
-        Returns:
-            Test: The updated Test instance.
+            test_session (Test): The concrete SQLAlchemy Test model instance to update.
+            points (int): The number of points to add to the current score.
         """
-        test = self.get_test_by_id(test_id)
-
-        if test.score is None:
-            test.score = 0
-        test.score += points
-
-        return test
+        if test_session.score is None:
+            test_session.score = 0
+        test_session.score += points
 
     def _check_foreignkey_exist(
             self,
@@ -471,6 +546,99 @@ class TestManager:
             self.knowledge_manager.get_subject_by_id(subject_id)
 
         return True
+
+    @staticmethod
+    def _validate_test_session_access(test_session: Test, user: User) -> None:
+        """
+        Enforces access control boundaries for a test session resource.
+
+        This internal guard verifies whether the executing user possesses the necessary
+        clearance to read or write to the target test session.
+
+        Access Rules:
+        - ADMIN & TEACHER: Full access to inspect any test session.
+        - Owners: Users can access test sessions that belong specifically to their own user ID.
+
+        Args:
+            test_session (Test): The test session entity to be evaluated.
+            user (User): The authenticated user requesting access.
+
+        Raises:
+            HTTPException:
+                - 403 (Forbidden): If the user is neither an administrator nor the
+                  assigned owner of the test session.
+        """
+        if user.role in [UserRole.TEACHER, UserRole.ADMIN]:
+            return
+
+        if test_session.user_id == user.id:
+            return
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this test session.",
+        )
+
+    def _validate_test_question_access(self, test_question: TestQuestion, user: User) -> None:
+        """
+        Enforces access control boundaries for an individual test question resource.
+
+        This internal guard verifies whether the executing user possesses the necessary
+        clearance to read or interact with a specific question-session link.
+
+        Access Rules:
+        - ADMIN & TEACHER: Full access to inspect any test question.
+        - STUDENT: Can only access the question if they are the verified owner
+          of the parent test session.
+
+        Args:
+            test_question (TestQuestion): The specific test-question link entity to evaluate.
+            user (User): The authenticated user requesting access.
+
+        Raises:
+            HTTPException:
+                - 403 (Forbidden): If a student attempts to access a test question
+                  belonging to a test session owned by a different user.
+        """
+        if user.role in [UserRole.TEACHER, UserRole.ADMIN]:
+            return
+
+        test_session = self.get_test_by_id(test_question.test_id, user)
+
+        if test_session.user_id == user.id:
+            return
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this test question.",
+        )
+
+    @staticmethod
+    def _validate_user_ownership(test_data: TestGenerate, user: User) -> None:
+        """
+        Enforces resource ownership during the test generation process.
+
+        This internal guard verifies that the incoming request parameters align
+        with the identity of the authenticated user. It prevents unauthorized
+        users from generating test sessions on behalf of other accounts.
+
+        Args:
+            test_data (TestGenerate): Pydantic data container containing the
+                parameters for the new test, including the target 'user_id'.
+            user (User): The authenticated user entity executing the generation request.
+
+        Raises:
+            HTTPException:
+                - 403 (Forbidden): If the 'user_id' provided in the request body
+                  does not match the 'id' of the authenticated requester.
+        """
+        if test_data.user_id == user.id:
+            return
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to create test sessions for other users.",
+        )
 
     def _get_next_question(self, test_id: int) -> TestQuestion | None:
         """
