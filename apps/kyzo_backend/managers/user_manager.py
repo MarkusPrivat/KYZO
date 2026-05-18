@@ -86,7 +86,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
-from apps.kyzo_backend.config import UserMessages
+from apps.kyzo_backend.config import UserMessages, UserRole
 from apps.kyzo_backend.data import User
 from apps.kyzo_backend.schemas import UserCreate, UserUpdate
 
@@ -116,6 +116,39 @@ class UserManager:
             db (Session): The active SQLAlchemy session to be used for transactions.
         """
         self._db = db
+
+    def add_staff(self, user_data: UserCreate, creator_role: UserRole) -> User:
+        """
+        Evaluates the role creation hierarchy before persisting a new staff-user.
+
+        This method acts as a domain guard to ensure that users can only create
+        accounts within or below their own privilege level.
+
+        Hierarchy constraints:
+        - TEACHER: Can only create STUDENT or TEACHER accounts.
+        - ADMIN: Can create any account type, including other ADMIN accounts.
+
+        Args:
+            user_data (UserCreate): Validated registration details for the target user.
+            creator_role (UserRole): The system role of the user executing the creation.
+
+        Returns:
+            User: The successfully persisted SQLAlchemy User entity.
+
+        Raises:
+            HTTPException:
+                - 403 (Forbidden): If a non-admin user attempts to create an
+                  administrator account.
+                - 409 (Conflict): If the target email is already registered (via add_user).
+                - 500 (Internal Server Error): If a database transaction fails (via add_user).
+        """
+        if user_data.role == UserRole.ADMIN and creator_role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only Administrators are authorized to create new Administrator accounts."
+            )
+
+        return self.add_user(user_data)
 
     def add_user(self, user_data: UserCreate) -> User:
         """
@@ -266,23 +299,47 @@ class UserManager:
                 detail=f"{UserMessages.GET_USER_ERROR} {str(error)}"
             ) from error
 
-    def set_user_status(self, user_id: int, active: bool = True) -> User:
+    def set_user_status(
+            self,
+            user_id: int,
+            active: bool,
+            requester: UserRole
+    ) -> User:
         """
-        Toggles the account activation status for a specific user.
+        Toggles the account activation status for a specific user after verifying staff hierarchy.
+
+        This method serves as a domain-level access controller for administrative actions.
+        It ensures that while both Teachers and Admins can access the general feature,
+        strict boundaries are kept between staff privilege levels.
+
+        Hierarchy constraints:
+        - TEACHER: Can modify STUDENT and TEACHER accounts, but is strictly forbidden
+          from modifying ADMIN accounts.
+        - ADMIN: Holds full privileges and can modify any user account type in the system.
 
         Args:
-            user_id (int): The unique ID of the user to update.
-            active (bool): The target status. Defaults to True (active).
+            user_id (int): The unique database identifier of the target user to update.
+            active (bool): The target activation state (True for active, False for inactive).
+            requester (UserRole): The system role of the staff member executing the change.
 
         Returns:
-            User: The updated SQLAlchemy User instance.
+            User: The updated SQLAlchemy User instance reflecting the new activation status.
 
         Raises:
             HTTPException:
-                - 404 (Not Found) if user exists not (raised by get_user_by_id).
-                - 500 (Internal Server Error) if the database update fails.
+                - 403 (Forbidden): If a teacher attempts to modify an administrator account.
+                - 404 (Not Found): If no user record matches the provided user_id
+                  (propagated from get_user_by_id).
+                - 500 (Internal Server Error): If a technical database transaction failure
+                  or integrity error occurs during the commit.
         """
         user = self.get_user_by_id(user_id)
+
+        if requester == UserRole.TEACHER and user.role == UserRole.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions.",
+            )
 
         try:
             user.is_active = active

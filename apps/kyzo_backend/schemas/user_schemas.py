@@ -55,19 +55,22 @@ class Token(BaseSchema):
 
 class TokenData(BaseSchema):
     """
-    TODO: DOCSTRING UPDATE + Description!
-    Internal container for validated data extracted from a decoded JWT.
+    Internal container for validated data extracted from a decoded JWT payload.
 
-    This schema is used during the dependency injection process to hold the
-    identity information of a user. It ensures that the payload extracted
-    from the token's 'sub' claim is well-formed before it is used for
-    database lookups.
+    This schema acts as the standard data transfer object (DTO) during the
+    FastAPI dependency injection and authentication process. It holds the
+    authenticated user's identity and their assigned authorization scopes,
+    ensuring the token payload is well-formed before route guards or database
+    lookups are executed.
     """
     email: Optional[str | EmailStr] = Field(
         None,
-        description="The unique identifier (subject) of the user, extracted from the 'sub' claim."
+        description="The unique identifier of the user, extracted from the token's 'sub' claim."
     )
-    scopes: list[str] = Field([], description="")
+    scopes: list[str] = Field(
+        default=[],
+        description="The list of authorized system roles (e.g., 'STUDENT', 'TEACHER', 'ADMIN') extracted from the token's 'scope' claim to enforce Role-Based Access Control (RBAC)."
+    )
 
 
 class UserCreate(BaseSchema):

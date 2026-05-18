@@ -12,6 +12,7 @@ from apps.kyzo_backend.api.depends.role_depends import (
     require_teacher_or_admin,
     require_student_teacher_or_admin
 )
+from apps.kyzo_backend.config import UserRole
 from apps.kyzo_backend.core import get_db
 from apps.kyzo_backend.data import User
 from apps.kyzo_backend.managers import UserManager
@@ -58,7 +59,7 @@ def get_auth_service(db: Session = Depends(get_db)) -> AuthService:
     return AuthService(db)
 
 
-@router.get("/users/me/", response_model=UserRead)
+@router.get("/user/", response_model=UserRead)
 async def get_current_user(
         current_user: Annotated[User, Depends(require_student_teacher_or_admin)],
 ) -> User:
@@ -191,43 +192,134 @@ async def login_for_access_token(
     return Token(access_token=access_token, token_type="bearer")
 
 
-@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-async def register_user(
+@router.post("/register-staff", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+async def register_staff(
         user_data: UserCreate,
-        user_manager: UserManager = Depends(get_user_manager)
+        current_user: Annotated[User, Depends(require_teacher_or_admin)],
+        user_manager: Annotated[UserManager, Depends(get_user_manager)]
 ):
     """
-    TODO: Role base check for new teacher and admins
-    Registers a new user account in the system.
+    Registers a new managed user account (Student, Teacher, or Admin).
 
-    This endpoint delegates the entire registration process to the UserManager,
-    including existence checks, data normalization, and persistence.
+    This endpoint serves as an administrative guard for staff-managed user creation.
+    It delegates the validation of the role-hierarchy and database persistence
+    entirely to the UserManager.
 
     Args:
-        user_data (UserCreate): The validated registration data.
-        user_manager (UserManager): Injected manager for user-related operations.
+        user_data (UserCreate): Validated data container holding the details
+            of the user to be created.
+        current_user (User): The authenticated staff member (Teacher or Admin)
+            initiating the creation request, injected by the role dependency.
+        user_manager (UserManager): Injected manager instance handling the domain
+            and database operations for user resources.
 
     Returns:
-        UserRead: The newly created user record.
+        UserRead: The newly created and persisted user database record.
 
     Raises:
         HTTPException:
-            - 409 (Conflict): If the email is already associated with an account.
-            - 500 (Internal Server Error): If a database or system error occurs.
+            - 401 (Unauthorized): If the authentication token is missing or invalid.
+            - 403 (Forbidden): If the user is authenticated but lacks teacher/admin
+              privileges, OR if a teacher attempts to create an admin account.
+            - 409 (Conflict): If the target email address is already associated
+              with an existing account.
+            - 500 (Internal Server Error): If a technical error or database
+              integrity violation occurs during creation.
+
+    Security:
+        - Bearer Auth (JWT)
+        - Restricted to: TEACHER or ADMIN roles (Hierarchical checks enforced)
     """
+    return user_manager.add_staff(user_data, current_user.role)
+
+
+@router.post("/register-user", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+async def register_user(
+        user_data: UserCreate,
+        user_manager: Annotated[UserManager, Depends(get_user_manager)]
+):
+    """
+    Registers a new public student account in the system.
+
+    This endpoint handles the public self-registration flow. It explicitly overrides
+    any incoming role parameter to ensure that accounts created through this route
+    are strictly assigned the STUDENT role, preventing unauthorized privilege escalation.
+    The remaining persistence logic is delegated to the UserManager.
+
+    Args:
+        user_data (UserCreate): Validated registration data transfer object
+            containing the new student's credentials.
+        user_manager (UserManager): Injected manager instance handling user-related
+            domain logic and database persistence operations.
+
+    Returns:
+        UserRead: The newly created student user record.
+
+    Raises:
+        HTTPException:
+            - 409 (Conflict): If the provided email address is already associated
+              with an existing account.
+            - 500 (Internal Server Error): If a technical error or database
+              integrity violation occurs during the registration process.
+
+    Security:
+        - Public Endpoint (No authentication required)
+        - Enforced target role: STUDENT
+    """
+    user_data.role = UserRole.STUDENT
     return user_manager.add_user(user_data)
+
+
+@router.put("/user/status", response_model=UserRead)
+async def set_current_user_status(
+        active: bool,
+        current_user: Annotated[User, Depends(require_student_teacher_or_admin)],
+        user_manager: Annotated[UserManager, Depends(get_user_manager)]
+):
+    """
+    Allows the authenticated user to toggle their own account activation status.
+
+    This endpoint is primarily used for account self-deactivation. When a user sets
+    their status to 'False', they are immediately deactivated.
+
+    CRITICAL WORKFLOW NOTE:
+    Since a deactivated user cannot bypass the authentication dependencies on
+    subsequent requests, this operation is irreversible by the user themselves.
+    Once deactivated, they cannot call this endpoint again to re-activate ('True')
+    their account; re-activation requires administrative intervention.
+
+    Args:
+        active (bool): The target activation state (typically 'False' for self-deactivation).
+        current_user (User): The authenticated user record of the requester,
+            injected by the global role dependency.
+        user_manager (UserManager): Injected manager instance handling the domain
+            and database operations for user resources.
+
+    Returns:
+        UserRead: The updated user record reflecting the new activation status.
+
+    Raises:
+        HTTPException:
+            - 401 (Unauthorized): If the authentication token is missing or invalid.
+            - 403 (Forbidden): If the user is authenticated but lacks any valid system role.
+            - 404 (Not Found): If the current user's record does not exist in the database.
+            - 500 (Internal Server Error): If a technical database transaction failure occurs.
+
+    Security:
+        - Bearer Auth (JWT)
+        - Open to all authenticated roles: STUDENT, TEACHER, ADMIN
+    """
+    return user_manager.set_user_status(current_user.id, active, current_user.role)
 
 
 @router.put("/{user_id}/status", response_model=UserRead)
 async def set_user_status(
-        _current_user: Annotated[User, Depends(require_teacher_or_admin)],
+        current_user: Annotated[User, Depends(require_teacher_or_admin)],
         user_id: int,
         active: bool,
         user_manager: UserManager = Depends(get_user_manager)
 ):
     """
-    TODO: Create a me endpoint version
-    TODO: Teacher are not allowed to edit admins
     Toggles the activation status of a specific user.
 
     Updates the 'is_active' flag for the given user ID. This operation is
@@ -235,7 +327,7 @@ async def set_user_status(
     committing the status change to the database.
 
     Args:
-        _current_user (User): The authenticated teacher's or administrator's user
+        current_user (User): The authenticated teacher's or administrator's user
             record, used strictly to enforce role-based access control.
         user_id (int): The unique database identifier of the target user.
         active (bool): The target status (True for active, False for inactive).
@@ -257,48 +349,93 @@ async def set_user_status(
         - Bearer Auth (JWT)
         - Restricted to: TEACHER or ADMIN roles
     """
-    return user_manager.set_user_status(user_id, active)
+    return user_manager.set_user_status(user_id, active, current_user.role)
+
+
+@router.put("/user/edit", response_model=UserRead)
+async def update_current_user(
+        update_data: UserUpdate,
+        current_user: Annotated[User, Depends(require_student_teacher_or_admin)],
+        user_manager: Annotated[UserManager, Depends(get_user_manager)]
+):
+    """
+    Updates the authenticated user's own profile information.
+
+    This endpoint orchestrates a partial profile update (PATCH-like behavior via PUT)
+    for the currently logged-in user. It allows any authenticated user—regardless of
+    their system role—to update their account details.
+
+    Data integrity checks—such as ensuring email uniqueness if the email is modified—and
+    database persistence are delegated entirely to the UserManager.
+
+    Args:
+        update_data (UserUpdate): Pydantic data transfer object containing the
+            specific profile fields to be modified.
+        current_user (User): The authenticated user record of the requester
+            initiating the self-update, injected by the global role dependency.
+        user_manager (UserManager): Injected manager instance handling the domain
+            and database operations for user resources.
+
+    Returns:
+        UserRead: The updated and refreshed user record reflecting the modifications.
+
+    Raises:
+        HTTPException:
+            - 401 (Unauthorized): If the authentication token is missing or invalid.
+            - 403 (Forbidden): If the user is authenticated but lacks any valid system role.
+            - 409 (Conflict): If the requested new email address is already registered
+              by another account in the system.
+            - 500 (Internal Server Error): If a technical error or database transaction
+              failure occurs during the update process.
+
+    Security:
+        - Bearer Auth (JWT)
+        - Open to all authenticated roles: STUDENT, TEACHER, ADMIN
+    """
+    return user_manager.update_user(current_user.id, update_data, current_user.role)
 
 
 @router.put("/{user_id}/edit", response_model=UserRead)
 async def update_user(
-        _current_user: Annotated[User, Depends(require_teacher_or_admin)],
+        current_user: Annotated[User, Depends(require_teacher_or_admin)],
         user_id: int,
         update_data: UserUpdate,
-        user_manager: UserManager = Depends(get_user_manager)
+        user_manager: Annotated[UserManager, Depends(get_user_manager)]
 ):
     """
-    TODO: Create a me endpoint version
-    TODO: Teacher are not allowed to edit admins
-    Updates an existing user's profile information.
+    Administratively updates another user's profile information.
 
-    This endpoint coordinates a partial update. It delegates identity
-    verification and data integrity checks (like email uniqueness) to the
-    UserManager. If the email is being changed, the system ensures it is
-    not already occupied by another account.
+    This endpoint coordinates a partial update for a specific user record identified
+    by their unique database ID. It enforces strict staff-level access boundaries
+    and delegates identity verification, role-hierarchy enforcement, and data integrity
+    checks (such as email uniqueness) entirely to the UserManager.
 
     Args:
-        _current_user (User): The authenticated teacher's or administrator's user
-            record, used strictly to enforce role-based access control.
-        user_id (int): Unique database identifier of the user to be updated.
-        update_data (UserUpdate): Pydantic container for the fields to be modified.
-        user_manager (UserManager): Injected manager instance for user database
-            operations.
+        user_id (int): The unique database identifier of the target user whose
+            profile is to be updated.
+        update_data (UserUpdate): Pydantic data transfer object containing the
+            specific profile fields to be modified.
+        current_user (User): The authenticated staff member (Teacher or Admin)
+            initiating the administrative update, injected by the global role dependency.
+        user_manager (UserManager): Injected manager instance handling the domain
+            and database operations for user resources.
 
     Returns:
-        UserRead: The updated and refreshed user record.
+        UserRead: The updated and refreshed user database record.
 
     Raises:
         HTTPException:
-            - 401 (Unauthorized): If the token is missing or invalid.
-            - 403 (Forbidden): If the user is authenticated (e.g., a student)
-              but lacks required privileges.
-            - 404 (Not Found): If no user exists with the given ID.
-            - 409 (Conflict): If the requested new email address is already taken.
-            - 500 (Internal Server Error): If a database transaction failure occurs.
+            - 401 (Unauthorized): If the authentication token is missing or invalid.
+            - 403 (Forbidden): If the user is authenticated but lacks staff privileges,
+              OR if a teacher attempts to modify an account above their privilege level.
+            - 404 (Not Found): If no user record matches the provided user_id.
+            - 409 (Conflict): If the requested new email address is already occupied
+              by another account in the system.
+            - 500 (Internal Server Error): If a technical error or database transaction
+              failure occurs during the update process.
 
     Security:
         - Bearer Auth (JWT)
-        - Restricted to: TEACHER or ADMIN roles
+        - Restricted to: TEACHER or ADMIN roles (Hierarchical checks enforced)
     """
-    return user_manager.update_user(user_id, update_data)
+    return user_manager.update_user(user_id, update_data, current_user.role)
