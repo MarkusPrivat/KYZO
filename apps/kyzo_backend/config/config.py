@@ -4,7 +4,8 @@ from typing import Any
 
 from pydantic import Field, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 class InputType(enum.Enum):
     """
@@ -159,3 +160,4 @@ class FastAPISettings(BaseSettings):
 
 
 fastapi_settings = FastAPISettings()
+slowapi_limiter = Limiter(key_func=get_remote_address)

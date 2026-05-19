@@ -10,5 +10,6 @@ pydantic
 pydantic[email]
 pydantic_settings
 PyJWT
+slowapi
 sqlalchemy
 uvicorn

@@ -3,7 +3,7 @@ API routes for user management and authentication for the Kyzo backend.
 """
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -12,12 +12,13 @@ from apps.kyzo_backend.api.depends.role_depends import (
     require_teacher_or_admin,
     require_student_teacher_or_admin
 )
-from apps.kyzo_backend.config import UserRole
+from apps.kyzo_backend.config import slowapi_limiter, UserRole
 from apps.kyzo_backend.core import get_db
 from apps.kyzo_backend.data import User
 from apps.kyzo_backend.managers import UserManager
 from apps.kyzo_backend.schemas import Token, UserCreate, UserRead, UserUpdate
 from apps.kyzo_backend.services.auth_service import AuthService
+
 
 router = APIRouter(
     prefix="/users",
@@ -161,7 +162,9 @@ async def get_user(
 
 
 @router.post("/login")
+@slowapi_limiter.limit("5/minute")
 async def login_for_access_token(
+        request: Request,
         form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
         auth_service: Annotated[AuthService, Depends(get_auth_service)]
 ) -> Token:
@@ -174,6 +177,8 @@ async def login_for_access_token(
     scopes for subsequent authorized requests.
 
     Args:
+        request (Request): The incoming FastAPI HTTP request instance, required
+            by SlowAPI to track client state and enforce the rate limit.
         form_data (OAuth2PasswordRequestForm): FastAPI-provided container
             extracting 'username' (email) and 'password' from the form-data request body.
         auth_service (AuthService): Injected service handling the core authentication
@@ -187,6 +192,12 @@ async def login_for_access_token(
         HTTPException:
             - 401 (Unauthorized): If the email is not found, the password
               is incorrect, or the account is otherwise invalid.
+            - 429 (Too Many Requests): If the client exceeds the allowed rate limit
+              (triggered automatically via SlowAPI).
+
+    Security & Rate Limiting:
+        - Public Endpoint (No authentication required to initiate)
+        - Rate Limit: Enforced at **5 requests per minute** per client IP.
     """
     access_token = auth_service.authenticate_user(form_data)
     return Token(access_token=access_token, token_type="bearer")

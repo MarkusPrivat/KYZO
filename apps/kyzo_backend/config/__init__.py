@@ -1,6 +1,7 @@
 from .config import (
     fastapi_settings,
     InputType,
+    slowapi_limiter,
     UserRole
 )
 
