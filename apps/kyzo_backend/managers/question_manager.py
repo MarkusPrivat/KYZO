@@ -28,7 +28,11 @@ class QuestionManager:
     models and the API layer.
     """
 
-    def __init__(self, db: Session):
+    def __init__(
+            self,
+            db: Session,
+            knowledge_manager: KnowledgeManager
+    ):
         """
         Initializes the QuestionManager with a database session and AI services.
 
@@ -45,6 +49,7 @@ class QuestionManager:
             db (Session): An active SQLAlchemy session used for all persistence operations.
         """
         self._db = db
+        self.knowledge_manager = knowledge_manager
         self.image_service = ImageProcessingService()
         self.llm_orchestrator = LLMOrchestrator()
 
@@ -753,9 +758,7 @@ class QuestionManager:
                 - 404 (Not Found): If the subject/topic link is invalid (via KnowledgeManager).
                 - 500 (Internal Server Error): If a database error occurs.
         """
-        knowledge_manager = KnowledgeManager(self._db)
-
-        return knowledge_manager.get_topic_from_subject(subject_id, topic_id)
+        return self.knowledge_manager.get_topic_from_subject(subject_id, topic_id)
 
     def _validate_hierarchy_and_get_names(self, subject_id: int, topic_id: int) -> tuple[str, str]:
         """
@@ -777,10 +780,8 @@ class QuestionManager:
                   link is invalid.
                 - 500 (Internal Server Error): If a database error occurs.
         """
-        knowledge_manager = KnowledgeManager(self._db)
-
-        subject = knowledge_manager.get_subject_by_id(subject_id)
-        topic = knowledge_manager.get_topic_from_subject(subject_id, topic_id)
+        subject = self.knowledge_manager.get_subject_by_id(subject_id)
+        topic = self.knowledge_manager.get_topic_from_subject(subject_id, topic_id)
 
         return subject.name, topic.name
 

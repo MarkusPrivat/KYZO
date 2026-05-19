@@ -24,7 +24,13 @@ class TestManager:
     individual student progress.
     """
 
-    def __init__(self, db: Session):
+    def __init__(
+            self,
+            db: Session,
+            knowledge_manager: KnowledgeManager,
+            question_manager: QuestionManager,
+            user_manager: UserManager
+    ):
         """
         Initializes the TestManager with a database session and internal sub-managers.
 
@@ -39,9 +45,9 @@ class TestManager:
                 transactional operations across the manager and its components.
         """
         self._db = db
-        self.knowledge_manager = KnowledgeManager(self._db)
-        self.question_manager = QuestionManager(self._db)
-        self.user_manager = UserManager(self._db)
+        self.knowledge_manager = knowledge_manager
+        self.question_manager = question_manager
+        self.user_manager = user_manager
 
     def finalize_test_question(
             self,

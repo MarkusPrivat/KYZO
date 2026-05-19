@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from apps.kyzo_backend.api.depends.role_depends import require_teacher_or_admin
 from apps.kyzo_backend.core import get_db
 from apps.kyzo_backend.data import User
-from apps.kyzo_backend.managers import QuestionManager
+from apps.kyzo_backend.managers import KnowledgeManager, QuestionManager
 from apps.kyzo_backend.schemas import (
     QuestionInputCreate,
     QuestionInputUpdate,
@@ -26,21 +26,38 @@ router = APIRouter(
 )
 
 
-def get_question_manager(db: Session = Depends(get_db)) -> QuestionManager:
+def get_knowledge_manager(db: Session = Depends(get_db)) -> KnowledgeManager:
     """
-    Dependency provider for the QuestionManager.
+    Dependency provider for the KnowledgeManager.
+    """
+    return KnowledgeManager(db)
 
-    This function facilitates the injection of a QuestionManager instance into
-    API routes. It automatically retrieves the database session via
-    FastAPI's dependency system and passes it to the manager.
+
+def get_question_manager(
+    db: Session = Depends(get_db),
+    knowledge_manager: KnowledgeManager = Depends(get_knowledge_manager)
+) -> QuestionManager:
+    """
+    Dependency provider for the QuestionManager, resolving nested manager dependencies.
+
+    This function coordinates the injection of a QuestionManager instance into API routes.
+    By fetching the required KnowledgeManager via FastAPI's dependency system, it eliminates
+    tight coupling within the manager's constructor while ensuring that both managers
+    share the exact same database session context for transaction safety.
 
     Args:
-        db (Session): The SQLAlchemy database session provided by get_db.
+        db (Session): The SQLAlchemy database session provided by 'get_db'.
+        knowledge_manager (KnowledgeManager): The resolved downstream manager instance
+            required for cross-domain educational content operations.
 
     Returns:
-        QuestionManager: An initialized instance ready for business logic operations.
+        QuestionManager: A fully initialized QuestionManager instance ready for
+            business logic operations.
     """
-    return QuestionManager(db)
+    return QuestionManager(
+        db=db,
+        knowledge_manager=knowledge_manager
+    )
 
 
 def parse_question_input(input_data_json: str = Form(...)) -> QuestionInputCreate:

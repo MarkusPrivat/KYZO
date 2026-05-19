@@ -13,13 +13,20 @@ from apps.kyzo_backend.api.depends.role_depends import (
 )
 from apps.kyzo_backend.core import get_db
 from apps.kyzo_backend.data import User
-from apps.kyzo_backend.managers import TestManager
-from apps.kyzo_backend.schemas import (TestRead,
-                                       TestGenerate,
-                                       TestQuestionFinalize,
-                                       TestQuestionRead,
-                                       TestQuestionStepRead,
-                                       TestSessionRead)
+from apps.kyzo_backend.managers import (
+    KnowledgeManager,
+    QuestionManager,
+    TestManager,
+    UserManager
+)
+from apps.kyzo_backend.schemas import (
+    TestRead,
+    TestGenerate,
+    TestQuestionFinalize,
+    TestQuestionRead,
+    TestQuestionStepRead,
+    TestSessionRead
+)
 
 router = APIRouter(
     prefix="/test",
@@ -27,21 +34,67 @@ router = APIRouter(
 )
 
 
-def get_test_manager(db: Session = Depends(get_db)) -> TestManager:
+def get_knowledge_manager(db: Session = Depends(get_db)) -> KnowledgeManager:
     """
-    Dependency provider for the TestManager.
+    Dependency provider for the KnowledgeManager.
+    """
+    return KnowledgeManager(db)
 
-    This function facilitates the injection of a TestManager instance into
-    API routes. It automatically retrieves the database session via
-    FastAPI's dependency system to ensure consistent database access.
+
+def get_user_manager(db: Session = Depends(get_db)) -> UserManager:
+    """
+    Dependency provider for the UserManager.
+    """
+    return UserManager(db)
+
+
+def get_question_manager(
+    db: Session = Depends(get_db),
+    knowledge_manager: KnowledgeManager = Depends(get_knowledge_manager)
+) -> QuestionManager:
+    """
+    Dependency provider for the QuestionManager, resolving nested manager dependencies.
+    """
+    return QuestionManager(
+        db=db,
+        knowledge_manager=knowledge_manager
+    )
+
+
+def get_test_manager(
+    db: Session = Depends(get_db),
+    knowledge_manager: KnowledgeManager = Depends(get_knowledge_manager),
+    question_manager: QuestionManager = Depends(get_question_manager),
+    user_manager: UserManager = Depends(get_user_manager)
+) -> TestManager:
+    """
+    FastAPI dependency provider that orchestrates and injects all required
+    sub-managers into the TestManager instance.
+
+    This provider resolves the entire top-level dependency graph for the test domain.
+    By utilizing FastAPI's dependency caching mechanism, it guarantees that 'get_db'
+    is evaluated exactly once per HTTP request. As a result, the TestManager and all
+    of its injected sub-managers (Knowledge, Question, User) share the exact same
+    SQLAlchemy Session instance, preserving strict database transaction boundaries
+    (commit/rollback isolation).
 
     Args:
-        db (Session): The SQLAlchemy database session injected by FastAPI.
+        db (Session): The core SQLAlchemy database session for the current request.
+        knowledge_manager (KnowledgeManager): Injected manager for domain knowledge.
+        question_manager (QuestionManager): Injected manager for educational questions
+            (which internally shares the same knowledge_manager instance).
+        user_manager (UserManager): Injected manager for user profile verification.
 
     Returns:
-        TestManager: An initialized instance of the TestManager.
+        TestManager: A fully composed TestManager instance, decoupled from internal
+            instantiation logic and optimized for standalone unit testing.
     """
-    return TestManager(db)
+    return TestManager(
+        db=db,
+        knowledge_manager=knowledge_manager,
+        question_manager=question_manager,
+        user_manager=user_manager
+    )
 
 
 @router.post("/{test_id}/question/{test_question_id}/finalize", response_model=TestQuestionStepRead)
