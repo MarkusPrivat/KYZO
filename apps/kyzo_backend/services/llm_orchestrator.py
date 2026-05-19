@@ -132,3 +132,5 @@ class LLMOrchestrator:
                         gemma_error=str(gemma_error)
                     )
                 ) from gemma_error
+
+llm_orchestrator_instance = LLMOrchestrator()

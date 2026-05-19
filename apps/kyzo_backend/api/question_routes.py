@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, status, Uploa
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from apps.kyzo_backend.api.depends.llm_depends import get_llm_orchestrator, get_image_service
 from apps.kyzo_backend.api.depends.role_depends import require_teacher_or_admin
 from apps.kyzo_backend.core import get_db
 from apps.kyzo_backend.data import User
@@ -19,6 +20,7 @@ from apps.kyzo_backend.schemas import (
     QuestionRead,
     QuestionStatus
 )
+from apps.kyzo_backend.services import ImageProcessingService, LLMOrchestrator
 
 router = APIRouter(
     prefix="/questions",
@@ -34,8 +36,10 @@ def get_knowledge_manager(db: Session = Depends(get_db)) -> KnowledgeManager:
 
 
 def get_question_manager(
-    db: Session = Depends(get_db),
-    knowledge_manager: KnowledgeManager = Depends(get_knowledge_manager)
+        db: Session = Depends(get_db),
+        knowledge_manager: KnowledgeManager = Depends(get_knowledge_manager),
+        image_service: ImageProcessingService = Depends(get_image_service),
+        llm_orchestrator: LLMOrchestrator = Depends(get_llm_orchestrator),
 ) -> QuestionManager:
     """
     Dependency provider for the QuestionManager, resolving nested manager dependencies.
@@ -56,7 +60,9 @@ def get_question_manager(
     """
     return QuestionManager(
         db=db,
-        knowledge_manager=knowledge_manager
+        knowledge_manager=knowledge_manager,
+        image_service=image_service,
+        llm_orchestrator=llm_orchestrator
     )
 
 

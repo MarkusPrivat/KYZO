@@ -1,4 +1,4 @@
 from .google_gen_ai_service import GoogleLLMService
-from .image_processing import ImageProcessingService
-from .llm_orchestrator import LLMOrchestrator
+from .image_processing import ImageProcessingService, image_processing_instance
+from .llm_orchestrator import LLMOrchestrator, llm_orchestrator_instance
 from .openai_service import OpenaiLLMService

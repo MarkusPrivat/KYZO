@@ -165,3 +165,5 @@ class ImageProcessingService:
             "base64": base64_str,
             "mime_type": "image/jpeg"
         }
+
+image_processing_instance = ImageProcessingService()

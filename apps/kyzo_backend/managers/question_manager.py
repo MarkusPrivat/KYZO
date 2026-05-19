@@ -31,7 +31,9 @@ class QuestionManager:
     def __init__(
             self,
             db: Session,
-            knowledge_manager: KnowledgeManager
+            knowledge_manager: KnowledgeManager,
+            image_service: ImageProcessingService,
+            llm_orchestrator: LLMOrchestrator
     ):
         """
         Initializes the QuestionManager with a database session and AI services.
@@ -50,8 +52,8 @@ class QuestionManager:
         """
         self._db = db
         self.knowledge_manager = knowledge_manager
-        self.image_service = ImageProcessingService()
-        self.llm_orchestrator = LLMOrchestrator()
+        self.image_service = image_service
+        self.llm_orchestrator = llm_orchestrator
 
     def add_question(self, question_data: QuestionCreate) -> Question:
         """
