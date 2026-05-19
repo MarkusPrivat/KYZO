@@ -17,7 +17,7 @@ from apps.kyzo_backend.managers import UserManager
 from apps.kyzo_backend.schemas import TokenData
 
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/api/users/login",
+    tokenUrl=f"{fastapi_settings.API_PREFIX_V1}/users/login",
     scopes={
         str(UserRole.STUDENT): "Student",
         str(UserRole.TEACHER): "Teacher",

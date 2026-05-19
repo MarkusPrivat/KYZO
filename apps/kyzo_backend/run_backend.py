@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 
+from apps.kyzo_backend.config import fastapi_settings
 from apps.kyzo_backend.core import create_database
 from apps.kyzo_backend.api import (knowledge_router,
                                    question_router,
@@ -72,10 +73,10 @@ def create_app() -> FastAPI:
         lifespan=lifespan
     )
 
-    backend_app.include_router(knowledge_router, prefix="/api/v1")
-    backend_app.include_router(question_router, prefix="/api/v1")
-    backend_app.include_router(test_router, prefix="/api/v1")
-    backend_app.include_router(user_router, prefix="/api/v1")
+    backend_app.include_router(knowledge_router, prefix=fastapi_settings.API_PREFIX_V1)
+    backend_app.include_router(question_router, prefix=fastapi_settings.API_PREFIX_V1)
+    backend_app.include_router(test_router, prefix=fastapi_settings.API_PREFIX_V1)
+    backend_app.include_router(user_router, prefix=fastapi_settings.API_PREFIX_V1)
 
     return backend_app
 

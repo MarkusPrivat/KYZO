@@ -62,6 +62,9 @@ class FastAPISettings(BaseSettings):
     DATABASE_PATH: Path = DATA_DIR / 'kyzo-data.sqlite'
     SQLALCHEMY_DATABASE_URI: str = ""
 
+    # API
+    API_PREFIX_V1: str = Field("/api/v1", description="Prefix for API v1")
+
     # LLM settings:
     OPENAI_API_KEY: str = Field(...)
     OPENAI_MODEL: str = Field(
