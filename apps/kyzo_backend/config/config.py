@@ -66,6 +66,15 @@ class FastAPISettings(BaseSettings):
     # API
     API_PREFIX_V1: str = Field("/api/v1", description="Prefix for API v1")
 
+    # Image Service
+    MAX_UPLOAD_SIZE = 25 * 1024 * 1024 # (25 MB in Byte)
+    ALLOWED_MIME_TYPES = {
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "application/pdf"
+    }
+
     # LLM settings:
     OPENAI_API_KEY: str = Field(...)
     OPENAI_MODEL: str = Field(

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from apps.kyzo_backend.api.depends.llm_depends import get_llm_orchestrator, get_image_service
 from apps.kyzo_backend.api.depends.role_depends import require_teacher_or_admin
+from apps.kyzo_backend.api.depends.util_depends import validate_uploaded_file
 from apps.kyzo_backend.core import get_db
 from apps.kyzo_backend.data import User
 from apps.kyzo_backend.managers import KnowledgeManager, QuestionManager
@@ -109,9 +110,10 @@ async def add_question(
     """
     Initiates the question generation pipeline from either raw text or uploaded files.
 
-    This endpoint coordinates the full creation flow: metadata validation,
-    OCR processing for files (if provided), and AI-driven question extraction
-    via an automated multi-provider fallback logic.
+    This endpoint coordinates the full creation flow: metadata validation, preemptive
+    file safety checks (MIME-type and payload size validation), OCR processing for
+    files (if provided), and AI-driven question extraction via an automated
+    multi-provider fallback logic.
 
     OCR Architecture:
         - Primary: Gemini 3.1
@@ -140,15 +142,22 @@ async def add_question(
             - 401 (Unauthorized): If the token is missing or invalid.
             - 403 (Forbidden): If the user is authenticated (e.g., a student)
               but lacks required privileges.
-            - 400 (Bad Request): If validation fails (e.g., neither text nor files provided).
+            - 400 (Bad Request): If validation fails (e.g., neither text nor files provided)
+              or if an unsupported file type is uploaded.
             - 404 (Not Found): If the specified subject_id or topic_id does not exist.
+            - 413 (Payload Too Large): If any of the uploaded files exceed the maximum
+              allowed file size configuration.
             - 502 (Bad Gateway): If the external AI service providers fail or time out.
             - 500 (Internal Server Error): For database or unexpected pipeline processing failures.
 
-    Security:
+    Security & Validation:
         - Bearer Auth (JWT)
         - Restricted to: TEACHER or ADMIN roles
+        - Input Protection: Fail-fast file validation against size boundaries and MIME whitelists.
     """
+    if files:
+        validate_uploaded_file(files)
+
     return await question_manager.add_question_input_with_file(
         num_of_questions=num_of_questions,
         question_input_data=input_data,
