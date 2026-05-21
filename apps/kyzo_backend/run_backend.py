@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -56,11 +57,12 @@ def create_app() -> FastAPI:
     development, and testing environments.
 
     It centralizes the integration of:
-    - **API Metadata**: Sets the title, version, and description for OpenAPI docs.
-    - **Lifecycle Management**: Hooks into the 'lifespan' context manager.
-    - **Rate Limiting**: Configures SlowAPI by binding the global limiter instance
+    - API Metadata: Sets the title, version, and description for OpenAPI docs.
+    - Lifecycle Management: Hooks into the 'lifespan' context manager.
+    - CORS Security: Mounts CORSMiddleware to allow secure cross-origin communication with the frontend.
+    - Rate Limiting: Configures SlowAPI by binding the global limiter instance
       to the application state and registering the 'RateLimitExceeded' exception handler.
-    - **Routing Architecture**: Aggregates specialized routers (e.g. Knowledge,
+    - Routing Architecture: Aggregates specialized routers (e.g. Knowledge,
       Questions, Tests, Users) into a single unified API surface.
 
     Returns:
@@ -77,6 +79,15 @@ def create_app() -> FastAPI:
         version="1.0.0",
         lifespan=lifespan
     )
+
+    backend_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=fastapi_settings.CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     backend_app.state.limiter = slowapi_limiter
     backend_app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
