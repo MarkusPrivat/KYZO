@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Kyzo — Dein AI-Buddy für bessere Noten{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero" aria-labelledby="hero-heading">
+  <div class="hero__container">
+    <div class="hero__content">
+      <h1 id="hero-heading" class="hero__headline">Dein AI-Buddy für bessere Noten</h1>
+      <p class="hero__subheadline">Kyzo ist dein intelligenter Lernpartner, der dir hilft, besser zu lernen und bessere Noten zu bekommen. KI-gestützt, personalisiert und immer für dich da.</p>
+      <a href="/register" class="hero__cta">Jetzt kostenlos starten</a>
+    </div>
+    <div class="hero__visual">
+      <span class="hero__gecko" aria-hidden="true">🦎</span>
+    </div>
+  </div>
+</section>
+
+<!-- Features Section -->
+<section class="features" aria-labelledby="features-heading">
+  <div class="features__container">
+    <h2 id="features-heading" class="features__heading">Warum Kyzo?</h2>
+    <div class="features__grid">
+      <div class="feature-card">
+        <div class="feature-card__icon" aria-hidden="true">🧠</div>
+        <h3 class="feature-card__title">KI-Analyse</h3>
+        <p class="feature-card__description">Unsere KI analysiert deine Wissenslücken und erstellt personalisierte Lernpfade für maximale Effektivität.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon" aria-hidden="true">📚</div>
+        <h3 class="feature-card__title">Personalisiertes Lernen</h3>
+        <p class="feature-card__description">Lerninhalte, die sich an dein Niveau und dein Tempo anpassen — für optimalen Lernerfolg.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon" aria-hidden="true">⚡</div>
+        <h3 class="feature-card__title">Sofort-Feedback</h3>
+        <p class="feature-card__description">Erhalte sofortiges Feedback zu deinen Antworten und lerne in Echtzeit deine Fehler zu vermeiden.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works Section -->
+<section class="how-it-works" aria-labelledby="how-it-works-heading">
+  <div class="how-it-works__container">
+    <h2 id="how-it-works-heading" class="how-it-works__heading">So funktioniert's</h2>
+    <div class="how-it-works__steps">
+      <div class="step">
+        <span class="step__number" aria-hidden="true">1</span>
+        <h3 class="step__title">Dein Level bestimmen</h3>
+        <p class="step__description">Starte mit einem kurzen Assessment, um dein aktuelles Wissensniveau zu ermitteln.</p>
+      </div>
+      <div class="step">
+        <span class="step__number" aria-hidden="true">2</span>
+        <h3 class="step__title">Loslegen</h3>
+        <p class="step__description">Erhalte deinen personalisierten Lernplan und starte sofort mit dem Lernen.</p>
+      </div>
+      <div class="step">
+        <span class="step__number" aria-hidden="true">3</span>
+        <h3 class="step__title">Bessere Noten</h3>
+        <p class="step__description">Verfolge deinen Fortschritt und sieh, wie sich deine Noten verbessern.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Stats Bar Section -->
+<section class="stats" aria-labelledby="stats-heading">
+  <div class="stats__container">
+    <h2 id="stats-heading" class="features__heading" style="display:none;">Kyzo in Zahlen</h2>
+    <div class="stats__grid">
+      <div class="stat">
+        <p class="stat__number">5.000+</p>
+        <p class="stat__label">Fragen in der Datenbank</p>
+      </div>
+      <div class="stat">
+        <p class="stat__number">95%</p>
+        <p class="stat__label">Zufriedenheit</p>
+      </div>
+      <div class="stat">
+        <p class="stat__number">Alle</p>
+        <p class="stat__label">Fächer verfügbar</p>
+      </div>
+      <div class="stat">
+        <p class="stat__number">24/7</p>
+        <p class="stat__label">Erreichbar</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

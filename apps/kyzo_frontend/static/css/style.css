@@ -350,3 +350,280 @@ img {
     padding: var(--kyzo-spacing-2xl) var(--kyzo-spacing-2xl);
   }
 }
+
+/* ============================================
+   Landing Page — Hero, Features, How It Works, Stats
+   ============================================ */
+
+/* --- Hero Section --- */
+.hero {
+  padding: var(--kyzo-spacing-2xl) 0;
+  background-color: var(--kyzo-bg);
+}
+
+.hero__container {
+  max-width: var(--kyzo-max-width);
+  margin: 0 auto;
+  padding: 0 var(--kyzo-spacing-md);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--kyzo-spacing-2xl);
+  align-items: center;
+}
+
+.hero__content {
+  text-align: center;
+}
+
+.hero__headline {
+  font-family: 'Outfit', var(--kyzo-font-family);
+  font-weight: 800;
+  font-size: 2rem;
+  line-height: 1.2;
+  color: var(--kyzo-text);
+  margin-bottom: var(--kyzo-spacing-lg);
+}
+
+.hero__subheadline {
+  font-family: 'Inter', var(--kyzo-font-family);
+  font-weight: 400;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--kyzo-text-light);
+  margin-bottom: var(--kyzo-spacing-xl);
+}
+
+.hero__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--kyzo-spacing-md) var(--kyzo-spacing-2xl);
+  font-family: 'Outfit', var(--kyzo-font-family);
+  font-weight: 700;
+  font-size: var(--kyzo-font-size-lg);
+  color: #FFFFFF;
+  background-color: var(--kyzo-primary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color var(--kyzo-transition-base), transform var(--kyzo-transition-fast);
+}
+
+.hero__cta:hover {
+  background-color: var(--kyzo-primary-dark);
+  transform: translateY(-1px);
+}
+
+.hero__cta:focus-visible {
+  outline: 2px solid var(--kyzo-primary);
+  outline-offset: 2px;
+}
+
+.hero__visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.hero__gecko {
+  font-size: 8rem;
+  line-height: 1;
+  filter: drop-shadow(0 4px 12px rgba(228, 87, 46, 0.15));
+}
+
+/* --- Features Section --- */
+.features {
+  padding: var(--kyzo-spacing-2xl) 0;
+  background-color: var(--kyzo-bg-alt);
+}
+
+.features__container {
+  max-width: var(--kyzo-max-width);
+  margin: 0 auto;
+  padding: 0 var(--kyzo-spacing-md);
+}
+
+.features__heading {
+  font-family: 'Outfit', var(--kyzo-font-family);
+  font-weight: 800;
+  font-size: var(--kyzo-font-size-2xl);
+  color: var(--kyzo-text);
+  text-align: center;
+  margin-bottom: var(--kyzo-spacing-2xl);
+}
+
+.features__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--kyzo-spacing-md);
+}
+
+.feature-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--kyzo-border);
+  border-radius: 12px;
+  padding: var(--kyzo-spacing-xl);
+  transition: border-color var(--kyzo-transition-base), transform var(--kyzo-transition-base);
+}
+
+.feature-card:hover {
+  border-color: #E4572E55;
+  transform: translateY(-2px);
+}
+
+.feature-card__icon {
+  font-size: 2.5rem;
+  margin-bottom: var(--kyzo-spacing-md);
+}
+
+.feature-card__title {
+  font-family: 'Outfit', var(--kyzo-font-family);
+  font-weight: 700;
+  font-size: var(--kyzo-font-size-lg);
+  color: var(--kyzo-text);
+  margin-bottom: var(--kyzo-spacing-sm);
+}
+
+.feature-card__description {
+  font-family: 'Inter', var(--kyzo-font-family);
+  font-weight: 400;
+  font-size: var(--kyzo-font-size-sm);
+  color: var(--kyzo-text-light);
+  line-height: 1.6;
+}
+
+/* --- How It Works Section --- */
+.how-it-works {
+  padding: var(--kyzo-spacing-2xl) 0;
+  background-color: var(--kyzo-bg);
+}
+
+.how-it-works__container {
+  max-width: var(--kyzo-max-width);
+  margin: 0 auto;
+  padding: 0 var(--kyzo-spacing-md);
+}
+
+.how-it-works__heading {
+  font-family: 'Outfit', var(--kyzo-font-family);
+  font-weight: 800;
+  font-size: var(--kyzo-font-size-2xl);
+  color: var(--kyzo-text);
+  text-align: center;
+  margin-bottom: var(--kyzo-spacing-2xl);
+}
+
+.how-it-works__steps {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--kyzo-spacing-xl);
+}
+
+.step {
+  text-align: center;
+  padding: var(--kyzo-spacing-xl);
+}
+
+.step__number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  font-family: 'Outfit', var(--kyzo-font-family);
+  font-weight: 800;
+  font-size: 1.5rem;
+  color: #FFFFFF;
+  background-color: var(--kyzo-primary);
+  border-radius: 50%;
+  margin-bottom: var(--kyzo-spacing-md);
+}
+
+.step__title {
+  font-family: 'Outfit', var(--kyzo-font-family);
+  font-weight: 700;
+  font-size: var(--kyzo-font-size-lg);
+  color: var(--kyzo-text);
+  margin-bottom: var(--kyzo-spacing-sm);
+}
+
+.step__description {
+  font-family: 'Inter', var(--kyzo-font-family);
+  font-weight: 400;
+  font-size: var(--kyzo-font-size-sm);
+  color: var(--kyzo-text-light);
+  line-height: 1.6;
+}
+
+/* --- Stats Bar Section --- */
+.stats {
+  padding: var(--kyzo-spacing-2xl) 0;
+  background-color: var(--kyzo-bg-alt);
+  border-top: 1px solid var(--kyzo-border);
+}
+
+.stats__container {
+  max-width: var(--kyzo-max-width);
+  margin: 0 auto;
+  padding: 0 var(--kyzo-spacing-md);
+}
+
+.stats__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--kyzo-spacing-lg);
+  text-align: center;
+}
+
+.stat {
+  padding: var(--kyzo-spacing-md) 0;
+}
+
+.stat__number {
+  font-family: 'Outfit', var(--kyzo-font-family);
+  font-weight: 800;
+  font-size: 2rem;
+  color: var(--kyzo-primary);
+  margin-bottom: var(--kyzo-spacing-xs);
+}
+
+.stat__label {
+  font-family: 'Inter', var(--kyzo-font-family);
+  font-weight: 400;
+  font-size: 0.88rem;
+  color: #5A4E4A;
+}
+
+/* --- Responsive Breakpoints for Landing Page --- */
+
+/* Medium devices (>= 768px) */
+@media (min-width: 768px) {
+  .hero__container {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hero__content {
+    text-align: left;
+  }
+
+  .hero__headline {
+    font-size: 2.6rem;
+  }
+
+  .features__grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--kyzo-spacing-md);
+  }
+
+  .how-it-works__steps {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--kyzo-spacing-xl);
+  }
+
+  .stats__grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--kyzo-spacing-lg);
+  }
+}
