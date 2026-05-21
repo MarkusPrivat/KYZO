@@ -18,3 +18,10 @@ def register():
     """Render the registration page."""
     api_url = current_app.config.get("API_URL", "/api/v1")
     return render_template("register.html", api_url=api_url)
+
+
+@main_bp.route("/login")
+def login():
+    """Render the login page."""
+    api_url = current_app.config.get("API_URL", "/api/v1")
+    return render_template("login.html", api_url=api_url)

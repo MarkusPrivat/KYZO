@@ -1,10 +1,82 @@
+   Registration
+   ============================================ */
+=======
 /**
  * auth.js — Authentication utilities for Kyzo frontend.
  *
- * Handles client-side validation and API calls for user registration.
+ * Handles client-side validation and API calls for user registration and login.
  */
 
+   Register Page Initialization
+   ============================================ */
+
+document.addEventListener("DOMContentLoaded", function () {
+  var form = document.getElementById("register-form");
+=======
 /* ============================================
+   Get Auth Header
+   ============================================ */
+
+function getAuthHeader() {
+  /**
+   * Returns the Authorization header with the stored JWT token.
+   *
+   * @returns {Object} - Headers object with Bearer token.
+   */
+  var token = localStorage.getItem("jwt_token");
+  if (token) {
+    return { "Authorization": "Bearer " + token };
+  }
+  return {};
+}
+
+/* ============================================
+   Register Page Initialization
+   ============================================ */
+
+document.addEventListener("DOMContentLoaded", function () {
+  var form = document.getElementById("register-form");============================================
+   Login
+   ============================================ */
+
+function login(username, password) {
+  /**
+   * Sends login credentials to the backend API.
+   *
+   * @param {string} username - User's email address.
+   * @param {string} password - User's password.
+   * @returns {Promise<Object>} - The response from the API.
+   */
+  var body = "username=" + encodeURIComponent(username) + "&password=" + encodeURIComponent(password);
+
+  return fetch(API_URL + "/users/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body,
+  }).then(function (response) {
+    if (response.status === 200) {
+      return response.json().then(function (data) {
+        localStorage.setItem("jwt_token", data.token);
+        return { token: data.token };
+      });
+    }
+    if (response.status === 401) {
+      return response.json().then(function (data) {
+        var error = data.detail || "E-Mail oder Passwort ist falsch.";
+        return { error: error, field: "email" };
+      });
+    }
+    return response.json().then(function (data) {
+      return { error: data.detail || "Ein Fehler ist aufgetreten." };
+    });
+  });
+}
+
+/* ============================================
+   Registration
+   ============================================ */============================================
    Registration
    ============================================ */
 
@@ -212,6 +284,146 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
       /* On success (201), register() redirects — no button restore needed */
+    }).catch(function () {
+      /* Restore button on network error */
+      submitBtn.disabled = false;
+      btnText.removeAttribute("hidden");
+      spinner.setAttribute("hidden", "");
+      showGlobalError("Verbindungsfehler. Bitte versuche es später erneut.");
+    });
+  });
+});
+
+/* ============================================
+   Login Page Initialization
+   ============================================ */
+
+document.addEventListener("DOMContentLoaded", function () {
+  var form = document.getElementById("login-form");
+  if (!form) {
+    return;
+  }
+
+  var emailInput = document.getElementById("login-email");
+  var passwordInput = document.getElementById("login-password");
+  var submitBtn = document.getElementById("login-submit");
+  var btnText = document.getElementById("login-btn-text");
+  var spinner = document.getElementById("login-spinner");
+  var globalError = document.getElementById("login-global-error");
+
+  /* --- Validation helpers --- */
+
+  function validateEmail(value) {
+    if (!value) {
+      return "E-Mail ist ein Pflichtfeld.";
+    }
+    var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(value)) {
+      return "Bitte gib eine gültige E-Mail-Adresse ein.";
+    }
+    return "";
+  }
+
+  function validatePassword(value) {
+    if (!value) {
+      return "Passwort ist ein Pflichtfeld.";
+    }
+    if (value.length < 8) {
+      return "Passwort muss mindestens 8 Zeichen lang sein.";
+    }
+    return "";
+  }
+
+  /* --- Inline error display --- */
+
+  function showError(inputEl, errorEl, message) {
+    if (message) {
+      errorEl.textContent = message;
+      inputEl.setAttribute("aria-invalid", "true");
+    } else {
+      errorEl.textContent = "";
+      inputEl.removeAttribute("aria-invalid");
+    }
+  }
+
+  function clearError(errorEl) {
+    errorEl.textContent = "";
+  }
+
+  function showGlobalError(message) {
+    globalError.textContent = message;
+    globalError.removeAttribute("hidden");
+  }
+
+  function clearGlobalError() {
+    globalError.textContent = "";
+    globalError.setAttribute("hidden", "");
+  }
+
+  /* --- Real-time validation on blur --- */
+
+  emailInput.addEventListener("blur", function () {
+    var error = validateEmail(emailInput.value);
+    showError(emailInput, document.getElementById("login-email-error"), error);
+  });
+
+  passwordInput.addEventListener("blur", function () {
+    var error = validatePassword(passwordInput.value);
+    showError(passwordInput, document.getElementById("login-password-error"), error);
+  });
+
+  /* --- Clear errors on input --- */
+
+  emailInput.addEventListener("input", function () {
+    clearError(document.getElementById("login-email-error"));
+  });
+
+  passwordInput.addEventListener("input", function () {
+    clearError(document.getElementById("login-password-error"));
+  });
+
+  /* --- Form submission --- */
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    clearGlobalError();
+
+    var emailError = validateEmail(emailInput.value);
+    var passwordError = validatePassword(passwordInput.value);
+
+    showError(emailInput, document.getElementById("login-email-error"), emailError);
+    showError(passwordInput, document.getElementById("login-password-error"), passwordError);
+
+    if (emailError || passwordError) {
+      return;
+    }
+
+    /* Disable button and show spinner */
+    submitBtn.disabled = true;
+    btnText.setAttribute("hidden", "");
+    spinner.removeAttribute("hidden");
+
+    login(emailInput.value.trim(), passwordInput.value).then(function (result) {
+      if (result.error) {
+        /* Restore button */
+        submitBtn.disabled = false;
+        btnText.removeAttribute("hidden");
+        spinner.setAttribute("hidden", "");
+
+        if (result.field) {
+          showError(
+            document.getElementById("login-" + result.field),
+            document.getElementById("login-" + result.field + "-error"),
+            result.error
+          );
+        } else {
+          showGlobalError(result.error);
+        }
+      }
+      /* On success (200), redirect to home */
+      if (result.token) {
+        window.location.href = "/";
+      }
     }).catch(function () {
       /* Restore button on network error */
       submitBtn.disabled = false;

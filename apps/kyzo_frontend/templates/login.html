@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Anmelden — Kyzo{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="auth-page">
+  <div class="auth-page__container">
+    <!-- Left: Branding (desktop only) -->
+    <div class="auth-page__branding" aria-hidden="true">
+      <div class="auth-page__gecko">🦎</div>
+      <h1 class="auth-page__heading">Willkommen zurück!</h1>
+      <p class="auth-page__subheading">Melde dich an und leg direkt mit Kyzo durch.</p>
+    </div>
+
+    <!-- Right: Form Card -->
+    <div class="auth-page__card">
+      <h2 class="auth-page__card-title">Anmelden</h2>
+      <p class="auth-page__card-subtitle">Gib deine E-Mail und dein Passwort ein, um dich anzumelden.</p>
+
+      <form id="login-form" class="auth-form" novalidate>
+        <!-- Email -->
+        <div class="auth-form__field">
+          <label for="login-email" class="auth-form__label">E-Mail</label>
+          <input
+            type="email"
+            id="login-email"
+            name="username"
+            class="auth-form__input"
+            placeholder="deine@email.de"
+            required
+            autocomplete="email"
+            aria-describedby="login-email-error"
+          >
+          <span id="login-email-error" class="auth-form__error" role="alert" aria-live="polite"></span>
+        </div>
+
+        <!-- Password -->
+        <div class="auth-form__field">
+          <label for="login-password" class="auth-form__label">Passwort</label>
+          <input
+            type="password"
+            id="login-password"
+            name="password"
+            class="auth-form__input"
+            placeholder="Dein Passwort"
+            required
+            minlength="8"
+            autocomplete="current-password"
+            aria-describedby="login-password-error"
+          >
+          <span id="login-password-error" class="auth-form__error" role="alert" aria-live="polite"></span>
+        </div>
+
+        <!-- Submit Button -->
+        <button
+          type="submit"
+          id="login-submit"
+          class="auth-form__submit"
+        >
+          <span id="login-btn-text">Anmelden</span>
+          <span id="login-spinner" class="auth-form__spinner" hidden aria-hidden="true"></span>
+        </button>
+
+        <!-- Global Error Message -->
+        <div id="login-global-error" class="auth-form__global-error" role="alert" aria-live="polite" hidden></div>
+      </form>
+
+      <p class="auth-form__login-link">
+        Noch kein Konto? <a href="/signup">Registrieren</a>
+      </p>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const API_URL = "{{ api_url }}";
+</script>
+<script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+{% endblock %}
