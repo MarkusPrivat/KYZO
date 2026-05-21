@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Registrierung — Kyzo{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="auth-page">
+  <div class="auth-page__container">
+    <!-- Left: Branding (desktop only) -->
+    <div class="auth-page__branding" aria-hidden="true">
+      <div class="auth-page__gecko">🦎</div>
+      <h1 class="auth-page__heading">Willkommen bei Kyzo!</h1>
+      <p class="auth-page__subheading">Erstelle dein Konto und leg los — kostenlos und in wenigen Sekunden.</p>
+    </div>
+
+    <!-- Right: Form Card -->
+    <div class="auth-page__card">
+      <h2 class="auth-page__card-title">Konto erstellen</h2>
+      <p class="auth-page__card-subtitle">Fülle alle Pflichtfelder aus, um dich zu registrieren.</p>
+
+      <form id="register-form" class="auth-form" novalidate>
+        <!-- Name -->
+        <div class="auth-form__field">
+          <label for="register-name" class="auth-form__label">Name</label>
+          <input
+            type="text"
+            id="register-name"
+            name="name"
+            class="auth-form__input"
+            placeholder="Dein vollständiger Name"
+            required
+            minlength="3"
+            maxlength="100"
+            autocomplete="name"
+            aria-describedby="register-name-error"
+          >
+          <span id="register-name-error" class="auth-form__error" role="alert" aria-live="polite"></span>
+        </div>
+
+        <!-- Email -->
+        <div class="auth-form__field">
+          <label for="register-email" class="auth-form__label">E-Mail</label>
+          <input
+            type="email"
+            id="register-email"
+            name="email"
+            class="auth-form__input"
+            placeholder="deine@email.de"
+            required
+            autocomplete="email"
+            aria-describedby="register-email-error"
+          >
+          <span id="register-email-error" class="auth-form__error" role="alert" aria-live="polite"></span>
+        </div>
+
+        <!-- Password -->
+        <div class="auth-form__field">
+          <label for="register-password" class="auth-form__label">Passwort</label>
+          <input
+            type="password"
+            id="register-password"
+            name="password"
+            class="auth-form__input"
+            placeholder="Mindestens 8 Zeichen"
+            required
+            minlength="8"
+            autocomplete="new-password"
+            aria-describedby="register-password-error"
+          >
+          <span id="register-password-error" class="auth-form__error" role="alert" aria-live="polite"></span>
+        </div>
+
+        <!-- Schuljahr -->
+        <div class="auth-form__field">
+          <label for="register-grade" class="auth-form__label">Schuljahr</label>
+          <select
+            id="register-grade"
+            name="grade"
+            class="auth-form__input auth-form__select"
+            required
+            aria-describedby="register-grade-error"
+          >
+            <option value="">Schuljahr wählen</option>
+            {% for i in range(1, 14) %}
+            <option value="{{ i }}">{{ i }}</option>
+            {% endfor %}
+          </select>
+          <span id="register-grade-error" class="auth-form__error" role="alert" aria-live="polite"></span>
+        </div>
+
+        <!-- Submit Button -->
+        <button
+          type="submit"
+          id="register-submit"
+          class="auth-form__submit"
+        >
+          <span id="register-btn-text">Registrieren</span>
+          <span id="register-spinner" class="auth-form__spinner" hidden aria-hidden="true"></span>
+        </button>
+
+        <!-- Global Error Message -->
+        <div id="register-global-error" class="auth-form__global-error" role="alert" aria-live="polite" hidden></div>
+      </form>
+
+      <p class="auth-form__login-link">
+        Bereits ein Konto? <a href="/login">Zum Login</a>
+      </p>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const API_URL = "{{ api_url }}";
+</script>
+<script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+{% endblock %}

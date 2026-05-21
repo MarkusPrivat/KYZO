@@ -22,6 +22,9 @@ def create_app(config_name="development"):
         from .config import DevelopmentConfig
         app.config.from_object(DevelopmentConfig)
 
+    # API URL for frontend-to-backend communication
+    app.config["API_URL"] = app.config.get("API_URL", "/api/v1")
+
     # Register blueprints
     from .routes.main import main_bp
     app.register_blueprint(main_bp)
