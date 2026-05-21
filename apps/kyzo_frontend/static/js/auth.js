@@ -433,3 +433,223 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 });
+/* ============================================
+   Profile â€” API Functions
+   ============================================ */
+
+function getProfile() {
+  var token = localStorage.getItem('jwt_token');
+  if (!token) {
+    return Promise.resolve({ error: 'unauthorized' });
+  }
+  return fetch(API_URL + '/users/user/', {
+    method: 'GET',
+    headers: { 'Authorization': 'Bearer ' + token },
+  }).then(function (response) {
+    if (response.status === 200) {
+      return response.json().then(function (data) { return { data: data }; });
+    }
+    if (response.status === 401 || response.status === 403) {
+      return { error: 'unauthorized' };
+    }
+    return response.json().then(function (data) { return { error: data.detail || 'Ein Fehler ist aufgetreten.' }; });
+  }).catch(function () { return { error: 'Verbindungsfehler. Bitte versuche es spÃ¤ter erneut.' }; });
+}
+
+function updateProfile(updateData) {
+  var token = localStorage.getItem('jwt_token');
+  if (!token) {
+    return Promise.resolve({ error: 'unauthorized' });
+  }
+  return fetch(API_URL + '/users/user/edit', {
+    method: 'PUT',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(updateData),
+  }).then(function (response) {
+    if (response.status === 200) {
+      return response.json().then(function (data) { return { data: data }; });
+    }
+    if (response.status === 401 || response.status === 403) {
+      return { error: 'unauthorized' };
+    }
+    if (response.status === 409) {
+      return response.json().then(function (data) {
+        var error = data.detail || 'Diese E-Mail-Adresse ist bereits registriert.';
+        return { error: error, field: 'email' };
+      });
+    }
+    return response.json().then(function (data) { return { error: data.detail || 'Ein Fehler ist aufgetreten.' }; });
+  }).catch(function () { return { error: 'Verbindungsfehler. Bitte versuche es spÃ¤ter erneut.' }; });
+}
+
+function deactivateAccount() {
+  var token = localStorage.getItem('jwt_token');
+  if (!token) {
+    return Promise.resolve({ error: 'unauthorized' });
+  }
+  return fetch(API_URL + '/users/user/status?active=false', {
+    method: 'PUT',
+    headers: { 'Authorization': 'Bearer ' + token },
+  }).then(function (response) {
+    if (response.status === 200) {
+      return response.json().then(function (data) { return { data: data }; });
+    }
+    if (response.status === 401 || response.status === 403) {
+      return { error: 'unauthorized' };
+    }
+    return response.json().then(function (data) { return { error: data.detail || 'Ein Fehler ist aufgetreten.' }; });
+  }).catch(function () { return { error: 'Verbindungsfehler. Bitte versuche es spÃ¤ter erneut.' }; });
+}
+
+/* ============================================
+   Profile Page Initialization
+   ============================================ */
+
+document.addEventListener('DOMContentLoaded', function () {
+  var form = document.getElementById('profile-form');
+  if (!form) { return; }
+
+  var token = localStorage.getItem('jwt_token');
+  if (!token) { window.location.href = '/login'; return; }
+
+  var nameInput = document.getElementById('profile-name');
+  var emailInput = document.getElementById('profile-email');
+  var gradeSelect = document.getElementById('profile-grade');
+  var roleDisplay = document.getElementById('profile-role');
+  var statusDisplay = document.getElementById('profile-status');
+  var submitBtn = document.getElementById('profile-submit');
+  var btnText = document.getElementById('profile-btn-text');
+  var spinner = document.getElementById('profile-spinner');
+  var successBanner = document.getElementById('profile-success');
+  var loadingEl = document.getElementById('profile-loading');
+  var deactivateBtn = document.getElementById('profile-deactivate-btn');
+
+  function validateName(value) {
+    if (!value || value.trim().length < 3) return 'Name muss mindestens 3 Zeichen lang sein.';
+    if (value.length > 100) return 'Name darf maximal 100 Zeichen lang sein.';
+    return '';
+  }
+
+  function validateEmail(value) {
+    if (!value) return 'E-Mail ist ein Pflichtfeld.';
+    var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(value)) return 'Bitte gib eine gÃ¼ltige E-Mail-Adresse ein.';
+    return '';
+  }
+
+  function validateGrade(value) {
+    if (!value) return 'Bitte wÃ¤hle ein Schuljahr aus.';
+    return '';
+  }
+
+  function showError(inputEl, errorEl, message) {
+    if (message) { errorEl.textContent = message; inputEl.setAttribute('aria-invalid', 'true'); }
+    else { errorEl.textContent = ''; inputEl.removeAttribute('aria-invalid'); }
+  }
+
+  function clearError(errorEl) { errorEl.textContent = ''; }
+
+  function showSuccess() {
+    successBanner.removeAttribute('hidden');
+    successBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    setTimeout(function () { successBanner.setAttribute('hidden', ''); }, 4000);
+  }
+
+  function getRoleLabel(role) {
+    var labels = { student: 'SchÃ¼ler:in', teacher: 'Lehrkraft', admin: 'Administrator:in' };
+    return labels[role] || role;
+  }
+
+  function loadProfile() {
+    loadingEl.removeAttribute('hidden');
+    form.style.display = 'none';
+    deactivateBtn.disabled = true;
+    getProfile().then(function (result) {
+      loadingEl.setAttribute('hidden', '');
+      form.style.display = '';
+      if (result.error === 'unauthorized') { window.location.href = '/login'; return; }
+      if (result.error) { return; }
+      var profile = result.data;
+      nameInput.value = profile.name || '';
+      emailInput.value = profile.email || '';
+      gradeSelect.value = profile.grade || '';
+      roleDisplay.textContent = getRoleLabel(profile.role);
+      statusDisplay.textContent = profile.is_active ? 'Aktiv' : 'Deaktiviert';
+      deactivateBtn.disabled = false;
+    });
+  }
+
+  nameInput.addEventListener('blur', function () {
+    showError(nameInput, document.getElementById('profile-name-error'), validateName(nameInput.value));
+  });
+  emailInput.addEventListener('blur', function () {
+    showError(emailInput, document.getElementById('profile-email-error'), validateEmail(emailInput.value));
+  });
+  gradeSelect.addEventListener('blur', function () {
+    showError(gradeSelect, document.getElementById('profile-grade-error'), validateGrade(gradeSelect.value));
+  });
+  nameInput.addEventListener('input', function () { clearError(document.getElementById('profile-name-error')); });
+  emailInput.addEventListener('input', function () { clearError(document.getElementById('profile-email-error')); });
+  gradeSelect.addEventListener('change', function () { clearError(document.getElementById('profile-grade-error')); });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    successBanner.setAttribute('hidden', '');
+    var nameError = validateName(nameInput.value);
+    var emailError = validateEmail(emailInput.value);
+    var gradeError = validateGrade(gradeSelect.value);
+    showError(nameInput, document.getElementById('profile-name-error'), nameError);
+    showError(emailInput, document.getElementById('profile-email-error'), emailError);
+    showError(gradeSelect, document.getElementById('profile-grade-error'), gradeError);
+    if (nameError || emailError || gradeError) { return; }
+    submitBtn.disabled = true;
+    btnText.setAttribute('hidden', '');
+    spinner.removeAttribute('hidden');
+    var updateData = {};
+    if (nameInput.value.trim() !== (nameInput.dataset.original || '')) { updateData.name = nameInput.value.trim(); }
+    if (emailInput.value.trim() !== (emailInput.dataset.original || '')) { updateData.email = emailInput.value.trim(); }
+    if (gradeSelect.value !== (gradeSelect.dataset.original || '')) { updateData.grade = parseInt(gradeSelect.value, 10); }
+    if (Object.keys(updateData).length === 0) {
+      submitBtn.disabled = false;
+      btnText.removeAttribute('hidden');
+      spinner.setAttribute('hidden', '');
+      return;
+    }
+    updateProfile(updateData).then(function (result) {
+      if (result.error === 'unauthorized') { window.location.href = '/login'; return; }
+      submitBtn.disabled = false;
+      btnText.removeAttribute('hidden');
+      spinner.setAttribute('hidden', '');
+      if (result.field) {
+        showError(document.getElementById('profile-' + result.field), document.getElementById('profile-' + result.field + '-error'), result.error);
+      } else if (result.data) {
+        showSuccess();
+        nameInput.dataset.original = nameInput.value.trim();
+        emailInput.dataset.original = emailInput.value.trim();
+        gradeSelect.dataset.original = gradeSelect.value;
+        roleDisplay.textContent = getRoleLabel(result.data.role);
+        statusDisplay.textContent = result.data.is_active ? 'Aktiv' : 'Deaktiviert';
+      }
+    }).catch(function () {
+      submitBtn.disabled = false;
+      btnText.removeAttribute('hidden');
+      spinner.setAttribute('hidden', '');
+    });
+  });
+
+  deactivateBtn.addEventListener('click', function () {
+    if (!confirm('Bist du sicher, dass du dein Konto deaktivieren mÃ¶chtest? Diese Aktion ist irreversibel.')) { return; }
+    deactivateBtn.disabled = true;
+    deactivateBtn.textContent = 'Wird deaktiviertâ€¦';
+    deactivateAccount().then(function (result) {
+      if (result.error === 'unauthorized') { window.location.href = '/login'; return; }
+      if (result.data) { localStorage.removeItem('jwt_token'); window.location.href = '/'; }
+      else { deactivateBtn.disabled = false; deactivateBtn.textContent = 'Konto deaktivieren'; }
+    }).catch(function () { deactivateBtn.disabled = false; deactivateBtn.textContent = 'Konto deaktivieren'; });
+  });
+
+  nameInput.dataset.original = nameInput.value;
+  emailInput.dataset.original = emailInput.value;
+  gradeSelect.dataset.original = gradeSelect.value;
+  loadProfile();
+});

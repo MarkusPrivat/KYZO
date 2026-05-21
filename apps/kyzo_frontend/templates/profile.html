@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Profil — Kyzo{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="profile-page">
+  <div class="profile-page__container">
+    <!-- Left: Branding (desktop only) -->
+    <div class="profile-page__branding" aria-hidden="true">
+      <div class="profile-page__gecko">🦎</div>
+      <h1 class="profile-page__heading">Dein Profil</h1>
+      <p class="profile-page__subheading">Verwalte deine persönlichen Daten und Kontoeinstellungen.</p>
+    </div>
+
+    <!-- Right: Profile Card -->
+    <div class="profile-page__card" id="profile-card">
+      <h2 class="profile-page__card-title">Kontoinformationen</h2>
+      <p class="profile-page__card-subtitle">Alle mit * markierten Felder können bearbeitet werden.</p>
+
+      <!-- Success Banner -->
+      <div id="profile-success" class="profile-success" role="alert" aria-live="polite" hidden>
+        <span class="profile-success__icon">✓</span>
+        <span class="profile-success__text">Profil erfolgreich aktualisiert.</span>
+      </div>
+
+      <!-- Loading State -->
+      <div id="profile-loading" class="profile-loading" hidden>
+        <div class="profile-loading__spinner" aria-hidden="true"></div>
+        <span class="profile-loading__text">Profil wird geladen…</span>
+      </div>
+
+      <form id="profile-form" class="profile-form" novalidate>
+        <!-- Name -->
+        <div class="profile-form__field">
+          <label for="profile-name" class="profile-form__label">Name *</label>
+          <input
+            type="text"
+            id="profile-name"
+            name="name"
+            class="profile-form__input"
+            placeholder="Dein vollständiger Name"
+            required
+            minlength="3"
+            maxlength="100"
+            autocomplete="name"
+            aria-describedby="profile-name-error"
+          >
+          <span id="profile-name-error" class="profile-form__error" role="alert" aria-live="polite"></span>
+        </div>
+
+        <!-- Email -->
+        <div class="profile-form__field">
+          <label for="profile-email" class="profile-form__label">E-Mail *</label>
+          <input
+            type="email"
+            id="profile-email"
+            name="email"
+            class="profile-form__input"
+            placeholder="deine@email.de"
+            required
+            autocomplete="email"
+            aria-describedby="profile-email-error"
+          >
+          <span id="profile-email-error" class="profile-form__error" role="alert" aria-live="polite"></span>
+        </div>
+
+        <!-- Schuljahr -->
+        <div class="profile-form__field">
+          <label for="profile-grade" class="profile-form__label">Schuljahr *</label>
+          <select
+            id="profile-grade"
+            name="grade"
+            class="profile-form__input profile-form__select"
+            required
+            aria-describedby="profile-grade-error"
+          >
+            <option value="">Schuljahr wählen</option>
+            {% for i in range(1, 14) %}
+            <option value="{{ i }}">{{ i }}</option>
+            {% endfor %}
+          </select>
+          <span id="profile-grade-error" class="profile-form__error" role="alert" aria-live="polite"></span>
+        </div>
+
+        <!-- Rolle (read-only) -->
+        <div class="profile-form__field">
+          <label class="profile-form__label" aria-hidden="true">Rolle</label>
+          <div id="profile-role" class="profile-form__readonly" aria-live="polite"></div>
+        </div>
+
+        <!-- Konto-Status (read-only) -->
+        <div class="profile-form__field">
+          <label class="profile-form__label" aria-hidden="true">Konto-Status</label>
+          <div id="profile-status" class="profile-form__readonly" aria-live="polite"></div>
+        </div>
+
+        <!-- Submit Button -->
+        <button
+          type="submit"
+          id="profile-submit"
+          class="profile-form__submit"
+        >
+          <span id="profile-btn-text">Speichern</span>
+          <span id="profile-spinner" class="profile-form__spinner" hidden aria-hidden="true"></span>
+        </button>
+      </form>
+
+      <!-- Deactivate Account Section -->
+      <div class="profile-deactivate">
+        <h3 class="profile-deactivate__heading">Konto deaktivieren</h3>
+        <p class="profile-deactivate__text">
+          Wenn du dein Konto deaktivierst, kannst du dich nicht mehr anmelden.
+          Diese Aktion ist irreversibel. Ein Neuanmelden erfordert ein Admin.
+        </p>
+        <button
+          type="button"
+          id="profile-deactivate-btn"
+          class="profile-deactivate__btn"
+        >
+          Konto deaktivieren
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const API_URL = "{{ api_url }}";
+</script>
+<script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+{% endblock %}
