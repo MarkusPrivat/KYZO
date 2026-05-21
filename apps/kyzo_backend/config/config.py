@@ -63,6 +63,10 @@ class FastAPISettings(BaseSettings):
     DATABASE_PATH: Path = DATA_DIR / 'kyzo-data.sqlite'
     SQLALCHEMY_DATABASE_URI: str = ""
 
+    CORS_ORIGINS: list[str] = [
+        "http://127.0.0.1:5000",
+    ]
+
     # API
     API_PREFIX_V1: str = Field("/api/v1", description="Prefix for API v1")
 
