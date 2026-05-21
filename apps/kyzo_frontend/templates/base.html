@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Kyzo{% endblock %}</title>
+
+  <!-- Design Tokens & Base Styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav" aria-label="Hauptnavigation">
+    <div class="nav__container">
+      <a href="/" class="nav__logo" aria-label="Kyzo Startseite">
+        KYZ<span class="nav__logo-accent">O</span>
+      </a>
+
+      <!-- Desktop Nav Links -->
+      <ul class="nav__links" role="list">
+        <li><a href="/" class="nav__link">Startseite</a></li>
+        <li><a href="/features" class="nav__link">Features</a></li>
+        <li><a href="/pricing" class="nav__link">Preise</a></li>
+        <li><a href="/about" class="nav__link">Über uns</a></li>
+      </ul>
+
+      <div class="nav__cta">
+        <a href="/signup" class="nav__cta-btn">Loslegen</a>
+      </div>
+
+      <!-- Mobile Hamburger Button -->
+      <button
+        class="nav__hamburger"
+        aria-label="Menü öffnen"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+      >
+        <span class="nav__hamburger-line"></span>
+        <span class="nav__hamburger-line"></span>
+        <span class="nav__hamburger-line"></span>
+      </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="nav__mobile-menu" id="mobile-menu" role="dialog" aria-label="Mobile Navigation">
+      <ul class="nav__mobile-links" role="list">
+        <li><a href="/" class="nav__mobile-link">Startseite</a></li>
+        <li><a href="/features" class="nav__mobile-link">Features</a></li>
+        <li><a href="/pricing" class="nav__mobile-link">Preise</a></li>
+        <li><a href="/about" class="nav__mobile-link">Über uns</a></li>
+      </ul>
+      <div class="nav__mobile-cta">
+        <a href="/signup" class="nav__cta-btn">Loslegen</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main" id="main-content" role="main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer" role="contentinfo">
+    <div class="footer__container">
+      <p class="footer__copyright">&copy; {{ now.year if now else 2025 }} Kyzo. Alle Rechte vorbehalten.</p>
+      <ul class="footer__links" role="list">
+        <li><a href="/impressum" class="footer__link">Impressum</a></li>
+        <li><a href="/datenschutz" class="footer__link">Datenschutz</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <!-- Navigation JS -->
+  <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
