@@ -25,3 +25,10 @@ def login():
     """Render the login page."""
     api_url = current_app.config.get("API_URL", "/api/v1")
     return render_template("login.html", api_url=api_url)
+
+
+@main_bp.route("/profile")
+def profile():
+    """Render the profile page."""
+    api_url = current_app.config.get("API_URL", "/api/v1")
+    return render_template("profile.html", api_url=api_url)
