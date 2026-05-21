@@ -1,18 +1,9 @@
-   Registration
-   ============================================ */
-=======
 /**
  * auth.js — Authentication utilities for Kyzo frontend.
  *
  * Handles client-side validation and API calls for user registration and login.
  */
 
-   Register Page Initialization
-   ============================================ */
-
-document.addEventListener("DOMContentLoaded", function () {
-  var form = document.getElementById("register-form");
-=======
 /* ============================================
    Get Auth Header
    ============================================ */
@@ -31,11 +22,34 @@ function getAuthHeader() {
 }
 
 /* ============================================
-   Register Page Initialization
+   Check Login Status
    ============================================ */
 
-document.addEventListener("DOMContentLoaded", function () {
-  var form = document.getElementById("register-form");============================================
+function isLoggedIn() {
+  /**
+   * Checks whether the user is authenticated by verifying
+   * the presence of a JWT token in localStorage.
+   *
+   * @returns {boolean} - True if a token exists.
+   */
+  var token = localStorage.getItem("jwt_token");
+  return !!token;
+}
+
+/* ============================================
+   Logout
+   ============================================ */
+
+function logout() {
+  /**
+   * Clears the JWT token from localStorage and redirects
+   * the user to the login page.
+   */
+  localStorage.removeItem("jwt_token");
+  window.location.href = "/login";
+}
+
+/* ============================================
    Login
    ============================================ */
 
@@ -75,8 +89,6 @@ function login(username, password) {
 }
 
 /* ============================================
-   Registration
-   ============================================ */============================================
    Registration
    ============================================ */
 
@@ -433,8 +445,9 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 });
+
 /* ============================================
-   Profile â€” API Functions
+   Profile — API Functions
    ============================================ */
 
 function getProfile() {
@@ -453,7 +466,7 @@ function getProfile() {
       return { error: 'unauthorized' };
     }
     return response.json().then(function (data) { return { error: data.detail || 'Ein Fehler ist aufgetreten.' }; });
-  }).catch(function () { return { error: 'Verbindungsfehler. Bitte versuche es spÃ¤ter erneut.' }; });
+  }).catch(function () { return { error: 'Verbindungsfehler. Bitte versuche es später erneut.' }; });
 }
 
 function updateProfile(updateData) {
@@ -479,7 +492,7 @@ function updateProfile(updateData) {
       });
     }
     return response.json().then(function (data) { return { error: data.detail || 'Ein Fehler ist aufgetreten.' }; });
-  }).catch(function () { return { error: 'Verbindungsfehler. Bitte versuche es spÃ¤ter erneut.' }; });
+  }).catch(function () { return { error: 'Verbindungsfehler. Bitte versuche es später erneut.' }; });
 }
 
 function deactivateAccount() {
@@ -498,7 +511,7 @@ function deactivateAccount() {
       return { error: 'unauthorized' };
     }
     return response.json().then(function (data) { return { error: data.detail || 'Ein Fehler ist aufgetreten.' }; });
-  }).catch(function () { return { error: 'Verbindungsfehler. Bitte versuche es spÃ¤ter erneut.' }; });
+  }).catch(function () { return { error: 'Verbindungsfehler. Bitte versuche es später erneut.' }; });
 }
 
 /* ============================================
@@ -533,12 +546,12 @@ document.addEventListener('DOMContentLoaded', function () {
   function validateEmail(value) {
     if (!value) return 'E-Mail ist ein Pflichtfeld.';
     var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(value)) return 'Bitte gib eine gÃ¼ltige E-Mail-Adresse ein.';
+    if (!emailPattern.test(value)) return 'Bitte gib eine gültige E-Mail-Adresse ein.';
     return '';
   }
 
   function validateGrade(value) {
-    if (!value) return 'Bitte wÃ¤hle ein Schuljahr aus.';
+    if (!value) return 'Bitte wähle ein Schuljahr aus.';
     return '';
   }
 
@@ -556,7 +569,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function getRoleLabel(role) {
-    var labels = { student: 'SchÃ¼ler:in', teacher: 'Lehrkraft', admin: 'Administrator:in' };
+    var labels = { student: 'Schüler:in', teacher: 'Lehrkraft', admin: 'Administrator:in' };
     return labels[role] || role;
   }
 
@@ -638,9 +651,9 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   deactivateBtn.addEventListener('click', function () {
-    if (!confirm('Bist du sicher, dass du dein Konto deaktivieren mÃ¶chtest? Diese Aktion ist irreversibel.')) { return; }
+    if (!confirm('Bist du sicher, dass du dein Konto deaktivieren möchtest? Diese Aktion ist irreversibel.')) { return; }
     deactivateBtn.disabled = true;
-    deactivateBtn.textContent = 'Wird deaktiviertâ€¦';
+    deactivateBtn.textContent = 'Wird deaktiviert…';
     deactivateAccount().then(function (result) {
       if (result.error === 'unauthorized') { window.location.href = '/login'; return; }
       if (result.data) { localStorage.removeItem('jwt_token'); window.location.href = '/'; }
@@ -653,3 +666,25 @@ document.addEventListener('DOMContentLoaded', function () {
   gradeSelect.dataset.original = gradeSelect.value;
   loadProfile();
 });
+
+/* ============================================
+   Global 401 Handler — Token Expiry
+   ============================================ */
+
+(function () {
+  /**
+   * Intercepts all fetch responses and handles 401 Unauthorized
+   * by clearing the token and redirecting to the login page.
+   */
+  var originalFetch = window.fetch;
+  window.fetch = function () {
+    var args = Array.prototype.slice.call(arguments);
+    return originalFetch.apply(this, args).then(function (response) {
+      if (response.status === 401) {
+        localStorage.removeItem('jwt_token');
+        window.location.href = '/login';
+      }
+      return response;
+    });
+  };
+})();

@@ -26,8 +26,14 @@
         <li><a href="/about" class="nav__link">Über uns</a></li>
       </ul>
 
-      <div class="nav__cta">
-        <a href="/signup" class="nav__cta-btn">Loslegen</a>
+      <div class="nav__cta" id="nav-cta">
+        <a href="/register" class="nav__cta-btn nav__cta-btn--anon">Loslegen</a>
+        <div class="nav__cta-dropdown" id="nav-cta-dropdown" hidden>
+          <a href="/profile" class="nav__cta-btn nav__cta-btn--auth" id="nav-user-btn">
+            <span id="nav-username"></span>
+          </a>
+          <button type="button" class="nav__logout-btn" id="nav-logout-btn">Abmelden</button>
+        </div>
       </div>
 
       <!-- Mobile Hamburger Button -->
@@ -51,8 +57,12 @@
         <li><a href="/pricing" class="nav__mobile-link">Preise</a></li>
         <li><a href="/about" class="nav__mobile-link">Über uns</a></li>
       </ul>
-      <div class="nav__mobile-cta">
-        <a href="/signup" class="nav__cta-btn">Loslegen</a>
+      <div class="nav__mobile-cta" id="nav-mobile-cta">
+        <a href="/register" class="nav__cta-btn nav__cta-btn--anon">Loslegen</a>
+        <a href="/profile" class="nav__cta-btn nav__cta-btn--auth" id="nav-mobile-user-btn" hidden>
+          <span id="nav-mobile-username"></span>
+        </a>
+        <button type="button" class="nav__logout-btn" id="nav-mobile-logout-btn" hidden>Abmelden</button>
       </div>
     </div>
   </nav>
@@ -78,6 +88,54 @@
 
   <!-- FAQ Accordion JS -->
   <script src="{{ url_for('static', filename='js/faq.js') }}"></script>
+
+  <!-- Dynamic CTA (auth-aware) -->
+  <script>
+    (function () {
+      var token = localStorage.getItem("jwt_token");
+      var anonBtns = document.querySelectorAll(".nav__cta-btn--anon");
+      var dropdown = document.getElementById("nav-cta-dropdown");
+      var mobileUserBtn = document.getElementById("nav-mobile-user-btn");
+      var mobileLogoutBtn = document.getElementById("nav-mobile-logout-btn");
+
+      if (token) {
+        /* Decode JWT payload to get username */
+        try {
+          var payload = token.split(".")[1];
+          var decoded = decodeURIComponent(
+            atob(payload).split("").map(function (c) {
+              return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join("")
+          );
+          var data = JSON.parse(decoded);
+          var username = data.name || data.username || "Profil";
+          document.getElementById("nav-username").textContent = username;
+          document.getElementById("nav-mobile-username").textContent = username;
+        } catch (e) {
+          document.getElementById("nav-username").textContent = "Profil";
+          document.getElementById("nav-mobile-username").textContent = "Profil";
+        }
+
+        /* Hide anon buttons, show dropdown */
+        anonBtns.forEach(function (btn) { btn.style.display = "none"; });
+        if (dropdown) { dropdown.removeAttribute("hidden"); dropdown.style.display = "flex"; }
+        if (mobileUserBtn) mobileUserBtn.removeAttribute("hidden");
+        if (mobileLogoutBtn) mobileLogoutBtn.removeAttribute("hidden");
+      }
+
+      /* Logout handler */
+      function handleLogout() {
+        localStorage.removeItem("jwt_token");
+        window.location.href = "/login";
+      }
+
+      var logoutBtn = document.getElementById("nav-logout-btn");
+      if (logoutBtn) logoutBtn.addEventListener("click", handleLogout);
+
+      var mobileLogoutBtn = document.getElementById("nav-mobile-logout-btn");
+      if (mobileLogoutBtn) mobileLogoutBtn.addEventListener("click", handleLogout);
+    })();
+  </script>
 
   {% block extra_js %}{% endblock %}
 </body>
