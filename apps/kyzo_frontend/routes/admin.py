@@ -32,8 +32,11 @@ def get_user_role_from_token(token):
                 algorithms=["HS256"],
             )
         
-        # Check for role in scopes claim or role claim
-        if "scopes" in payload and payload["scopes"]:
+        # Check for role in scope claim (backend uses "scope", singular)
+        if "scope" in payload and payload["scope"]:
+            return payload["scope"]
+        # Also check legacy field names for backward compatibility
+        elif "scopes" in payload and payload["scopes"]:
             return payload["scopes"]
         elif "role" in payload:
             return payload["role"]
@@ -105,3 +108,51 @@ def admin_dashboard():
     
     # User is authenticated and is admin, render admin dashboard
     return render_template("admin/dashboard.html")
+
+
+@admin_bp.route("/admin/knowledge/subjects")
+def knowledge_subjects():
+    """Knowledge subjects management route.
+    
+    - Requires valid JWT token
+    - Requires admin role
+    - Redirects to login if token is expired
+    - Redirects to homepage if user is not admin
+    """
+    token = request.cookies.get("jwt_token")
+    
+    # If no token, redirect to login
+    if not token:
+        return redirect(url_for("main.login"))
+    
+    # Check if token is expired
+    try:
+        auth_secret = current_app.config.get("AUTH_SECRET_KEY", "")
+        if auth_secret:
+            jwt.decode(
+                token,
+                auth_secret,
+                algorithms=["HS256"],
+                options={"require": ["exp"]},
+            )
+        else:
+            # Fallback: decode without verification (development only)
+            jwt.decode(
+                token,
+                options={"verify_signature": False, "require": ["exp"]},
+                algorithms=["HS256"],
+            )
+    except jwt.ExpiredSignatureError:
+        # Token expired, redirect to login
+        return redirect(url_for("main.login"))
+    except jwt.InvalidTokenError:
+        # Invalid token, redirect to login
+        return redirect(url_for("main.login"))
+    
+    # Check if user is admin
+    if not is_admin_user(token):
+        # User is authenticated but not admin, redirect to homepage
+        return redirect(url_for("main.index"))
+    
+    # User is authenticated and is admin, render knowledge subjects management
+    return render_template("admin/knowledge_subjects.html")

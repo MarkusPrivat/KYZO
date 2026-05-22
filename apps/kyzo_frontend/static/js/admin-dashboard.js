@@ -81,13 +81,8 @@ function setupQuickLinks() {
     // Knowledge management quick link
     const knowledgeLink = document.getElementById('quick-link-knowledge');
     if (knowledgeLink) {
-        knowledgeLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            // Navigate to knowledge management section
-            // This would typically change the sidebar tab and load the appropriate content
-            console.log('Navigate to Knowledge Management');
-            // In a real implementation, this would trigger a route change or load content dynamically
-        });
+        // The link now has a proper href, so no need to prevent default
+        // Just ensure it works as a normal link
     }
     
     // Users management quick link
