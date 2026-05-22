@@ -650,15 +650,84 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
+  /* ============================================
+     Deactivate Account — Modal Confirmation
+     ============================================ */
+
   deactivateBtn.addEventListener('click', function () {
-    if (!confirm('Bist du sicher, dass du dein Konto deaktivieren möchtest? Diese Aktion ist irreversibel.')) { return; }
-    deactivateBtn.disabled = true;
-    deactivateBtn.textContent = 'Wird deaktiviert…';
-    deactivateAccount().then(function (result) {
-      if (result.error === 'unauthorized') { window.location.href = '/login'; return; }
-      if (result.data) { localStorage.removeItem('jwt_token'); window.location.href = '/'; }
-      else { deactivateBtn.disabled = false; deactivateBtn.textContent = 'Konto deaktivieren'; }
-    }).catch(function () { deactivateBtn.disabled = false; deactivateBtn.textContent = 'Konto deaktivieren'; });
+    var modal = document.getElementById('deactivate-modal');
+    var overlay = document.getElementById('deactivate-modal-overlay');
+    var closeBtn = document.getElementById('deactivate-modal-close');
+    var cancelBtn = document.getElementById('deactivate-modal-cancel');
+    var confirmBtn = document.getElementById('deactivate-modal-confirm');
+    var input = document.getElementById('deactivate-modal-input');
+    var errorEl = document.getElementById('deactivate-modal-error');
+
+    // Reset modal state
+    input.value = '';
+    confirmBtn.disabled = true;
+    errorEl.setAttribute('hidden', '');
+    errorEl.textContent = '';
+
+    // Show modal
+    modal.removeAttribute('hidden');
+    input.focus();
+
+    // Escape key handler
+    function handleKeydown(e) {
+      if (e.key === 'Escape') { closeModal(); return; }
+    }
+    document.addEventListener('keydown', handleKeydown);
+
+    function closeModal() {
+      modal.setAttribute('hidden', '');
+      document.removeEventListener('keydown', handleKeydown);
+      input.value = '';
+      confirmBtn.disabled = true;
+      errorEl.setAttribute('hidden', '');
+      errorEl.textContent = '';
+    }
+
+    function handleInput() {
+      var val = input.value.trim();
+      confirmBtn.disabled = val !== 'DEAKTIVIEREN';
+      if (val && val !== 'DEAKTIVIEREN') {
+        errorEl.textContent = 'Bitte tippe exakt "DEAKTIVIEREN".';
+        errorEl.removeAttribute('hidden');
+      } else {
+        errorEl.setAttribute('hidden', '');
+        errorEl.textContent = '';
+      }
+    }
+
+    input.addEventListener('input', handleInput);
+
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', closeModal);
+
+    confirmBtn.addEventListener('click', function () {
+      var val = input.value.trim();
+      if (val !== 'DEAKTIVIEREN') {
+        errorEl.textContent = 'Bitte tippe exakt "DEAKTIVIEREN".';
+        errorEl.removeAttribute('hidden');
+        return;
+      }
+      closeModal();
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Wird deaktiviert…';
+      deactivateAccount().then(function (result) {
+        if (result.error === 'unauthorized') { window.location.href = '/login'; return; }
+        if (result.data) { localStorage.removeItem('jwt_token'); window.location.href = '/'; }
+        else {
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Konto deaktivieren';
+        }
+      }).catch(function () {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Konto deaktivieren';
+      });
+    });
   });
 
   nameInput.dataset.original = nameInput.value;

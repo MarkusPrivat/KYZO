@@ -126,6 +126,64 @@
       </div>
     </div>
   </div>
+
+  <!-- Deactivation Confirmation Modal -->
+  <div
+    id="deactivate-modal"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="deactivate-modal-title"
+    aria-describedby="deactivate-modal-desc"
+    hidden
+  >
+    <div class="modal__overlay" id="deactivate-modal-overlay"></div>
+    <div class="modal__content">
+      <button
+        type="button"
+        class="modal__close"
+        id="deactivate-modal-close"
+        aria-label="Schließen"
+      >
+        ✕
+      </button>
+      <h2 class="modal__title" id="deactivate-modal-title">Konto deaktivieren?</h2>
+      <p class="modal__description" id="deactivate-modal-desc">
+        Bist du dir sicher? Diese Aktion ist irreversibel. Dein Konto wird
+        dauerhaft deaktiviert und du kannst dich nicht mehr anmelden.
+      </p>
+      <div class="modal__field">
+        <label for="deactivate-modal-input" class="modal__label">
+          Tippe <code>DEAKTIVIEREN</code> zum Bestätigen
+        </label>
+        <input
+          type="text"
+          id="deactivate-modal-input"
+          class="modal__input"
+          autocomplete="off"
+          spellcheck="false"
+        >
+      </div>
+      <div class="modal__actions">
+        <button
+          type="button"
+          class="modal__btn modal__btn--secondary"
+          id="deactivate-modal-cancel"
+        >
+          Abbrechen
+        </button>
+        <button
+          type="button"
+          class="modal__btn modal__btn--danger"
+          id="deactivate-modal-confirm"
+          disabled
+        >
+          Konto deaktivieren
+        </button>
+      </div>
+      <div id="deactivate-modal-error" class="modal__error" role="alert" aria-live="polite" hidden></div>
+    </div>
+  </div>
 </section>
 {% endblock %}
 
