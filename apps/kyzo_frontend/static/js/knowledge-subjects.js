@@ -31,11 +31,11 @@ async function loadSubjects() {
             currentSubjects = data.subjects || [];
             renderFilteredSubjectsTable();
         } else {
-            showToast('Error loading subjects. Please try again.', true);
+            showToast('Fehler beim Laden der Fächer. Bitte versuche es erneut.', 'error');
             console.error('Error loading subjects:', response.status);
         }
     } catch (error) {
-        showToast('Network error. Please check your connection.', true);
+        showToast('Netzwerkfehler. Bitte überprüfe deine Verbindung.', 'error');
         console.error('Network error:', error);
     }
 }
@@ -173,8 +173,6 @@ function setupEventListeners() {
     document.getElementById('confirmation-cancel')?.addEventListener('click', hideConfirmationDialog);
     document.getElementById('confirmation-confirm')?.addEventListener('click', handleConfirmation);
     
-    // Toast notification
-    document.getElementById('toast-close')?.addEventListener('click', hideToast);
     
     // Form validation
     document.getElementById('create-subject-name')?.addEventListener('input', validateSubjectName);
@@ -242,15 +240,15 @@ async function createSubject() {
             currentSubjects.push(newSubject);
             renderSubjectsTable();
             hideCreateSubjectModal();
-            showToast('Subject created successfully!');
+            showToast('Fach erfolgreich erstellt.');
         } else if (response.status === 409) {
-            showToast('Subject with this name already exists.', true);
+            showToast('Ein Fach mit diesem Namen existiert bereits.', 'error');
         } else {
             const errorData = await response.json();
-            showToast(`Error creating subject: ${errorData.message || 'Unknown error'}`, true);
+            showToast(`Fehler beim Erstellen des Fachs: ${errorData.message || 'Unbekannter Fehler'}`, 'error');
         }
     } catch (error) {
-        showToast('Network error. Please check your connection.', true);
+        showToast('Netzwerkfehler. Bitte überprüfe deine Verbindung.', 'error');
         console.error('Network error:', error);
     }
 }
@@ -310,15 +308,15 @@ async function saveEditedSubject() {
                 renderSubjectsTable();
             }
             hideEditSubjectModal();
-            showToast('Subject updated successfully!');
+            showToast('Fach erfolgreich aktualisiert.');
         } else if (response.status === 409) {
-            showToast('Subject with this name already exists.', true);
+            showToast('Ein Fach mit diesem Namen existiert bereits.', 'error');
         } else {
             const errorData = await response.json();
-            showToast(`Error updating subject: ${errorData.message || 'Unknown error'}`, true);
+            showToast(`Fehler beim Aktualisieren des Fachs: ${errorData.message || 'Unbekannter Fehler'}`, 'error');
         }
     } catch (error) {
-        showToast('Network error. Please check your connection.', true);
+        showToast('Netzwerkfehler. Bitte überprüfe deine Verbindung.', 'error');
         console.error('Network error:', error);
     }
 }
@@ -420,14 +418,14 @@ async function toggleSubjectStatus(subjectId) {
             if (index !== -1) {
                 currentSubjects[index] = updatedSubject;
                 renderSubjectsTable();
-                showToast(`Subject ${newStatus ? 'activated' : 'deactivated'} successfully!`);
+                showToast(`Fach ${newStatus ? 'aktiviert' : 'deaktiviert'}.`);
             }
         } else {
             const errorData = await response.json();
-            showToast(`Error toggling status: ${errorData.message || 'Unknown error'}`, true);
+            showToast(`Fehler beim Umschalten des Status: ${errorData.message || 'Unbekannter Fehler'}`, 'error');
         }
     } catch (error) {
-        showToast('Network error. Please check your connection.', true);
+        showToast('Netzwerkfehler. Bitte überprüfe deine Verbindung.', 'error');
         console.error('Network error:', error);
     }
 }
@@ -454,43 +452,6 @@ function validateSubjectName() {
     }
     
     return isValid;
-}
-
-/**
- * Show toast notification
- * @param {string} message - Message to display
- * @param {boolean} isError - Whether this is an error message
- */
-function showToast(message, isError = false) {
-    const toast = document.getElementById('toast-notification');
-    const toastMessage = document.getElementById('toast-message');
-    
-    if (toast && toastMessage) {
-        toastMessage.textContent = message;
-        
-        if (isError) {
-            toast.classList.add('toast-error');
-            toast.classList.remove('toast-success');
-        } else {
-            toast.classList.add('toast-success');
-            toast.classList.remove('toast-error');
-        }
-        
-        toast.style.display = 'block';
-        
-        // Auto-hide after 5 seconds
-        setTimeout(hideToast, 5000);
-    }
-}
-
-/**
- * Hide toast notification
- */
-function hideToast() {
-    const toast = document.getElementById('toast-notification');
-    if (toast) {
-        toast.style.display = 'none';
-    }
 }
 
 // Event delegation for action buttons (since they're dynamically created)

@@ -73,7 +73,7 @@ async function loadSubjectName(subjectId) {
                 if (breadcrumbName) breadcrumbName.textContent = 'Subject #' + subjectId;
             }
         } else {
-            showToast('Error loading subject details. Please try again.', true);
+            showToast('Fehler beim Laden der Fachdetails. Bitte versuche es erneut.', 'error');
         }
     } catch (error) {
         currentSubjectName = 'Subject #' + subjectId;
@@ -100,11 +100,11 @@ async function loadTopics(subjectId) {
         } else if (response.status === 401) {
             window.location.href = '/login';
         } else {
-            showToast('Error loading topics. Please try again.', true);
+            showToast('Fehler beim Laden der Themen. Bitte versuche es erneut.', 'error');
             console.error('Error loading topics:', response.status);
         }
     } catch (error) {
-        showToast('Network error. Please check your connection.', true);
+        showToast('Netzwerkfehler. Bitte überprüfe deine Verbindung.', 'error');
         console.error('Network error:', error);
     }
 }
@@ -239,8 +239,6 @@ function setupEventListeners(subjectId) {
     document.getElementById('confirmation-cancel')?.addEventListener('click', hideConfirmationDialog);
     document.getElementById('confirmation-confirm')?.addEventListener('click', handleConfirmation);
     
-    // Toast notification
-    document.getElementById('toast-close')?.addEventListener('click', hideToast);
     
     // Search input (debounced)
     document.getElementById('topics-search')?.addEventListener('input', function(e) {
@@ -296,7 +294,7 @@ async function createTopic() {
     
     // Validate grade
     if (!grade || grade < 1 || grade > 13) {
-        showToast('Please select a valid expected grade (1-13).', true);
+        showToast('Bitte wähle eine gültige erwartete Note (1-13).', 'error');
         return;
     }
     
@@ -317,15 +315,15 @@ async function createTopic() {
             currentTopics.push(newTopic);
             renderFilteredTopicsTable();
             hideCreateTopicModal();
-            showToast('Topic created successfully!');
+            showToast('Thema erfolgreich erstellt.');
         } else if (response.status === 409) {
-            showToast('Topic with this name already exists.', true);
+            showToast('Ein Thema mit diesem Namen existiert bereits.', 'error');
         } else {
             var errorData = await response.json();
-            showToast('Error creating topic: ' + (errorData.message || 'Unknown error'), true);
+            showToast('Fehler beim Erstellen des Themas: ' + (errorData.message || 'Unbekannter Fehler'), 'error');
         }
     } catch (error) {
-        showToast('Network error. Please check your connection.', true);
+        showToast('Netzwerkfehler. Bitte überprüfe deine Verbindung.', 'error');
         console.error('Network error:', error);
     }
 }
@@ -374,7 +372,7 @@ async function saveEditedTopic() {
     
     // Validate grade
     if (!grade || grade < 1 || grade > 13) {
-        showToast('Please select a valid expected grade (1-13).', true);
+        showToast('Bitte wähle eine gültige erwartete Note (1-13).', 'error');
         return;
     }
     
@@ -398,15 +396,15 @@ async function saveEditedTopic() {
                 renderFilteredTopicsTable();
             }
             hideEditTopicModal();
-            showToast('Topic updated successfully!');
+            showToast('Thema erfolgreich aktualisiert.');
         } else if (response.status === 409) {
-            showToast('Topic with this name already exists.', true);
+            showToast('Ein Thema mit diesem Namen existiert bereits.', 'error');
         } else {
             var errorData = await response.json();
-            showToast('Error updating topic: ' + (errorData.message || 'Unknown error'), true);
+            showToast('Fehler beim Aktualisieren des Themas: ' + (errorData.message || 'Unbekannter Fehler'), 'error');
         }
     } catch (error) {
-        showToast('Network error. Please check your connection.', true);
+        showToast('Netzwerkfehler. Bitte überprüfe deine Verbindung.', 'error');
         console.error('Network error:', error);
     }
 }
@@ -510,60 +508,18 @@ async function toggleTopicStatus(topicId) {
             if (index !== -1) {
                 currentTopics[index] = updatedTopic;
                 renderFilteredTopicsTable();
-                showToast('Topic ' + (newStatus ? 'activated' : 'deactivated') + ' successfully!');
+                showToast('Thema ' + (newStatus ? 'aktiviert' : 'deaktiviert') + '.');
             }
         } else if (response.status === 401) {
             window.location.href = '/login';
         } else {
             var errorData = await response.json();
-            showToast('Error toggling status: ' + (errorData.message || 'Unknown error'), true);
+            showToast('Fehler beim Umschalten des Status: ' + (errorData.message || 'Unbekannter Fehler'), 'error');
         }
     } catch (error) {
-        showToast('Network error. Please check your connection.', true);
+        showToast('Netzwerkfehler. Bitte überprüfe deine Verbindung.', 'error');
         console.error('Network error:', error);
     }
-}
-
-/**
- * Show toast notification
- * @param {string} message - Message to display
- * @param {boolean} isError - Whether this is an error message
- */
-function showToast(message, isError) {
-    if (isError === undefined) isError = false;
-    
-    var toast = document.getElementById('toast-notification');
-    var toastMessage = document.getElementById('toast-message');
-    
-    if (toast && toastMessage) {
-        toastMessage.textContent = message;
-        
-        if (isError) {
-            toast.classList.add('toast-error');
-            toast.classList.remove('toast-success');
-        } else {
-            toast.classList.add('toast-success');
-            toast.classList.remove('toast-error');
-        }
-        
-        toast.style.display = 'block';
-        
-        // Auto-hide after 5 seconds
-        setTimeout(hideToast, 5000);
-    }
-}
-
-/**
- * Hide toast notification
- */
-function hideToast() {
-    var toast = document.getElementById('toast-notification');
-    if (toast) {
-        toast.style.display = 'none';
-    }
-}
-
-// Event delegation for action buttons (since they're dynamically created)
 document.addEventListener('click', function(e) {
     // Edit button click
     var editBtn = e.target.closest('.action-btn-edit');

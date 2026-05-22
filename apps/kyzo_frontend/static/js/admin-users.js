@@ -31,11 +31,11 @@ async function loadUsers() {
             currentUsers = data.users || [];
             renderFilteredUsersTable();
         } else {
-            showToast('Error loading users. Please try again.', true);
+            showToast('Fehler beim Laden der Benutzer. Bitte versuche es erneut.', 'error');
             console.error('Error loading users:', response.status);
         }
     } catch (error) {
-        showToast('Network error. Please check your connection.', true);
+        showToast('Netzwerkfehler. Bitte überprüfe deine Verbindung.', 'error');
         console.error('Network error:', error);
     }
 }
@@ -186,8 +186,6 @@ function setupEventListeners() {
     document.getElementById('confirmation-cancel')?.addEventListener('click', hideConfirmationDialog);
     document.getElementById('confirmation-confirm')?.addEventListener('click', handleConfirmation);
     
-    // Toast notification
-    document.getElementById('toast-close')?.addEventListener('click', hideToast);
     
     // Search input (debounced)
     document.getElementById('users-search')?.addEventListener('input', function(e) {
@@ -313,15 +311,15 @@ async function createUser() {
             currentUsers.push(newUser);
             renderFilteredUsersTable();
             hideCreateUserModal();
-            showToast('User created successfully!');
+            showToast('Benutzer erfolgreich erstellt.');
         } else if (response.status === 409) {
-            showToast('A user with this email already exists.', true);
+            showToast('Ein Benutzer mit dieser E-Mail existiert bereits.', 'error');
         } else {
             const errorData = await response.json();
-            showToast(`Error creating user: ${errorData.message || 'Unknown error'}`, true);
+            showToast(`Fehler beim Erstellen des Benutzers: ${errorData.message || 'Unbekannter Fehler'}`, 'error');
         }
     } catch (error) {
-        showToast('Network error. Please check your connection.', true);
+        showToast('Netzwerkfehler. Bitte überprüfe deine Verbindung.', 'error');
         console.error('Network error:', error);
     }
 }
@@ -425,7 +423,7 @@ async function saveEditedUser() {
     
     if (Object.keys(payload).length === 0) {
         hideEditUserModal();
-        showToast('No changes to save.');
+        showToast('Keine Änderungen zum Speichern.');
         return;
     }
     
@@ -446,15 +444,15 @@ async function saveEditedUser() {
                 renderFilteredUsersTable();
             }
             hideEditUserModal();
-            showToast('User updated successfully!');
+            showToast('Benutzer erfolgreich aktualisiert.');
         } else if (response.status === 409) {
-            showToast('A user with this email already exists.', true);
+            showToast('Ein Benutzer mit dieser E-Mail existiert bereits.', 'error');
         } else {
             const errorData = await response.json();
-            showToast(`Error updating user: ${errorData.message || 'Unknown error'}`, true);
+            showToast(`Fehler beim Aktualisieren des Benutzers: ${errorData.message || 'Unbekannter Fehler'}`, 'error');
         }
     } catch (error) {
-        showToast('Network error. Please check your connection.', true);
+        showToast('Netzwerkfehler. Bitte überprüfe deine Verbindung.', 'error');
         console.error('Network error:', error);
     }
 }
@@ -557,51 +555,14 @@ async function toggleUserStatus(userId) {
                 currentUsers[index] = updatedUser;
                 renderFilteredUsersTable();
             }
-            showToast(`User ${newStatus ? 'activated' : 'deactivated'} successfully!`);
+            showToast(`Benutzer ${newStatus ? 'aktiviert' : 'deaktiviert'}.`);
         } else {
             const errorData = await response.json();
-            showToast(`Error toggling status: ${errorData.message || 'Unknown error'}`, true);
+            showToast(`Fehler beim Umschalten des Status: ${errorData.message || 'Unbekannter Fehler'}`, 'error');
         }
     } catch (error) {
-        showToast('Network error. Please check your connection.', true);
+        showToast('Netzwerkfehler. Bitte überprüfe deine Verbindung.', 'error');
         console.error('Network error:', error);
-    }
-}
-
-/**
- * Show toast notification
- * @param {string} message - Message to display
- * @param {boolean} isError - Whether this is an error message
- */
-function showToast(message, isError = false) {
-    const toast = document.getElementById('toast-notification');
-    const toastMessage = document.getElementById('toast-message');
-    
-    if (toast && toastMessage) {
-        toastMessage.textContent = message;
-        
-        if (isError) {
-            toast.classList.add('toast-error');
-            toast.classList.remove('toast-success');
-        } else {
-            toast.classList.add('toast-success');
-            toast.classList.remove('toast-error');
-        }
-        
-        toast.style.display = 'block';
-        
-        // Auto-hide after 5 seconds
-        setTimeout(hideToast, 5000);
-    }
-}
-
-/**
- * Hide toast notification
- */
-function hideToast() {
-    const toast = document.getElementById('toast-notification');
-    if (toast) {
-        toast.style.display = 'none';
     }
 }
 
