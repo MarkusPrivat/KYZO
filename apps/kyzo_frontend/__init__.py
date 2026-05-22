@@ -27,6 +27,8 @@ def create_app(config_name="development"):
 
     # Register blueprints
     from .routes.main import main_bp
+    from .routes.admin import admin_bp
     app.register_blueprint(main_bp)
+    app.register_blueprint(admin_bp)
 
     return app

@@ -24,6 +24,7 @@
         <li><a href="/features" class="nav__link">Features</a></li>
         <li><a href="/pricing" class="nav__link">Preise</a></li>
         <li><a href="/about" class="nav__link">Über uns</a></li>
+        <li><a href="/admin" class="nav__link" id="nav-admin-link" style="display: none;">Admin</a></li>
       </ul>
 
       <div class="nav__cta" id="nav-cta">
@@ -56,6 +57,7 @@
         <li><a href="/features" class="nav__mobile-link">Features</a></li>
         <li><a href="/pricing" class="nav__mobile-link">Preise</a></li>
         <li><a href="/about" class="nav__mobile-link">Über uns</a></li>
+        <li><a href="/admin" class="nav__mobile-link" id="nav-mobile-admin-link" style="display: none;">Admin</a></li>
       </ul>
       <div class="nav__mobile-cta" id="nav-mobile-cta">
         <a href="/register" class="nav__cta-btn nav__cta-btn--anon">Loslegen</a>
@@ -97,9 +99,11 @@
       var dropdown = document.getElementById("nav-cta-dropdown");
       var mobileUserBtn = document.getElementById("nav-mobile-user-btn");
       var mobileLogoutBtn = document.getElementById("nav-mobile-logout-btn");
+      var adminLink = document.getElementById("nav-admin-link");
+      var mobileAdminLink = document.getElementById("nav-mobile-admin-link");
 
       if (token) {
-        /* Decode JWT payload to get username */
+        /* Decode JWT payload to get username and role */
         try {
           var payload = token.split(".")[1];
           var decoded = decodeURIComponent(
@@ -111,6 +115,24 @@
           var username = data.name || data.username || "Profil";
           document.getElementById("nav-username").textContent = username;
           document.getElementById("nav-mobile-username").textContent = username;
+
+          /* Check if user is admin and show admin link */
+          var isAdmin = false;
+          if (data.scopes && (data.scopes === "admin" || (Array.isArray(data.scopes) && data.scopes.includes("admin")))) {
+            isAdmin = true;
+          } else if (data.role === "admin") {
+            isAdmin = true;
+          } else if (data.user_role === "admin") {
+            isAdmin = true;
+          }
+
+          if (isAdmin && adminLink) {
+            adminLink.style.display = "block";
+          }
+          if (isAdmin && mobileAdminLink) {
+            mobileAdminLink.style.display = "block";
+          }
+
         } catch (e) {
           document.getElementById("nav-username").textContent = "Profil";
           document.getElementById("nav-mobile-username").textContent = "Profil";
