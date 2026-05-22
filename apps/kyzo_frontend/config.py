@@ -6,6 +6,7 @@ import os
 class Config:
     """Base configuration."""
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
+    AUTH_SECRET_KEY = os.environ.get("AUTH_SECRET_KEY", "")
     DEBUG = False
     TESTING = False
     API_URL = "http://127.0.0.1:8000/api/v1"

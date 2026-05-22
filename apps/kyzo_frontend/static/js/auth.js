@@ -42,10 +42,11 @@ function isLoggedIn() {
 
 function logout() {
   /**
-   * Clears the JWT token from localStorage and redirects
-   * the user to the login page.
+   * Clears the JWT token from localStorage and the cookie,
+   * then redirects the user to the login page.
    */
   localStorage.removeItem("jwt_token");
+  document.cookie = "jwt_token=; path=/; max-age=0";
   window.location.href = "/login";
 }
 
@@ -73,6 +74,7 @@ function login(username, password) {
     if (response.status === 200) {
       return response.json().then(function (data) {
         localStorage.setItem("jwt_token", data.access_token);
+        document.cookie = "jwt_token=" + data.access_token + "; path=/; max-age=1800; SameSite=Lax";
         return { token: data.access_token };
       });
     }
