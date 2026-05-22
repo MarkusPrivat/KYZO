@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', function() {
 let currentUsers = [];
 let currentAction = null;
 let currentUserId = null;
+let currentSearchTerm = '';
+let currentFilter = 'all';
+let searchTimeout = null;
 
 /**
  * Load all users from API and populate the table
@@ -26,7 +29,7 @@ async function loadUsers() {
         if (response.ok) {
             const data = await response.json();
             currentUsers = data.users || [];
-            renderUsersTable();
+            renderFilteredUsersTable();
         } else {
             showToast('Error loading users. Please try again.', true);
             console.error('Error loading users:', response.status);
@@ -38,9 +41,9 @@ async function loadUsers() {
 }
 
 /**
- * Render users table with data
+ * Render users table with search and filter applied
  */
-function renderUsersTable() {
+function renderFilteredUsersTable() {
     const tableBody = document.getElementById('users-table-body');
     
     if (!tableBody) return;
@@ -48,22 +51,43 @@ function renderUsersTable() {
     // Clear loading row
     tableBody.innerHTML = '';
     
-    if (currentUsers.length === 0) {
+    // Apply search and filter
+    let filtered = currentUsers.filter(user => {
+        // Apply search filter (name AND email)
+        const matchesSearch = currentSearchTerm === '' ||
+            (user.name && user.name.toLowerCase().includes(currentSearchTerm.toLowerCase())) ||
+            (user.email && user.email.toLowerCase().includes(currentSearchTerm.toLowerCase()));
+        
+        // Apply status filter
+        let matchesFilter = true;
+        if (currentFilter === 'active') {
+            matchesFilter = user.is_active !== false;
+        } else if (currentFilter === 'inactive') {
+            matchesFilter = user.is_active === false;
+        }
+        
+        return matchesSearch && matchesFilter;
+    });
+    
+    if (filtered.length === 0) {
+        const emptyMessage = currentSearchTerm || currentFilter !== 'all'
+            ? 'Keine Ergebnisse'
+            : 'No users found. Click "Create User" to add your first user.';
         tableBody.innerHTML = `
             <tr>
                 <td colspan="7" style="text-align: center; padding: 40px;">
-                    No users found. Click "Create User" to add your first user.
+                    ${emptyMessage}
                 </td>
             </tr>
         `;
         return;
     }
     
-    // Sort users by ID
-    currentUsers.sort((a, b) => a.id - b.id);
+    // Sort filtered users by ID
+    filtered.sort((a, b) => a.id - b.id);
     
     // Render each user
-    currentUsers.forEach(user => {
+    filtered.forEach(user => {
         const row = document.createElement('tr');
         row.dataset.userId = user.id;
         
@@ -164,6 +188,21 @@ function setupEventListeners() {
     
     // Toast notification
     document.getElementById('toast-close')?.addEventListener('click', hideToast);
+    
+    // Search input (debounced)
+    document.getElementById('users-search')?.addEventListener('input', function(e) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            currentSearchTerm = e.target.value;
+            renderFilteredUsersTable();
+        }, 300);
+    });
+    
+    // Filter dropdown
+    document.getElementById('users-filter')?.addEventListener('change', function(e) {
+        currentFilter = e.target.value;
+        renderFilteredUsersTable();
+    });
 }
 
 /**
@@ -272,7 +311,7 @@ async function createUser() {
         if (response.ok) {
             const newUser = await response.json();
             currentUsers.push(newUser);
-            renderUsersTable();
+            renderFilteredUsersTable();
             hideCreateUserModal();
             showToast('User created successfully!');
         } else if (response.status === 409) {
@@ -404,7 +443,7 @@ async function saveEditedUser() {
             const index = currentUsers.findIndex(u => u.id === userId);
             if (index !== -1) {
                 currentUsers[index] = updatedUser;
-                renderUsersTable();
+                renderFilteredUsersTable();
             }
             hideEditUserModal();
             showToast('User updated successfully!');
@@ -516,7 +555,7 @@ async function toggleUserStatus(userId) {
             const index = currentUsers.findIndex(u => u.id === userId);
             if (index !== -1) {
                 currentUsers[index] = updatedUser;
-                renderUsersTable();
+                renderFilteredUsersTable();
             }
             showToast(`User ${newStatus ? 'activated' : 'deactivated'} successfully!`);
         } else {

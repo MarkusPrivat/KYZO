@@ -68,6 +68,20 @@
         </button>
       </div>
       
+      <div class="table-toolbar">
+        <div class="table-toolbar__search">
+          <i class="fas fa-search"></i>
+          <input type="text" id="topics-search" class="table-toolbar__input" placeholder="Suchen...">
+        </div>
+        <div class="table-toolbar__filter">
+          <select id="topics-filter" class="table-toolbar__select">
+            <option value="all">Alle</option>
+            <option value="active">Aktiv</option>
+            <option value="inactive">Inaktiv</option>
+          </select>
+        </div>
+      </div>
+
       <div class="topics-table-container">
         <table class="topics-table">
           <thead>
@@ -422,6 +436,65 @@
   
   .btn-danger:hover {
     background-color: #c82333;
+  }
+  
+  .table-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  
+  .table-toolbar__search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 200px;
+  }
+  
+  .table-toolbar__search i {
+    color: #6c757d;
+    font-size: 0.9rem;
+  }
+  
+  .table-toolbar__input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #E8E2DC;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    transition: border-color 0.2s ease;
+  }
+  
+  .table-toolbar__input:focus {
+    outline: none;
+    border-color: #E4572E;
+    box-shadow: 0 0 0 2px rgba(228, 87, 46, 0.2);
+  }
+  
+  .table-toolbar__filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .table-toolbar__select {
+    padding: 8px 12px;
+    border: 1px solid #E8E2DC;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    background-color: white;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+  }
+  
+  .table-toolbar__select:focus {
+    outline: none;
+    border-color: #E4572E;
+    box-shadow: 0 0 0 2px rgba(228, 87, 46, 0.2);
   }
   
   .topics-table-container {

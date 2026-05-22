@@ -22,6 +22,9 @@ var currentSubjectId = null;
 var currentSubjectName = '';
 var currentAction = null;
 var currentTopicId = null;
+var currentSearchTerm = '';
+var currentFilter = 'all';
+var searchTimeout = null;
 
 /**
  * Load subject name from API and update page
@@ -93,7 +96,7 @@ async function loadTopics(subjectId) {
         if (response.ok) {
             var data = await response.json();
             currentTopics = data.topics || [];
-            renderTopicsTable();
+            renderFilteredTopicsTable();
         } else if (response.status === 401) {
             window.location.href = '/login';
         } else {
@@ -107,9 +110,9 @@ async function loadTopics(subjectId) {
 }
 
 /**
- * Render topics table with data
+ * Render topics table with search and filter applied
  */
-function renderTopicsTable() {
+function renderFilteredTopicsTable() {
     var tableBody = document.getElementById('topics-table-body');
     
     if (!tableBody) return;
@@ -117,16 +120,36 @@ function renderTopicsTable() {
     // Clear loading row
     tableBody.innerHTML = '';
     
-    if (currentTopics.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">No topics found. Click "Create Topic" to add your first topic.</td></tr>';
+    // Apply search and filter
+    var filtered = currentTopics.filter(function(topic) {
+        // Apply search filter
+        var matchesSearch = currentSearchTerm === '' ||
+            topic.name.toLowerCase().includes(currentSearchTerm.toLowerCase());
+        
+        // Apply status filter
+        var matchesFilter = true;
+        if (currentFilter === 'active') {
+            matchesFilter = topic.is_active === true;
+        } else if (currentFilter === 'inactive') {
+            matchesFilter = topic.is_active === false;
+        }
+        
+        return matchesSearch && matchesFilter;
+    });
+    
+    if (filtered.length === 0) {
+        var emptyMessage = currentSearchTerm || currentFilter !== 'all'
+            ? 'Keine Ergebnisse'
+            : 'No topics found. Click "Create Topic" to add your first topic.';
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">' + emptyMessage + '</td></tr>';
         return;
     }
     
-    // Sort topics by ID
-    currentTopics.sort(function(a, b) { return a.id - b.id; });
+    // Sort filtered topics by ID
+    filtered.sort(function(a, b) { return a.id - b.id; });
     
     // Render each topic
-    currentTopics.forEach(function(topic) {
+    filtered.forEach(function(topic) {
         var row = document.createElement('tr');
         row.dataset.topicId = topic.id;
         
@@ -218,6 +241,21 @@ function setupEventListeners(subjectId) {
     
     // Toast notification
     document.getElementById('toast-close')?.addEventListener('click', hideToast);
+    
+    // Search input (debounced)
+    document.getElementById('topics-search')?.addEventListener('input', function(e) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(function() {
+            currentSearchTerm = e.target.value;
+            renderFilteredTopicsTable();
+        }, 300);
+    });
+    
+    // Filter dropdown
+    document.getElementById('topics-filter')?.addEventListener('change', function(e) {
+        currentFilter = e.target.value;
+        renderFilteredTopicsTable();
+    });
 }
 
 /**
@@ -277,7 +315,7 @@ async function createTopic() {
         if (response.ok) {
             var newTopic = await response.json();
             currentTopics.push(newTopic);
-            renderTopicsTable();
+            renderFilteredTopicsTable();
             hideCreateTopicModal();
             showToast('Topic created successfully!');
         } else if (response.status === 409) {
@@ -357,7 +395,7 @@ async function saveEditedTopic() {
             var index = currentTopics.findIndex(function(t) { return t.id === topicId; });
             if (index !== -1) {
                 currentTopics[index] = updatedTopic;
-                renderTopicsTable();
+                renderFilteredTopicsTable();
             }
             hideEditTopicModal();
             showToast('Topic updated successfully!');
@@ -471,7 +509,7 @@ async function toggleTopicStatus(topicId) {
             var index = currentTopics.findIndex(function(t) { return t.id === topicId; });
             if (index !== -1) {
                 currentTopics[index] = updatedTopic;
-                renderTopicsTable();
+                renderFilteredTopicsTable();
                 showToast('Topic ' + (newStatus ? 'activated' : 'deactivated') + ' successfully!');
             }
         } else if (response.status === 401) {

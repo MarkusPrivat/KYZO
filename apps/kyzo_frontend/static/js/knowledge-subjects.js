@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', function() {
 let currentSubjects = [];
 let currentAction = null;
 let currentSubjectId = null;
+let currentSearchTerm = '';
+let currentFilter = 'all';
+let searchTimeout = null;
 
 /**
  * Load subjects from API and populate the table
@@ -26,7 +29,7 @@ async function loadSubjects() {
         if (response.ok) {
             const data = await response.json();
             currentSubjects = data.subjects || [];
-            renderSubjectsTable();
+            renderFilteredSubjectsTable();
         } else {
             showToast('Error loading subjects. Please try again.', true);
             console.error('Error loading subjects:', response.status);
@@ -38,9 +41,9 @@ async function loadSubjects() {
 }
 
 /**
- * Render subjects table with data
+ * Render subjects table with search and filter applied
  */
-function renderSubjectsTable() {
+function renderFilteredSubjectsTable() {
     const tableBody = document.getElementById('subjects-table-body');
     
     if (!tableBody) return;
@@ -48,22 +51,42 @@ function renderSubjectsTable() {
     // Clear loading row
     tableBody.innerHTML = '';
     
-    if (currentSubjects.length === 0) {
+    // Apply search and filter
+    let filtered = currentSubjects.filter(subject => {
+        // Apply search filter
+        const matchesSearch = currentSearchTerm === '' ||
+            subject.name.toLowerCase().includes(currentSearchTerm.toLowerCase());
+        
+        // Apply status filter
+        let matchesFilter = true;
+        if (currentFilter === 'active') {
+            matchesFilter = subject.is_active === true;
+        } else if (currentFilter === 'inactive') {
+            matchesFilter = subject.is_active === false;
+        }
+        
+        return matchesSearch && matchesFilter;
+    });
+    
+    if (filtered.length === 0) {
+        const emptyMessage = currentSearchTerm || currentFilter !== 'all'
+            ? 'Keine Ergebnisse'
+            : 'No subjects found. Click "Create Subject" to add your first subject.';
         tableBody.innerHTML = `
             <tr>
                 <td colspan="5" style="text-align: center; padding: 40px;">
-                    No subjects found. Click "Create Subject" to add your first subject.
+                    ${emptyMessage}
                 </td>
             </tr>
         `;
         return;
     }
     
-    // Sort subjects by ID
-    currentSubjects.sort((a, b) => a.id - b.id);
+    // Sort filtered subjects by ID
+    filtered.sort((a, b) => a.id - b.id);
     
     // Render each subject
-    currentSubjects.forEach(subject => {
+    filtered.forEach(subject => {
         const row = document.createElement('tr');
         row.dataset.subjectId = subject.id;
         
@@ -156,6 +179,21 @@ function setupEventListeners() {
     // Form validation
     document.getElementById('create-subject-name')?.addEventListener('input', validateSubjectName);
     document.getElementById('edit-subject-name')?.addEventListener('input', validateSubjectName);
+    
+    // Search input (debounced)
+    document.getElementById('subjects-search')?.addEventListener('input', function(e) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            currentSearchTerm = e.target.value;
+            renderFilteredSubjectsTable();
+        }, 300);
+    });
+    
+    // Filter dropdown
+    document.getElementById('subjects-filter')?.addEventListener('change', function(e) {
+        currentFilter = e.target.value;
+        renderFilteredSubjectsTable();
+    });
 }
 
 /**
