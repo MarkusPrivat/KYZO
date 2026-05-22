@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Knowledge Subjects - Kyzo Admin{% endblock %}
+{% block title %}Users Management - Kyzo Admin{% endblock %}
 
 {% block content %}
-<div class="admin-container admin-knowledge-subjects">
+<div class="admin-container admin-users">
   <div class="admin-sidebar">
     <nav class="admin-nav">
       <h2 class="admin-nav__title">Admin Panel</h2>
@@ -14,7 +14,7 @@
           </a>
         </li>
         <li class="admin-nav__item">
-          <a href="{{ url_for('admin.knowledge_subjects') }}" class="admin-nav__link admin-nav__link--active">
+          <a href="{{ url_for('admin.knowledge_subjects') }}" class="admin-nav__link">
             Knowledge Subjects
           </a>
         </li>
@@ -24,7 +24,7 @@
           </a>
         </li>
         <li class="admin-nav__item">
-          <a href="{{ url_for('admin.admin_users') }}" class="admin-nav__link">
+          <a href="{{ url_for('admin.admin_users') }}" class="admin-nav__link admin-nav__link--active">
             Users Management
           </a>
         </li>
@@ -39,35 +39,37 @@
   
   <div class="admin-main">
     <header class="admin-header">
-      <h1 class="admin-header__title">Knowledge Subjects Management</h1>
-      <p class="admin-header__subtitle">Manage knowledge subjects for the platform</p>
+      <h1 class="admin-header__title">Users Management</h1>
+      <p class="admin-header__subtitle">Manage user accounts and permissions</p>
     </header>
     
     <div class="admin-content">
-      <div class="subjects-header">
-        <h2 class="subjects-header__title">All Subjects</h2>
-        <button id="create-subject-btn" class="btn btn-primary">
-          <i class="fas fa-plus"></i> Create Subject
+      <div class="users-header">
+        <h2 class="users-header__title">All Users</h2>
+        <button id="create-user-btn" class="btn btn-primary">
+          <i class="fas fa-plus"></i> Create User
         </button>
       </div>
       
-      <div class="subjects-table-container">
-        <table class="subjects-table">
+      <div class="users-table-container">
+        <table class="users-table">
           <thead>
             <tr>
               <th>ID</th>
               <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
               <th>Status</th>
-              <th>Created Date</th>
+              <th>Grade</th>
               <th>Actions</th>
             </tr>
           </thead>
-          <tbody id="subjects-table-body">
-            <!-- Subjects will be loaded here via JavaScript -->
+          <tbody id="users-table-body">
+            <!-- Users will be loaded here via JavaScript -->
             <tr class="loading-row">
-              <td colspan="5" style="text-align: center; padding: 40px;">
+              <td colspan="7" style="text-align: center; padding: 40px;">
                 <div class="spinner"></div>
-                Loading subjects...
+                Loading users...
               </td>
             </tr>
           </tbody>
@@ -76,87 +78,152 @@
     </div>
   </div>
   
-  <!-- Create Subject Modal -->
-  <div id="create-subject-modal" class="modal">
+  <!-- Create User Modal -->
+  <div id="create-user-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">Create New Subject</h3>
-        <button class="modal-close" id="create-subject-close">&times;</button>
+        <h3 class="modal-title">Create New User</h3>
+        <button class="modal-close" id="create-user-close">&times;</button>
       </div>
       <div class="modal-body">
-        <form id="create-subject-form">
+        <form id="create-user-form">
           <div class="form-group">
-            <label for="create-subject-name">Subject Name</label>
-            <input type="text" id="create-subject-name" class="form-control" 
-                   placeholder="Enter subject name (3-100 characters)" required>
-            <div class="invalid-feedback">
-              Subject name must be 3-100 characters long.
-            </div>
+            <label for="create-user-name">Name</label>
+            <input type="text" id="create-user-name" class="form-control" 
+                   placeholder="Enter name (3-100 characters)" required minlength="3" maxlength="100">
+            <div class="form-error" id="create-user-name-error"></div>
+          </div>
+          <div class="form-group">
+            <label for="create-user-email">Email</label>
+            <input type="email" id="create-user-email" class="form-control" 
+                   placeholder="Enter email address" required>
+            <div class="form-error" id="create-user-email-error"></div>
+          </div>
+          <div class="form-group">
+            <label for="create-user-password">Password</label>
+            <input type="password" id="create-user-password" class="form-control" 
+                   placeholder="Enter password (min 8 characters)" required minlength="8">
+            <div class="form-error" id="create-user-password-error"></div>
+          </div>
+          <div class="form-group">
+            <label for="create-user-grade">Grade</label>
+            <select id="create-user-grade" class="form-control form-select" required>
+              <option value="">Select grade</option>
+              {% for grade in range(1, 14) %}
+              <option value="{{ grade }}">{{ grade }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-error" id="create-user-grade-error"></div>
+          </div>
+          <div class="form-group">
+            <label for="create-user-role">Role</label>
+            <select id="create-user-role" class="form-control form-select" required>
+              <option value="">Select role</option>
+              <option value="student">Student</option>
+              <option value="teacher">Teacher</option>
+              <option value="admin">Admin</option>
+            </select>
+            <div class="form-error" id="create-user-role-error"></div>
           </div>
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="create-subject-cancel">Cancel</button>
-        <button type="button" class="btn btn-primary" id="create-subject-submit">Create Subject</button>
+        <button type="button" class="btn btn-secondary" id="create-user-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="create-user-submit">Create User</button>
       </div>
     </div>
   </div>
   
-  <!-- Edit Subject Modal -->
-  <div id="edit-subject-modal" class="modal">
+  <!-- Edit User Modal -->
+  <div id="edit-user-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">Edit Subject</h3>
-        <button class="modal-close" id="edit-subject-close">&times;</button>
+        <h3 class="modal-title">Edit User</h3>
+        <button class="modal-close" id="edit-user-close">&times;</button>
       </div>
       <div class="modal-body">
-        <form id="edit-subject-form">
-          <input type="hidden" id="edit-subject-id">
+        <form id="edit-user-form">
+          <input type="hidden" id="edit-user-id">
           <div class="form-group">
-            <label for="edit-subject-name">Subject Name</label>
-            <input type="text" id="edit-subject-name" class="form-control" required>
-            <div class="invalid-feedback">
-              Subject name must be 3-100 characters long.
-            </div>
+            <label for="edit-user-name">Name</label>
+            <input type="text" id="edit-user-name" class="form-control" required minlength="3" maxlength="100">
+            <div class="form-error" id="edit-user-name-error"></div>
+          </div>
+          <div class="form-group">
+            <label for="edit-user-email">Email</label>
+            <input type="email" id="edit-user-email" class="form-control" required>
+            <div class="form-error" id="edit-user-email-error"></div>
+          </div>
+          <div class="form-group">
+            <label for="edit-user-grade">Grade</label>
+            <select id="edit-user-grade" class="form-control form-select" required>
+              <option value="">Select grade</option>
+              {% for grade in range(1, 14) %}
+              <option value="{{ grade }}">{{ grade }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-error" id="edit-user-grade-error"></div>
+          </div>
+          <div class="form-group">
+            <label for="edit-user-role">Role</label>
+            <select id="edit-user-role" class="form-control form-select" required>
+              <option value="">Select role</option>
+              <option value="student">Student</option>
+              <option value="teacher">Teacher</option>
+              <option value="admin">Admin</option>
+            </select>
+            <div class="form-error" id="edit-user-role-error"></div>
           </div>
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="edit-subject-cancel">Cancel</button>
-        <button type="button" class="btn btn-primary" id="edit-subject-submit">Save Changes</button>
+        <button type="button" class="btn btn-secondary" id="edit-user-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="edit-user-submit">Save Changes</button>
       </div>
     </div>
   </div>
   
-  <!-- Detail Subject Modal -->
-  <div id="detail-subject-modal" class="modal">
+  <!-- Detail User Modal -->
+  <div id="detail-user-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">Subject Details</h3>
-        <button class="modal-close" id="detail-subject-close">&times;</button>
+        <h3 class="modal-title">User Details</h3>
+        <button class="modal-close" id="detail-user-close">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="subject-detail-grid">
-          <div class="subject-detail-item">
-            <span class="subject-detail-label">ID:</span>
-            <span class="subject-detail-value" id="detail-subject-id"></span>
+        <div class="user-detail-grid">
+          <div class="user-detail-item">
+            <span class="user-detail-label">ID:</span>
+            <span class="user-detail-value" id="detail-user-id"></span>
           </div>
-          <div class="subject-detail-item">
-            <span class="subject-detail-label">Name:</span>
-            <span class="subject-detail-value" id="detail-subject-name"></span>
+          <div class="user-detail-item">
+            <span class="user-detail-label">Name:</span>
+            <span class="user-detail-value" id="detail-user-name"></span>
           </div>
-          <div class="subject-detail-item">
-            <span class="subject-detail-label">Status:</span>
-            <span class="subject-detail-value" id="detail-subject-status"></span>
+          <div class="user-detail-item">
+            <span class="user-detail-label">Email:</span>
+            <span class="user-detail-value" id="detail-user-email"></span>
           </div>
-          <div class="subject-detail-item">
-            <span class="subject-detail-label">Created Date:</span>
-            <span class="subject-detail-value" id="detail-subject-created"></span>
+          <div class="user-detail-item">
+            <span class="user-detail-label">Role:</span>
+            <span class="user-detail-value" id="detail-user-role"></span>
+          </div>
+          <div class="user-detail-item">
+            <span class="user-detail-label">Status:</span>
+            <span class="user-detail-value" id="detail-user-status"></span>
+          </div>
+          <div class="user-detail-item">
+            <span class="user-detail-label">Grade:</span>
+            <span class="user-detail-value" id="detail-user-grade"></span>
+          </div>
+          <div class="user-detail-item">
+            <span class="user-detail-label">Created Date:</span>
+            <span class="user-detail-value" id="detail-user-created"></span>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="detail-subject-close-btn">Close</button>
+        <button type="button" class="btn btn-secondary" id="detail-user-close-btn">Close</button>
       </div>
     </div>
   </div>
@@ -188,7 +255,7 @@
 </div>
 
 <style>
-  /* Knowledge Subjects Management Styles */
+  /* Users Management Styles */
   .admin-container {
     display: flex;
     min-height: calc(100vh - 120px);
@@ -277,14 +344,14 @@
     margin: 0;
   }
   
-  .subjects-header {
+  .users-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
   }
   
-  .subjects-header__title {
+  .users-header__title {
     font-size: 1.5rem;
     font-weight: 600;
     color: #212529;
@@ -327,7 +394,7 @@
     background-color: #c82333;
   }
   
-  .subjects-table-container {
+  .users-table-container {
     overflow-x: auto;
     background-color: white;
     border-radius: 8px;
@@ -335,12 +402,12 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   }
   
-  .subjects-table {
+  .users-table {
     width: 100%;
     border-collapse: collapse;
   }
   
-  .subjects-table th {
+  .users-table th {
     padding: 15px;
     text-align: left;
     font-weight: 600;
@@ -349,23 +416,48 @@
     border-bottom: 2px solid #e9ecef;
   }
   
-  .subjects-table td {
+  .users-table td {
     padding: 15px;
     border-bottom: 1px solid #e9ecef;
   }
   
-  .subjects-table tbody tr:hover {
+  .users-table tbody tr:hover {
     background-color: #f8f9fa;
     cursor: pointer;
   }
   
+  /* Role badges */
+  .role-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+  
+  .role-badge--student {
+    background-color: #cce5ff;
+    color: #004085;
+  }
+  
+  .role-badge--teacher {
+    background-color: #d4edda;
+    color: #155724;
+  }
+  
+  .role-badge--admin {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+  
+  /* Status badges */
   .status-badge {
     display: inline-block;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    text-align: center;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
   }
   
   .status-badge--active {
@@ -380,7 +472,7 @@
   
   .actions-cell {
     display: flex;
-    gap: 10px;
+    gap: 8px;
   }
   
   .action-btn {
@@ -393,21 +485,21 @@
   }
   
   .action-btn-edit {
-    background-color: #28a745;
-    color: white;
-  }
-  
-  .action-btn-edit:hover {
-    background-color: #218838;
-  }
-  
-  .action-btn-toggle {
     background-color: #007bff;
     color: white;
   }
   
-  .action-btn-toggle:hover {
+  .action-btn-edit:hover {
     background-color: #0069d9;
+  }
+  
+  .action-btn-toggle {
+    background-color: #6c757d;
+    color: white;
+  }
+  
+  .action-btn-toggle:hover {
+    background-color: #5a6268;
   }
   
   .spinner {
@@ -419,6 +511,7 @@
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-right: 10px;
+    vertical-align: middle;
   }
   
   @keyframes spin {
@@ -446,12 +539,12 @@
   
   .modal-content {
     background-color: #FFFFFF;
-    margin: 10% auto;
+    margin: 5% auto;
     padding: 0;
     border: 1px solid #E8E2DC;
     border-radius: 8px;
     width: 90%;
-    max-width: 500px;
+    max-width: 520px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     animation: slideIn 0.3s ease;
   }
@@ -499,14 +592,15 @@
   }
   
   .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
   
   .form-group label {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     font-weight: 500;
     color: #495057;
+    font-size: 0.9rem;
   }
   
   .form-control {
@@ -516,6 +610,7 @@
     border-radius: 4px;
     font-size: 1rem;
     transition: border-color 0.2s ease;
+    font-family: 'Inter', sans-serif;
   }
   
   .form-control:focus {
@@ -524,11 +619,15 @@
     box-shadow: 0 0 0 2px rgba(228, 87, 46, 0.2);
   }
   
-  .invalid-feedback {
+  .form-control[aria-invalid="true"] {
+    border-color: #dc3545;
+  }
+  
+  .form-error {
     color: #dc3545;
-    font-size: 0.85rem;
-    margin-top: 5px;
-    display: none;
+    font-size: 0.8rem;
+    margin-top: 4px;
+    min-height: 1.2em;
   }
   
   .modal-footer {
@@ -539,25 +638,27 @@
     gap: 10px;
   }
   
-  .subject-detail-grid {
+  .user-detail-grid {
     display: grid;
     grid-template-columns: 1fr 2fr;
-    gap: 15px;
+    gap: 12px;
   }
   
-  .subject-detail-item {
-    margin-bottom: 10px;
+  .user-detail-item {
+    margin-bottom: 8px;
   }
   
-  .subject-detail-label {
+  .user-detail-label {
     font-weight: 600;
     color: #6c757d;
     display: block;
-    margin-bottom: 5px;
+    margin-bottom: 2px;
+    font-size: 0.9rem;
   }
   
-  .subject-detail-value {
+  .user-detail-value {
     color: #212529;
+    font-size: 0.95rem;
   }
   
   /* Toast Notification */
@@ -599,6 +700,11 @@
     font-size: 1.2rem;
     cursor: pointer;
     margin-left: 15px;
+    opacity: 0.8;
+  }
+  
+  .toast-close:hover {
+    opacity: 1;
   }
   
   .toast-error {
@@ -625,17 +731,22 @@
       padding: 20px;
     }
     
-    .subjects-header {
+    .users-header {
       flex-direction: column;
       align-items: flex-start;
       gap: 15px;
     }
     
-    .subjects-header__title {
+    .users-header__title {
       margin-bottom: 0;
+    }
+    
+    .modal-content {
+      width: 95%;
+      margin: 10% auto;
     }
   }
 </style>
 
-<script src="{{ url_for('static', filename='js/knowledge-subjects.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin-users.js') }}"></script>
 {% endblock %}

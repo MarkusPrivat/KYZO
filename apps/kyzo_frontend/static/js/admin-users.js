@@ -1,0 +1,585 @@
+/**
+ * Users Management JavaScript
+ * Handles CRUD operations for users
+ */
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if we're on the users management page
+    if (document.querySelector('.admin-users')) {
+        loadUsers();
+        setupEventListeners();
+    }
+});
+
+// Global variables
+let currentUsers = [];
+let currentAction = null;
+let currentUserId = null;
+
+/**
+ * Load all users from API and populate the table
+ */
+async function loadUsers() {
+    try {
+        const response = await fetch('/api/v1/users/list-all');
+        
+        if (response.ok) {
+            const data = await response.json();
+            currentUsers = data.users || [];
+            renderUsersTable();
+        } else {
+            showToast('Error loading users. Please try again.', true);
+            console.error('Error loading users:', response.status);
+        }
+    } catch (error) {
+        showToast('Network error. Please check your connection.', true);
+        console.error('Network error:', error);
+    }
+}
+
+/**
+ * Render users table with data
+ */
+function renderUsersTable() {
+    const tableBody = document.getElementById('users-table-body');
+    
+    if (!tableBody) return;
+    
+    // Clear loading row
+    tableBody.innerHTML = '';
+    
+    if (currentUsers.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 40px;">
+                    No users found. Click "Create User" to add your first user.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    // Sort users by ID
+    currentUsers.sort((a, b) => a.id - b.id);
+    
+    // Render each user
+    currentUsers.forEach(user => {
+        const row = document.createElement('tr');
+        row.dataset.userId = user.id;
+        
+        const roleClass = `role-badge--${user.role || 'student'}`;
+        const statusClass = user.is_active !== false ? 'status-badge--active' : 'status-badge--inactive';
+        const statusText = user.is_active !== false ? 'Active' : 'Inactive';
+        const grade = user.grade || 'N/A';
+        
+        row.innerHTML = `
+            <td>${user.id}</td>
+            <td>${escapeHtml(user.name || '')}</td>
+            <td>${escapeHtml(user.email || '')}</td>
+            <td><span class="role-badge ${roleClass}">${escapeHtml(user.role || 'student')}</span></td>
+            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+            <td>${escapeHtml(String(grade))}</td>
+            <td class="actions-cell">
+                <button class="action-btn action-btn-edit" data-user-id="${user.id}">Edit</button>
+                <button class="action-btn action-btn-toggle" data-user-id="${user.id}">
+                    ${user.is_active !== false ? 'Deactivate' : 'Activate'}
+                </button>
+            </td>
+        `;
+        
+        tableBody.appendChild(row);
+    });
+    
+    // Add event listeners to rows for detail view
+    document.querySelectorAll('.users-table tbody tr').forEach(row => {
+        row.addEventListener('click', function(e) {
+            // Don't trigger if clicking on action buttons
+            if (e.target.closest('.action-btn')) return;
+            
+            const userId = parseInt(row.dataset.userId);
+            showUserDetail(userId);
+        });
+    });
+}
+
+/**
+ * Escape HTML to prevent XSS
+ * @param {string} text - Text to escape
+ * @returns {string} - Escaped text
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * Format date string for display
+ * @param {string} dateString - ISO date string
+ * @returns {string} - Formatted date
+ */
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (error) {
+        return dateString;
+    }
+}
+
+/**
+ * Set up all event listeners
+ */
+function setupEventListeners() {
+    // Create user button
+    document.getElementById('create-user-btn')?.addEventListener('click', showCreateUserModal);
+    
+    // Create user modal
+    document.getElementById('create-user-close')?.addEventListener('click', hideCreateUserModal);
+    document.getElementById('create-user-cancel')?.addEventListener('click', hideCreateUserModal);
+    document.getElementById('create-user-submit')?.addEventListener('click', createUser);
+    
+    // Edit user modal
+    document.getElementById('edit-user-close')?.addEventListener('click', hideEditUserModal);
+    document.getElementById('edit-user-cancel')?.addEventListener('click', hideEditUserModal);
+    document.getElementById('edit-user-submit')?.addEventListener('click', saveEditedUser);
+    
+    // Detail user modal
+    document.getElementById('detail-user-close')?.addEventListener('click', hideDetailUserModal);
+    document.getElementById('detail-user-close-btn')?.addEventListener('click', hideDetailUserModal);
+    
+    // Confirmation dialog
+    document.getElementById('confirmation-close')?.addEventListener('click', hideConfirmationDialog);
+    document.getElementById('confirmation-cancel')?.addEventListener('click', hideConfirmationDialog);
+    document.getElementById('confirmation-confirm')?.addEventListener('click', handleConfirmation);
+    
+    // Toast notification
+    document.getElementById('toast-close')?.addEventListener('click', hideToast);
+}
+
+/**
+ * Show create user modal
+ */
+function showCreateUserModal() {
+    const modal = document.getElementById('create-user-modal');
+    if (modal) {
+        // Clear form
+        document.getElementById('create-user-name').value = '';
+        document.getElementById('create-user-email').value = '';
+        document.getElementById('create-user-password').value = '';
+        document.getElementById('create-user-grade').value = '';
+        document.getElementById('create-user-role').value = '';
+        
+        // Clear errors
+        document.querySelectorAll('#create-user-form .form-error').forEach(el => el.textContent = '');
+        document.querySelectorAll('#create-user-form .form-control').forEach(el => el.removeAttribute('aria-invalid'));
+        
+        modal.style.display = 'block';
+        document.getElementById('create-user-name').focus();
+    }
+}
+
+/**
+ * Hide create user modal
+ */
+function hideCreateUserModal() {
+    document.getElementById('create-user-modal').style.display = 'none';
+}
+
+/**
+ * Create new user
+ */
+async function createUser() {
+    const nameInput = document.getElementById('create-user-name');
+    const emailInput = document.getElementById('create-user-email');
+    const passwordInput = document.getElementById('create-user-password');
+    const gradeInput = document.getElementById('create-user-grade');
+    const roleInput = document.getElementById('create-user-role');
+    
+    // Clear previous errors
+    document.querySelectorAll('#create-user-form .form-error').forEach(el => el.textContent = '');
+    document.querySelectorAll('#create-user-form .form-control').forEach(el => el.removeAttribute('aria-invalid'));
+    
+    let isValid = true;
+    
+    // Validate name
+    const name = nameInput.value.trim();
+    if (name.length < 3 || name.length > 100) {
+        document.getElementById('create-user-name-error').textContent = 'Name must be 3-100 characters long.';
+        nameInput.setAttribute('aria-invalid', 'true');
+        isValid = false;
+    }
+    
+    // Validate email
+    const email = emailInput.value.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        document.getElementById('create-user-email-error').textContent = 'Please enter a valid email address.';
+        emailInput.setAttribute('aria-invalid', 'true');
+        isValid = false;
+    }
+    
+    // Validate password
+    const password = passwordInput.value;
+    if (password.length < 8) {
+        document.getElementById('create-user-password-error').textContent = 'Password must be at least 8 characters long.';
+        passwordInput.setAttribute('aria-invalid', 'true');
+        isValid = false;
+    }
+    
+    // Validate grade
+    const grade = gradeInput.value;
+    if (!grade) {
+        document.getElementById('create-user-grade-error').textContent = 'Please select a grade.';
+        gradeInput.setAttribute('aria-invalid', 'true');
+        isValid = false;
+    }
+    
+    // Validate role
+    const role = roleInput.value;
+    if (!role) {
+        document.getElementById('create-user-role-error').textContent = 'Please select a role.';
+        roleInput.setAttribute('aria-invalid', 'true');
+        isValid = false;
+    }
+    
+    if (!isValid) return;
+    
+    try {
+        const response = await fetch('/api/v1/users/register-staff', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: name,
+                email: email,
+                password: password,
+                grade: parseInt(grade),
+                role: role
+            })
+        });
+        
+        if (response.ok) {
+            const newUser = await response.json();
+            currentUsers.push(newUser);
+            renderUsersTable();
+            hideCreateUserModal();
+            showToast('User created successfully!');
+        } else if (response.status === 409) {
+            showToast('A user with this email already exists.', true);
+        } else {
+            const errorData = await response.json();
+            showToast(`Error creating user: ${errorData.message || 'Unknown error'}`, true);
+        }
+    } catch (error) {
+        showToast('Network error. Please check your connection.', true);
+        console.error('Network error:', error);
+    }
+}
+
+/**
+ * Show edit user modal
+ * @param {number} userId - ID of user to edit
+ */
+function showEditUserModal(userId) {
+    const user = currentUsers.find(u => u.id === userId);
+    if (!user) return;
+    
+    const modal = document.getElementById('edit-user-modal');
+    if (modal) {
+        document.getElementById('edit-user-id').value = user.id;
+        document.getElementById('edit-user-name').value = user.name || '';
+        document.getElementById('edit-user-email').value = user.email || '';
+        document.getElementById('edit-user-grade').value = user.grade || '';
+        document.getElementById('edit-user-role').value = user.role || 'student';
+        
+        // Clear errors
+        document.querySelectorAll('#edit-user-form .form-error').forEach(el => el.textContent = '');
+        document.querySelectorAll('#edit-user-form .form-control').forEach(el => el.removeAttribute('aria-invalid'));
+        
+        modal.style.display = 'block';
+    }
+}
+
+/**
+ * Hide edit user modal
+ */
+function hideEditUserModal() {
+    document.getElementById('edit-user-modal').style.display = 'none';
+}
+
+/**
+ * Save edited user
+ */
+async function saveEditedUser() {
+    const userId = parseInt(document.getElementById('edit-user-id').value);
+    const nameInput = document.getElementById('edit-user-name');
+    const emailInput = document.getElementById('edit-user-email');
+    const gradeInput = document.getElementById('edit-user-grade');
+    const roleInput = document.getElementById('edit-user-role');
+    
+    // Clear previous errors
+    document.querySelectorAll('#edit-user-form .form-error').forEach(el => el.textContent = '');
+    document.querySelectorAll('#edit-user-form .form-control').forEach(el => el.removeAttribute('aria-invalid'));
+    
+    let isValid = true;
+    
+    // Validate name
+    const name = nameInput.value.trim();
+    if (name.length < 3 || name.length > 100) {
+        document.getElementById('edit-user-name-error').textContent = 'Name must be 3-100 characters long.';
+        nameInput.setAttribute('aria-invalid', 'true');
+        isValid = false;
+    }
+    
+    // Validate email
+    const email = emailInput.value.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        document.getElementById('edit-user-email-error').textContent = 'Please enter a valid email address.';
+        emailInput.setAttribute('aria-invalid', 'true');
+        isValid = false;
+    }
+    
+    // Validate grade
+    const grade = gradeInput.value;
+    if (!grade) {
+        document.getElementById('edit-user-grade-error').textContent = 'Please select a grade.';
+        gradeInput.setAttribute('aria-invalid', 'true');
+        isValid = false;
+    }
+    
+    // Validate role
+    const role = roleInput.value;
+    if (!role) {
+        document.getElementById('edit-user-role-error').textContent = 'Please select a role.';
+        roleInput.setAttribute('aria-invalid', 'true');
+        isValid = false;
+    }
+    
+    if (!isValid) return;
+    
+    // Build payload with only changed fields
+    const payload = {};
+    if (name !== (currentUsers.find(u => u.id === userId)?.name || '')) {
+        payload.name = name;
+    }
+    if (email !== (currentUsers.find(u => u.id === userId)?.email || '')) {
+        payload.email = email;
+    }
+    if (grade !== String(currentUsers.find(u => u.id === userId)?.grade || '')) {
+        payload.grade = parseInt(grade);
+    }
+    if (role !== (currentUsers.find(u => u.id === userId)?.role || '')) {
+        payload.role = role;
+    }
+    
+    if (Object.keys(payload).length === 0) {
+        hideEditUserModal();
+        showToast('No changes to save.');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/v1/users/${userId}/edit`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+            const updatedUser = await response.json();
+            const index = currentUsers.findIndex(u => u.id === userId);
+            if (index !== -1) {
+                currentUsers[index] = updatedUser;
+                renderUsersTable();
+            }
+            hideEditUserModal();
+            showToast('User updated successfully!');
+        } else if (response.status === 409) {
+            showToast('A user with this email already exists.', true);
+        } else {
+            const errorData = await response.json();
+            showToast(`Error updating user: ${errorData.message || 'Unknown error'}`, true);
+        }
+    } catch (error) {
+        showToast('Network error. Please check your connection.', true);
+        console.error('Network error:', error);
+    }
+}
+
+/**
+ * Show user detail modal
+ * @param {number} userId - ID of user to show details for
+ */
+function showUserDetail(userId) {
+    const user = currentUsers.find(u => u.id === userId);
+    if (!user) return;
+    
+    const modal = document.getElementById('detail-user-modal');
+    if (modal) {
+        document.getElementById('detail-user-id').textContent = user.id;
+        document.getElementById('detail-user-name').textContent = user.name || 'N/A';
+        document.getElementById('detail-user-email').textContent = user.email || 'N/A';
+        document.getElementById('detail-user-role').textContent = (user.role || 'student').charAt(0).toUpperCase() + (user.role || 'student').slice(1);
+        document.getElementById('detail-user-status').textContent = user.is_active !== false ? 'Active' : 'Inactive';
+        document.getElementById('detail-user-grade').textContent = user.grade || 'N/A';
+        document.getElementById('detail-user-created').textContent = formatDate(user.created_at);
+        modal.style.display = 'block';
+    }
+}
+
+/**
+ * Hide detail user modal
+ */
+function hideDetailUserModal() {
+    document.getElementById('detail-user-modal').style.display = 'none';
+}
+
+/**
+ * Show confirmation dialog for status toggle
+ * @param {number} userId - ID of user to toggle
+ * @param {boolean} currentStatus - Current status of user
+ */
+function showToggleConfirmation(userId, currentStatus) {
+    currentAction = 'toggleStatus';
+    currentUserId = userId;
+    
+    const dialog = document.getElementById('confirmation-dialog');
+    const message = document.getElementById('confirmation-message');
+    
+    if (dialog && message) {
+        message.textContent = currentStatus 
+            ? 'Are you sure you want to deactivate this user?'
+            : 'Are you sure you want to activate this user?';
+        dialog.style.display = 'block';
+    }
+}
+
+/**
+ * Hide confirmation dialog
+ */
+function hideConfirmationDialog() {
+    document.getElementById('confirmation-dialog').style.display = 'none';
+    currentAction = null;
+    currentUserId = null;
+}
+
+/**
+ * Handle confirmation action
+ */
+async function handleConfirmation() {
+    if (!currentAction || currentUserId === null) {
+        hideConfirmationDialog();
+        return;
+    }
+    
+    if (currentAction === 'toggleStatus') {
+        await toggleUserStatus(currentUserId);
+    }
+    
+    hideConfirmationDialog();
+}
+
+/**
+ * Toggle user status
+ * @param {number} userId - ID of user to toggle
+ */
+async function toggleUserStatus(userId) {
+    const user = currentUsers.find(u => u.id === userId);
+    if (!user) return;
+    
+    const newStatus = !user.is_active;
+    
+    try {
+        const response = await fetch(`/api/v1/users/${userId}/status?active=${newStatus}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (response.ok) {
+            const updatedUser = await response.json();
+            const index = currentUsers.findIndex(u => u.id === userId);
+            if (index !== -1) {
+                currentUsers[index] = updatedUser;
+                renderUsersTable();
+            }
+            showToast(`User ${newStatus ? 'activated' : 'deactivated'} successfully!`);
+        } else {
+            const errorData = await response.json();
+            showToast(`Error toggling status: ${errorData.message || 'Unknown error'}`, true);
+        }
+    } catch (error) {
+        showToast('Network error. Please check your connection.', true);
+        console.error('Network error:', error);
+    }
+}
+
+/**
+ * Show toast notification
+ * @param {string} message - Message to display
+ * @param {boolean} isError - Whether this is an error message
+ */
+function showToast(message, isError = false) {
+    const toast = document.getElementById('toast-notification');
+    const toastMessage = document.getElementById('toast-message');
+    
+    if (toast && toastMessage) {
+        toastMessage.textContent = message;
+        
+        if (isError) {
+            toast.classList.add('toast-error');
+            toast.classList.remove('toast-success');
+        } else {
+            toast.classList.add('toast-success');
+            toast.classList.remove('toast-error');
+        }
+        
+        toast.style.display = 'block';
+        
+        // Auto-hide after 5 seconds
+        setTimeout(hideToast, 5000);
+    }
+}
+
+/**
+ * Hide toast notification
+ */
+function hideToast() {
+    const toast = document.getElementById('toast-notification');
+    if (toast) {
+        toast.style.display = 'none';
+    }
+}
+
+// Event delegation for action buttons (since they're dynamically created)
+document.addEventListener('click', function(e) {
+    // Edit button click
+    if (e.target.closest('.action-btn-edit')) {
+        const userId = parseInt(e.target.closest('.action-btn-edit').dataset.userId);
+        showEditUserModal(userId);
+    }
+    
+    // Toggle button click
+    if (e.target.closest('.action-btn-toggle')) {
+        const userId = parseInt(e.target.closest('.action-btn-toggle').dataset.userId);
+        const user = currentUsers.find(u => u.id === userId);
+        if (user) {
+            showToggleConfirmation(userId, user.is_active !== false);
+        }
+    }
+});

@@ -14,7 +14,7 @@
           </a>
         </li>
         <li class="admin-nav__item">
-          <a href="#" class="admin-nav__link">
+          <a href="{{ url_for('admin.admin_users') }}" class="admin-nav__link">
             Benutzerverwaltung
           </a>
         </li>
@@ -73,7 +73,7 @@
         <div class="admin-quick-link-card">
           <h3 class="admin-quick-link-card__title">Users verwalten</h3>
           <p class="admin-quick-link-card__description">Benutzerkonten und Berechtigungen</p>
-          <a href="#" class="admin-quick-link-card__button" id="quick-link-users">
+          <a href="{{ url_for('admin.admin_users') }}" class="admin-quick-link-card__button" id="quick-link-users">
             Zu Users Management
           </a>
         </div>

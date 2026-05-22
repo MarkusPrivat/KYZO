@@ -207,3 +207,34 @@ def knowledge_topics(subject_id):
     
     # User is authenticated and is admin, render knowledge topics management
     return render_template("admin/knowledge_topics.html", subject_id=subject_id)
+
+
+@admin_bp.route("/admin/users")
+def admin_users():
+    """Users management route.
+    
+    - Requires valid JWT token
+    - Requires admin role
+    - Redirects to login if token is expired
+    - Redirects to homepage if user is not admin
+    """
+    token = request.cookies.get("jwt_token")
+    
+    if not token:
+        return redirect(url_for("main.login"))
+    
+    try:
+        auth_secret = current_app.config.get("AUTH_SECRET_KEY", "")
+        if auth_secret:
+            jwt.decode(token, auth_secret, algorithms=["HS256"], options={"require": ["exp"]})
+        else:
+            jwt.decode(token, options={"verify_signature": False, "require": ["exp"]}, algorithms=["HS256"])
+    except jwt.ExpiredSignatureError:
+        return redirect(url_for("main.login"))
+    except jwt.InvalidTokenError:
+        return redirect(url_for("main.login"))
+    
+    if not is_admin_user(token):
+        return redirect(url_for("main.index"))
+    
+    return render_template("admin/users.html")
