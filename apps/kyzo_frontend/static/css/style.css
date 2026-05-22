@@ -1,4 +1,4 @@
-/* ============================================
+﻿/* ============================================
    Kyzo Frontend — Design Tokens & Base Styles
    Mobile-First Responsive Design
    ============================================ */
@@ -19,6 +19,8 @@
   --kyzo-text-light: #6B5E5A;
   --kyzo-muted: #6B5E5A;
   --kyzo-border: #E8E2DD;
+  --kyzo-primary-text: #2E5018;
+  --kyzo-danger-text: #C62828;
 
   /* Spacing */
   --kyzo-spacing-xs: 0.25rem;
@@ -35,6 +37,7 @@
   --kyzo-font-size-lg: 1.125rem;
   --kyzo-font-size-xl: 1.5rem;
   --kyzo-font-size-2xl: 2rem;
+  --kyzo-font-size-xs: 0.75rem;
 
   /* Layout */
   --kyzo-max-width: 1200px;
@@ -159,6 +162,7 @@ img {
 
 .nav__cta {
   display: none;
+  position: relative;
 }
 
 .nav__cta-btn {
@@ -206,6 +210,11 @@ img {
   right: 0;
   padding-top: 8px;
   z-index: 10;
+  background-color: var(--kyzo-bg);
+  border: 1px solid var(--kyzo-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 8px;
 }
 
 .nav__cta-btn--auth {
@@ -1089,102 +1098,5 @@ img {
   .cta-footer__heading {
     font-size: 2.2rem;
   }
-}
-
-
-/* Auth-aware CTA dropdown */
-
-.nav__cta-dropdown {
-
-  display: none;
-
-  flex-direction: column;
-
-  align-items: flex-end;
-
-  gap: 6px;
-
-  position: absolute;
-
-  top: 100%;
-
-  right: 0;
-
-  padding-top: 8px;
-
-  z-index: 10;
-
-}
-
-
-
-.nav__cta-btn--auth {
-
-  background-color: var(--kyzo-primary-text);
-
-  color: #FFFFFF;
-
-}
-
-
-
-.nav__cta-btn--auth:hover {
-
-  background-color: #2A4A15;
-
-}
-
-
-
-.nav__logout-btn {
-
-  display: inline-flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  padding: var(--kyzo-spacing-xs) var(--kyzo-spacing-md);
-
-  font-size: var(--kyzo-font-size-xs);
-
-  font-weight: 500;
-
-  color: var(--kyzo-danger-text);
-
-  background-color: transparent;
-
-  border: 1px solid var(--kyzo-danger-text);
-
-  border-radius: 6px;
-
-  cursor: pointer;
-
-  transition: background-color var(--kyzo-transition-fast), color var(--kyzo-transition-fast);
-
-}
-
-
-
-.nav__logout-btn:hover {
-
-  background-color: var(--kyzo-danger-text);
-
-  color: #FFFFFF;
-
-}
-
-
-
-.nav__logout-btn:focus-visible {
-
-  outline: 2px solid var(--kyzo-primary-text);
-
-  outline-offset: 2px;
-
-}
-
-
-
 
 }

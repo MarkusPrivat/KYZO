@@ -72,8 +72,8 @@ function login(username, password) {
   }).then(function (response) {
     if (response.status === 200) {
       return response.json().then(function (data) {
-        localStorage.setItem("jwt_token", data.token);
-        return { token: data.token };
+        localStorage.setItem("jwt_token", data.access_token);
+        return { token: data.access_token };
       });
     }
     if (response.status === 401) {

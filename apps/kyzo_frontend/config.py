@@ -8,6 +8,7 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
     DEBUG = False
     TESTING = False
+    API_URL = "http://127.0.0.1:8000/api/v1"
 
 
 class DevelopmentConfig(Config):
