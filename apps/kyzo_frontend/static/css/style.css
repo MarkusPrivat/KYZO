@@ -106,9 +106,9 @@ img {
 }
 
 .nav__container {
-  max-width: var(--kyzo-max-width);
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 0 var(--kyzo-spacing-md);
+  padding: 16px 0;
   height: 100%;
   display: flex;
   align-items: center;
@@ -116,7 +116,7 @@ img {
 }
 
 .nav__logo {
-  font-size: var(--kyzo-font-size-xl);
+  font-size: 1.6rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   text-decoration: none;
@@ -133,14 +133,14 @@ img {
 .nav__links {
   display: none;
   list-style: none;
-  gap: var(--kyzo-spacing-lg);
+  gap: 24px;
 }
 
 .nav__link {
-  font-size: var(--kyzo-font-size-sm);
+  font-size: 0.9rem;
   font-weight: 500;
-  color: var(--kyzo-text);
-  padding: var(--kyzo-spacing-sm) 0;
+  color: #6B5E5A;
+  padding: 8px 0;
   position: relative;
 }
 
@@ -169,20 +169,20 @@ img {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: var(--kyzo-spacing-sm) var(--kyzo-spacing-lg);
-  font-size: var(--kyzo-font-size-sm);
+  padding: 6px 16px;
+  font-size: 0.9rem;
   font-weight: 600;
   color: #FFFFFF;
-  background-color: var(--kyzo-success-text);
+  background-color: #76B041;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   text-decoration: none;
-  transition: background-color var(--kyzo-transition-fast);
+  transition: background-color 0.2s ease;
 }
 
 .nav__cta-btn:hover {
-  background-color: #3D6120;
+  background-color: #659A38;
 }
 
 /* Hamburger button */
@@ -204,50 +204,58 @@ img {
   display: none;
   flex-direction: column;
   align-items: flex-end;
-  gap: 6px;
+  gap: 8px;
   position: absolute;
-  top: 100%;
+  top: calc(100% + 8px);
   right: 0;
-  padding-top: 8px;
   z-index: 10;
-  background-color: var(--kyzo-bg);
-  border: 1px solid var(--kyzo-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  background-color: #FFFFFF;
+  border: 1px solid #E8E2DC;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   padding: 8px;
+  min-width: 160px;
 }
 
 .nav__cta-btn--auth {
-  background-color: var(--kyzo-primary-text);
+  display: block;
+  padding: 8px 12px;
+  background-color: #76B041;
   color: #FFFFFF;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.2s ease;
 }
 
 .nav__cta-btn--auth:hover {
-  background-color: #2A4A15;
+  background-color: #659A38;
 }
 
 .nav__logout-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--kyzo-spacing-xs) var(--kyzo-spacing-md);
-  font-size: var(--kyzo-font-size-xs);
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 0.85rem;
   font-weight: 500;
-  color: var(--kyzo-danger-text);
+  color: #C62828;
   background-color: transparent;
-  border: 1px solid var(--kyzo-danger-text);
+  border: 1px solid #C62828;
   border-radius: 6px;
   cursor: pointer;
-  transition: background-color var(--kyzo-transition-fast), color var(--kyzo-transition-fast);
+  transition: background-color 0.2s ease, color 0.2s ease;
+  text-align: center;
+  text-decoration: none;
 }
 
 .nav__logout-btn:hover {
-  background-color: var(--kyzo-danger-text);
+  background-color: #C62828;
   color: #FFFFFF;
 }
 
 .nav__logout-btn:focus-visible {
-  outline: 2px solid var(--kyzo-primary-text);
+  outline: 2px solid #76B041;
   outline-offset: 2px;
 }
 
