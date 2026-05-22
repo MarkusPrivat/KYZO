@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Knowledge Subjects - Kyzo Admin{% endblock %}
+{% block title %}Knowledge Topics - Kyzo Admin{% endblock %}
 
 {% block content %}
-<div class="admin-container admin-knowledge-subjects">
+<div class="admin-container admin-knowledge-topics" data-subject-id="{{ subject_id }}">
   <div class="admin-sidebar">
     <nav class="admin-nav">
       <h2 class="admin-nav__title">Admin Panel</h2>
@@ -14,12 +14,12 @@
           </a>
         </li>
         <li class="admin-nav__item">
-          <a href="{{ url_for('admin.knowledge_subjects') }}" class="admin-nav__link admin-nav__link--active">
+          <a href="{{ url_for('admin.knowledge_subjects') }}" class="admin-nav__link">
             Knowledge Subjects
           </a>
         </li>
         <li class="admin-nav__item">
-          <a href="{{ url_for('admin.knowledge_subjects') }}" class="admin-nav__link">
+          <a href="{{ url_for('admin.knowledge_topics', subject_id=subject_id) }}" class="admin-nav__link admin-nav__link--active">
             Knowledge Topics
           </a>
         </li>
@@ -38,36 +38,54 @@
   </div>
   
   <div class="admin-main">
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <ol class="breadcrumb__list">
+        <li class="breadcrumb__item">
+          <a href="{{ url_for('admin.admin_dashboard') }}" class="breadcrumb__link">Admin</a>
+        </li>
+        <li class="breadcrumb__separator">/</li>
+        <li class="breadcrumb__item">
+          <a href="{{ url_for('admin.knowledge_subjects') }}" class="breadcrumb__link">Knowledge</a>
+        </li>
+        <li class="breadcrumb__separator">/</li>
+        <li class="breadcrumb__item breadcrumb__item--active">
+          <span class="breadcrumb__current" id="breadcrumb-subject-name">Loading...</span>
+        </li>
+      </ol>
+    </nav>
+    
     <header class="admin-header">
-      <h1 class="admin-header__title">Knowledge Subjects Management</h1>
-      <p class="admin-header__subtitle">Manage knowledge subjects for the platform</p>
+      <h1 class="admin-header__title" id="topics-page-title">Topics for Loading...</h1>
+      <p class="admin-header__subtitle">Manage knowledge topics for this subject</p>
     </header>
     
     <div class="admin-content">
-      <div class="subjects-header">
-        <h2 class="subjects-header__title">All Subjects</h2>
-        <button id="create-subject-btn" class="btn btn-primary">
-          <i class="fas fa-plus"></i> Create Subject
+      <div class="topics-header">
+        <h2 class="topics-header__title">All Topics</h2>
+        <button id="create-topic-btn" class="btn btn-primary">
+          <i class="fas fa-plus"></i> Create Topic
         </button>
       </div>
       
-      <div class="subjects-table-container">
-        <table class="subjects-table">
+      <div class="topics-table-container">
+        <table class="topics-table">
           <thead>
             <tr>
               <th>ID</th>
               <th>Name</th>
+              <th>Expected Grade</th>
               <th>Status</th>
               <th>Created Date</th>
               <th>Actions</th>
             </tr>
           </thead>
-          <tbody id="subjects-table-body">
-            <!-- Subjects will be loaded here via JavaScript -->
+          <tbody id="topics-table-body">
+            <!-- Topics will be loaded here via JavaScript -->
             <tr class="loading-row">
-              <td colspan="5" style="text-align: center; padding: 40px;">
+              <td colspan="6" style="text-align: center; padding: 40px;">
                 <div class="spinner"></div>
-                Loading subjects...
+                Loading topics...
               </td>
             </tr>
           </tbody>
@@ -76,87 +94,122 @@
     </div>
   </div>
   
-  <!-- Create Subject Modal -->
-  <div id="create-subject-modal" class="modal">
+  <!-- Create Topic Modal -->
+  <div id="create-topic-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">Create New Subject</h3>
-        <button class="modal-close" id="create-subject-close">&times;</button>
+        <h3 class="modal-title">Create New Topic</h3>
+        <button class="modal-close" id="create-topic-close">&times;</button>
       </div>
       <div class="modal-body">
-        <form id="create-subject-form">
+        <form id="create-topic-form">
           <div class="form-group">
-            <label for="create-subject-name">Subject Name</label>
-            <input type="text" id="create-subject-name" class="form-control" 
-                   placeholder="Enter subject name (3-100 characters)" required>
+            <label for="create-topic-parent">Parent Subject</label>
+            <input type="text" id="create-topic-parent" class="form-control form-control--readonly" value="" readonly>
+          </div>
+          <div class="form-group">
+            <label for="create-topic-name">Topic Name</label>
+            <input type="text" id="create-topic-name" class="form-control" 
+                   placeholder="Enter topic name (2-150 characters)" required minlength="2" maxlength="150">
             <div class="invalid-feedback">
-              Subject name must be 3-100 characters long.
+              Topic name must be 2-150 characters long.
             </div>
+          </div>
+          <div class="form-group">
+            <label for="create-topic-grade">Expected Grade</label>
+            <select id="create-topic-grade" class="form-control" required>
+              <option value="">Select grade</option>
+              {% for grade in range(1, 14) %}
+              <option value="{{ grade }}">{{ grade }}</option>
+              {% endfor %}
+            </select>
           </div>
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="create-subject-cancel">Cancel</button>
-        <button type="button" class="btn btn-primary" id="create-subject-submit">Create Subject</button>
+        <button type="button" class="btn btn-secondary" id="create-topic-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="create-topic-submit">Create Topic</button>
       </div>
     </div>
   </div>
   
-  <!-- Edit Subject Modal -->
-  <div id="edit-subject-modal" class="modal">
+  <!-- Edit Topic Modal -->
+  <div id="edit-topic-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">Edit Subject</h3>
-        <button class="modal-close" id="edit-subject-close">&times;</button>
+        <h3 class="modal-title">Edit Topic</h3>
+        <button class="modal-close" id="edit-topic-close">&times;</button>
       </div>
       <div class="modal-body">
-        <form id="edit-subject-form">
-          <input type="hidden" id="edit-subject-id">
+        <form id="edit-topic-form">
+          <input type="hidden" id="edit-topic-id">
+          <input type="hidden" id="edit-topic-subject-id">
           <div class="form-group">
-            <label for="edit-subject-name">Subject Name</label>
-            <input type="text" id="edit-subject-name" class="form-control" required>
+            <label for="edit-topic-parent">Parent Subject</label>
+            <input type="text" id="edit-topic-parent" class="form-control form-control--readonly" value="" readonly>
+          </div>
+          <div class="form-group">
+            <label for="edit-topic-name">Topic Name</label>
+            <input type="text" id="edit-topic-name" class="form-control" required minlength="2" maxlength="150">
             <div class="invalid-feedback">
-              Subject name must be 3-100 characters long.
+              Topic name must be 2-150 characters long.
             </div>
+          </div>
+          <div class="form-group">
+            <label for="edit-topic-grade">Expected Grade</label>
+            <select id="edit-topic-grade" class="form-control" required>
+              <option value="">Select grade</option>
+              {% for grade in range(1, 14) %}
+              <option value="{{ grade }}">{{ grade }}</option>
+              {% endfor %}
+            </select>
           </div>
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="edit-subject-cancel">Cancel</button>
-        <button type="button" class="btn btn-primary" id="edit-subject-submit">Save Changes</button>
+        <button type="button" class="btn btn-secondary" id="edit-topic-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="edit-topic-submit">Save Changes</button>
       </div>
     </div>
   </div>
   
-  <!-- Detail Subject Modal -->
-  <div id="detail-subject-modal" class="modal">
+  <!-- Detail Topic Modal -->
+  <div id="detail-topic-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">Subject Details</h3>
-        <button class="modal-close" id="detail-subject-close">&times;</button>
+        <h3 class="modal-title">Topic Details</h3>
+        <button class="modal-close" id="detail-topic-close">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="subject-detail-grid">
-          <div class="subject-detail-item">
-            <span class="subject-detail-label">ID:</span>
-            <span class="subject-detail-value" id="detail-subject-id"></span>
+        <div class="topic-detail-grid">
+          <div class="topic-detail-item">
+            <span class="topic-detail-label">ID:</span>
+            <span class="topic-detail-value" id="detail-topic-id"></span>
           </div>
-          <div class="subject-detail-item">
-            <span class="subject-detail-label">Name:</span>
-            <span class="subject-detail-value" id="detail-subject-name"></span>
+          <div class="topic-detail-item">
+            <span class="topic-detail-label">Name:</span>
+            <span class="topic-detail-value" id="detail-topic-name"></span>
           </div>
-          <div class="subject-detail-item">
-            <span class="subject-detail-label">Status:</span>
-            <span class="subject-detail-value" id="detail-subject-status"></span>
+          <div class="topic-detail-item">
+            <span class="topic-detail-label">Expected Grade:</span>
+            <span class="topic-detail-value" id="detail-topic-grade"></span>
           </div>
-          <div class="subject-detail-item">
-            <span class="subject-detail-label">Created Date:</span>
-            <span class="subject-detail-value" id="detail-subject-created"></span>
+          <div class="topic-detail-item">
+            <span class="topic-detail-label">Status:</span>
+            <span class="topic-detail-value" id="detail-topic-status"></span>
+          </div>
+          <div class="topic-detail-item">
+            <span class="topic-detail-label">Created Date:</span>
+            <span class="topic-detail-value" id="detail-topic-created"></span>
+          </div>
+          <div class="topic-detail-item">
+            <span class="topic-detail-label">Parent Subject:</span>
+            <span class="topic-detail-value" id="detail-topic-parent"></span>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="detail-subject-close-btn">Close</button>
+        <button type="button" class="btn btn-secondary" id="detail-topic-close-btn">Close</button>
       </div>
     </div>
   </div>
@@ -188,7 +241,7 @@
 </div>
 
 <style>
-  /* Knowledge Subjects Management Styles */
+  /* Knowledge Topics Management Styles */
   .admin-container {
     display: flex;
     min-height: calc(100vh - 120px);
@@ -258,6 +311,50 @@
     background-color: #fff;
   }
   
+  /* Breadcrumb */
+  .breadcrumb {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e9ecef;
+  }
+  
+  .breadcrumb__list {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.9rem;
+  }
+  
+  .breadcrumb__item {
+    display: flex;
+    align-items: center;
+  }
+  
+  .breadcrumb__link {
+    color: #E4572E;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+  }
+  
+  .breadcrumb__link:hover {
+    color: #d1451e;
+    text-decoration: underline;
+  }
+  
+  .breadcrumb__separator {
+    color: #6c757d;
+    font-size: 0.85rem;
+  }
+  
+  .breadcrumb__item--active .breadcrumb__current {
+    color: #495057;
+    font-weight: 600;
+  }
+  
   .admin-header {
     margin-bottom: 30px;
     padding-bottom: 20px;
@@ -277,14 +374,14 @@
     margin: 0;
   }
   
-  .subjects-header {
+  .topics-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
   }
   
-  .subjects-header__title {
+  .topics-header__title {
     font-size: 1.5rem;
     font-weight: 600;
     color: #212529;
@@ -327,7 +424,7 @@
     background-color: #c82333;
   }
   
-  .subjects-table-container {
+  .topics-table-container {
     overflow-x: auto;
     background-color: white;
     border-radius: 8px;
@@ -335,12 +432,12 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   }
   
-  .subjects-table {
+  .topics-table {
     width: 100%;
     border-collapse: collapse;
   }
   
-  .subjects-table th {
+  .topics-table th {
     padding: 15px;
     text-align: left;
     font-weight: 600;
@@ -349,12 +446,12 @@
     border-bottom: 2px solid #e9ecef;
   }
   
-  .subjects-table td {
+  .topics-table td {
     padding: 15px;
     border-bottom: 1px solid #e9ecef;
   }
   
-  .subjects-table tbody tr:hover {
+  .topics-table tbody tr:hover {
     background-color: #f8f9fa;
     cursor: pointer;
   }
@@ -524,6 +621,12 @@
     box-shadow: 0 0 0 2px rgba(228, 87, 46, 0.2);
   }
   
+  .form-control--readonly {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    cursor: not-allowed;
+  }
+  
   .invalid-feedback {
     color: #dc3545;
     font-size: 0.85rem;
@@ -539,24 +642,24 @@
     gap: 10px;
   }
   
-  .subject-detail-grid {
+  .topic-detail-grid {
     display: grid;
     grid-template-columns: 1fr 2fr;
     gap: 15px;
   }
   
-  .subject-detail-item {
+  .topic-detail-item {
     margin-bottom: 10px;
   }
   
-  .subject-detail-label {
+  .topic-detail-label {
     font-weight: 600;
     color: #6c757d;
     display: block;
     margin-bottom: 5px;
   }
   
-  .subject-detail-value {
+  .topic-detail-value {
     color: #212529;
   }
   
@@ -625,17 +728,21 @@
       padding: 20px;
     }
     
-    .subjects-header {
+    .topics-header {
       flex-direction: column;
       align-items: flex-start;
       gap: 15px;
     }
     
-    .subjects-header__title {
+    .topics-header__title {
       margin-bottom: 0;
+    }
+    
+    .breadcrumb__list {
+      flex-wrap: wrap;
     }
   }
 </style>
 
-<script src="{{ url_for('static', filename='js/knowledge-subjects.js') }}"></script>
+<script src="{{ url_for('static', filename='js/knowledge-topics.js') }}"></script>
 {% endblock %}

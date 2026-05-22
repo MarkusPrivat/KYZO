@@ -97,7 +97,7 @@ function renderSubjectsTable() {
             if (e.target.closest('.action-btn')) return;
             
             const subjectId = parseInt(row.dataset.subjectId);
-            showSubjectDetail(subjectId);
+            window.location.href = "/admin/knowledge/subjects/" + subjectId + "/topics";
         });
     });
 }
