@@ -107,9 +107,11 @@ function renderFilteredUsersTable() {
             <td><span class="status-badge ${statusClass}">${statusText}</span></td>
             <td>${escapeHtml(String(grade))}</td>
             <td class="actions-cell">
-                <button class="action-btn action-btn-edit" data-user-id="${user.id}">Bearbeiten</button>
-                <button class="action-btn action-btn-toggle" data-user-id="${user.id}">
-                    ${user.is_active !== false ? 'Deaktivieren' : 'Aktivieren'}
+                <button class="action-btn action-btn-edit" data-user-id="${user.id}">
+                    <i class="fas fa-pen"></i>
+                </button>
+                <button class="action-btn action-btn-toggle ${user.is_active !== false ? 'action-btn-toggle--active' : 'action-btn-toggle--inactive'}" data-user-id="${user.id}">
+                    <i class="fas fa-toggle-${user.is_active !== false ? 'on' : 'off'}"></i>
                 </button>
             </td>
         `;

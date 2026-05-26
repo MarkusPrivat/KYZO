@@ -103,11 +103,10 @@ function renderFilteredSubjectsTable() {
             <td>${formatDate(subject.created_at)}</td>
             <td class="actions-cell">
                 <button class="action-btn action-btn-edit" data-subject-id="${subject.id}">
-                    <i class="fas fa-edit"></i> Bearbeiten
+                    <i class="fas fa-pen"></i>
                 </button>
-                <button class="action-btn action-btn-toggle" data-subject-id="${subject.id}">
-                    <i class="fas fa-toggle-${subject.is_active ? 'on' : 'off'}"></i> 
-                    ${subject.is_active ? 'Deaktivieren' : 'Aktivieren'}
+                <button class="action-btn action-btn-toggle ${subject.is_active ? 'action-btn-toggle--active' : 'action-btn-toggle--inactive'}" data-subject-id="${subject.id}">
+                    <i class="fas fa-toggle-${subject.is_active ? 'on' : 'off'}"></i>
                 </button>
             </td>
         `;

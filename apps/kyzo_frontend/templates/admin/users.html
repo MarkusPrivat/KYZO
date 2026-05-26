@@ -570,12 +570,21 @@
   }
   
   .action-btn {
-    padding: 6px 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
     border-radius: 4px;
     border: none;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     transition: all 0.2s ease;
+  }
+  
+  .action-btn i {
+    line-height: 1;
   }
   
   .action-btn-edit {
@@ -594,6 +603,24 @@
   
   .action-btn-toggle:hover {
     background-color: #5a6268;
+  }
+  
+  .action-btn-toggle--active {
+    background-color: #76B041;
+    color: white;
+  }
+  
+  .action-btn-toggle--active:hover {
+    background-color: #659A38;
+  }
+  
+  .action-btn-toggle--inactive {
+    background-color: #dc3545;
+    color: white;
+  }
+  
+  .action-btn-toggle--inactive:hover {
+    background-color: #c82333;
   }
   
   .spinner {
