@@ -614,6 +614,7 @@ async function toggleTopicStatus(topicId) {
         showToast('Netzwerkfehler. Bitte überprüfe deine Verbindung.', 'error');
         console.error('Network error:', error);
     }
+}
 document.addEventListener('click', function(e) {
     // Edit button click
     var editBtn = e.target.closest('.action-btn-edit');
