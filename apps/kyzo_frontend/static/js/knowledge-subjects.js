@@ -240,7 +240,7 @@ async function createSubject() {
         if (response.ok) {
             const newSubject = await response.json();
             currentSubjects.push(newSubject);
-            renderSubjectsTable();
+            renderFilteredSubjectsTable();
             hideCreateSubjectModal();
             showToast('Fach erfolgreich erstellt.');
         } else if (response.status === 409) {
@@ -308,7 +308,7 @@ async function saveEditedSubject() {
             const index = currentSubjects.findIndex(s => s.id === subjectId);
             if (index !== -1) {
                 currentSubjects[index] = updatedSubject;
-                renderSubjectsTable();
+                renderFilteredSubjectsTable();
             }
             hideEditSubjectModal();
             showToast('Fach erfolgreich aktualisiert.');
@@ -421,7 +421,7 @@ async function toggleSubjectStatus(subjectId) {
             const index = currentSubjects.findIndex(s => s.id === subjectId);
             if (index !== -1) {
                 currentSubjects[index] = updatedSubject;
-                renderSubjectsTable();
+                renderFilteredSubjectsTable();
                 showToast(`Fach ${newStatus ? 'aktiviert' : 'deaktiviert'}.`);
             }
         } else {
