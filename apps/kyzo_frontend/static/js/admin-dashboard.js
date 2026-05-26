@@ -17,24 +17,28 @@ document.addEventListener('DOMContentLoaded', function() {
 async function loadDashboardStatistics() {
     try {
         // Fetch total users
-        const usersResponse = await fetch('/api/v1/users/list-all');
+        const usersResponse = await fetch('/api/v1/users/list-all', {
+            headers: getAuthHeader()
+        });
         if (usersResponse.ok) {
             const usersData = await usersResponse.json();
-            const totalUsers = usersData.users ? usersData.users.length : 0;
+            const totalUsers = Array.isArray(usersData) ? usersData.length : 0;
             updateStatCard('total-users', totalUsers);
         }
         
         // Fetch total subjects
-        const subjectsResponse = await fetch('/api/v1/knowledge/subjects/list-all');
+        const subjectsResponse = await fetch('/api/v1/knowledge/subjects/list-all', {
+            headers: getAuthHeader()
+        });
         if (subjectsResponse.ok) {
             const subjectsData = await subjectsResponse.json();
-            const totalSubjects = subjectsData.subjects ? subjectsData.subjects.length : 0;
+            const totalSubjects = Array.isArray(subjectsData) ? subjectsData.length : 0;
             updateStatCard('total-subjects', totalSubjects);
             
             // Calculate total topics from subjects data
             let totalTopics = 0;
-            if (subjectsData.subjects) {
-                subjectsData.subjects.forEach(subject => {
+            if (Array.isArray(subjectsData)) {
+                subjectsData.forEach(subject => {
                     if (subject.topics && subject.topics.length) {
                         totalTopics += subject.topics.length;
                     }

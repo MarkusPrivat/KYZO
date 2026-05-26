@@ -24,11 +24,13 @@ let searchTimeout = null;
  */
 async function loadUsers() {
     try {
-        const response = await fetch('/api/v1/users/list-all');
+        const response = await fetch('/api/v1/users/list-all', {
+            headers: getAuthHeader()
+        });
         
         if (response.ok) {
             const data = await response.json();
-            currentUsers = data.users || [];
+            currentUsers = Array.isArray(data) ? data : [];
             renderFilteredUsersTable();
         } else {
             showToast('Fehler beim Laden der Benutzer. Bitte versuche es erneut.', 'error');
@@ -296,6 +298,7 @@ async function createUser() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...getAuthHeader(),
             },
             body: JSON.stringify({
                 name: name,
@@ -432,6 +435,7 @@ async function saveEditedUser() {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
+                ...getAuthHeader(),
             },
             body: JSON.stringify(payload)
         });
@@ -545,6 +549,7 @@ async function toggleUserStatus(userId) {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
+                ...getAuthHeader(),
             }
         });
         

@@ -24,11 +24,13 @@ let searchTimeout = null;
  */
 async function loadSubjects() {
     try {
-        const response = await fetch('/api/v1/knowledge/subjects/list-all');
+        const response = await fetch('/api/v1/knowledge/subjects/list-all', {
+            headers: getAuthHeader()
+        });
         
         if (response.ok) {
             const data = await response.json();
-            currentSubjects = data.subjects || [];
+            currentSubjects = Array.isArray(data) ? data : [];
             renderFilteredSubjectsTable();
         } else {
             showToast('Fehler beim Laden der Fächer. Bitte versuche es erneut.', 'error');
@@ -229,6 +231,7 @@ async function createSubject() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...getAuthHeader(),
             },
             body: JSON.stringify({
                 name: name
@@ -294,6 +297,7 @@ async function saveEditedSubject() {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
+                ...getAuthHeader(),
             },
             body: JSON.stringify({
                 name: name
@@ -406,6 +410,7 @@ async function toggleSubjectStatus(subjectId) {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
+                ...getAuthHeader(),
             },
             body: JSON.stringify({
                 is_active: newStatus

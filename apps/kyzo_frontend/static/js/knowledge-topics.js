@@ -32,11 +32,13 @@ var searchTimeout = null;
  */
 async function loadSubjectName(subjectId) {
     try {
-        var response = await fetch('/api/v1/knowledge/subjects/list-all');
+        var response = await fetch('/api/v1/knowledge/subjects/list-all', {
+            headers: getAuthHeader()
+        });
         
         if (response.ok) {
             var data = await response.json();
-            var subjects = data.subjects || [];
+            var subjects = Array.isArray(data) ? data : [];
             var subject = subjects.find(function(s) { return s.id === subjectId; });
             
             if (subject) {
@@ -91,11 +93,13 @@ async function loadSubjectName(subjectId) {
  */
 async function loadTopics(subjectId) {
     try {
-        var response = await fetch('/api/v1/knowledge/subjects/' + subjectId + '/topics/list-all');
+        var response = await fetch('/api/v1/knowledge/subjects/' + subjectId + '/topics/list-all', {
+            headers: getAuthHeader()
+        });
         
         if (response.ok) {
             var data = await response.json();
-            currentTopics = data.topics || [];
+            currentTopics = Array.isArray(data) ? data : [];
             renderFilteredTopicsTable();
         } else if (response.status === 401) {
             window.location.href = '/login';
@@ -303,6 +307,7 @@ async function createTopic() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...getAuthHeader(),
             },
             body: JSON.stringify({
                 name: name,
@@ -381,6 +386,7 @@ async function saveEditedTopic() {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
+                ...getAuthHeader(),
             },
             body: JSON.stringify({
                 name: name,
@@ -496,6 +502,7 @@ async function toggleTopicStatus(topicId) {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
+                ...getAuthHeader(),
             },
             body: JSON.stringify({
                 is_active: newStatus
