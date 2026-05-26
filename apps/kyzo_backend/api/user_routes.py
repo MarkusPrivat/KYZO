@@ -403,7 +403,7 @@ async def update_current_user(
         - Bearer Auth (JWT)
         - Open to all authenticated roles: STUDENT, TEACHER, ADMIN
     """
-    return user_manager.update_user(current_user.id, update_data, current_user.role)
+    return user_manager.update_user(current_user.id, update_data)
 
 
 @router.put("/{user_id}/edit", response_model=UserRead)
