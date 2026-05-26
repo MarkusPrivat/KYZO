@@ -40,23 +40,6 @@
   </div>
   
   <div class="admin-main">
-    <!-- Breadcrumb -->
-    <nav class="breadcrumb" aria-label="Breadcrumb">
-      <ol class="breadcrumb__list">
-        <li class="breadcrumb__item">
-          <a href="{{ url_for('admin.admin_dashboard') }}" class="breadcrumb__link">Admin</a>
-        </li>
-        <li class="breadcrumb__separator">/</li>
-        <li class="breadcrumb__item">
-          <a href="{{ url_for('admin.knowledge_subjects') }}" class="breadcrumb__link">Wissensverwaltung</a>
-        </li>
-        <li class="breadcrumb__separator" id="breadcrumb-separator" style="display: none;">/</li>
-        <li class="breadcrumb__item breadcrumb__item--active" id="breadcrumb-subject-item" style="display: none;">
-          <span class="breadcrumb__current" id="breadcrumb-subject-name"></span>
-        </li>
-      </ol>
-    </nav>
-    
     <!-- Subject Selector -->
     <div class="subject-selector" id="subject-selector" style="margin-bottom: 20px;">
       <label for="subject-dropdown" class="subject-selector__label">Fach auswählen:</label>
@@ -380,50 +363,6 @@
     margin-left: 250px;
     padding: 30px;
     background-color: #fff;
-  }
-  
-  /* Breadcrumb */
-  .breadcrumb {
-    margin-bottom: 20px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid #e9ecef;
-  }
-  
-  .breadcrumb__list {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    font-size: 0.9rem;
-  }
-  
-  .breadcrumb__item {
-    display: flex;
-    align-items: center;
-  }
-  
-  .breadcrumb__link {
-    color: #E4572E;
-    text-decoration: none;
-    font-weight: 500;
-    transition: color 0.2s ease;
-  }
-  
-  .breadcrumb__link:hover {
-    color: #d1451e;
-    text-decoration: underline;
-  }
-  
-  .breadcrumb__separator {
-    color: #6c757d;
-    font-size: 0.85rem;
-  }
-  
-  .breadcrumb__item--active .breadcrumb__current {
-    color: #495057;
-    font-weight: 600;
   }
   
   .admin-header {
@@ -866,10 +805,6 @@
     
     .topics-header__title {
       margin-bottom: 0;
-    }
-    
-    .breadcrumb__list {
-      flex-wrap: wrap;
     }
   }
 </style>

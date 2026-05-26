@@ -58,9 +58,6 @@ async function loadSubjectName(subjectId) {
                     pageTitle.textContent = 'Themen für ' + subject.name;
                 }
                 
-                // Update breadcrumb
-                updateBreadcrumb(subject.name);
-                
                 // Update parent subject fields in modals
                 var createParent = document.getElementById('create-topic-parent');
                 if (createParent) createParent.value = subject.name;
@@ -75,7 +72,6 @@ async function loadSubjectName(subjectId) {
                 currentSubjectName = 'Fach #' + subjectId;
                 var pageTitle = document.getElementById('topics-page-title');
                 if (pageTitle) pageTitle.textContent = 'Themen für Fach #' + subjectId;
-                updateBreadcrumb('Fach #' + subjectId);
             }
         } else {
             showToast('Fehler beim Laden der Fachdetails. Bitte versuche es erneut.', 'error');
@@ -84,7 +80,6 @@ async function loadSubjectName(subjectId) {
         currentSubjectName = 'Fach #' + subjectId;
         var pageTitle = document.getElementById('topics-page-title');
         if (pageTitle) pageTitle.textContent = 'Themen für Fach #' + subjectId;
-        updateBreadcrumb('Fach #' + subjectId);
         console.error('Error loading subject name:', error);
     }
 }
@@ -148,13 +143,12 @@ async function populateSubjectSelector(selectedSubjectId) {
                 dropdown.appendChild(option);
             });
             
-            // If a subject was selected, show breadcrumb and header
+            // If a subject was selected, show header
             if (selectedSubjectId) {
                 var subject = allSubjects.find(function(s) { return s.id === selectedSubjectId; });
                 if (subject) {
                     currentSubjectName = subject.name;
                     currentSubjectId = selectedSubjectId;
-                    updateBreadcrumb(subject.name);
                     document.getElementById('topics-page-title').textContent = 'Themen für ' + subject.name;
                 }
             }
@@ -172,20 +166,6 @@ function renderEmptyState() {
     if (!tableBody) return;
     
     tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">Keine Ergebnisse</td></tr>';
-}
-
-/**
- * Update breadcrumb with subject name
- * @param {string} subjectName - Name of the subject
- */
-function updateBreadcrumb(subjectName) {
-    var separator = document.getElementById('breadcrumb-separator');
-    var subjectItem = document.getElementById('breadcrumb-subject-item');
-    var subjectNameEl = document.getElementById('breadcrumb-subject-name');
-    
-    if (separator) separator.style.display = 'inline';
-    if (subjectItem) subjectItem.style.display = 'inline';
-    if (subjectNameEl) subjectNameEl.textContent = subjectName;
 }
 
 /**
@@ -325,7 +305,6 @@ function setupEventListeners() {
             currentSubjectId = selectedSubjectId;
             var selectedOption = dropdown.options[dropdown.selectedIndex];
             currentSubjectName = selectedOption.text.replace(' (Inaktiv)', '');
-            updateBreadcrumb(currentSubjectName);
             document.getElementById('topics-page-title').textContent = 'Themen für ' + currentSubjectName;
             loadTopics(selectedSubjectId);
         }
