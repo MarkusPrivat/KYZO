@@ -436,10 +436,12 @@ async function toggleSubjectStatus(subjectId) {
 
 /**
  * Validate subject name
+ * Works when called from event listeners or programmatic callers (createSubject, saveEditedSubject)
  * @returns {boolean} - True if valid, false otherwise
  */
 function validateSubjectName() {
-    const input = event.target;
+    const input = document.getElementById('create-subject-name') || document.getElementById('edit-subject-name');
+    if (!input) return true;
     const name = input.value.trim();
     const feedback = input.nextElementSibling;
     
