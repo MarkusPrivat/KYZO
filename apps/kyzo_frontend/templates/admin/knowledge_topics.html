@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Knowledge Topics - Kyzo Admin{% endblock %}
+{% block title %}Themaverwaltung - Kyzo Admin{% endblock %}
 
 {% block content %}
 <div class="admin-container admin-knowledge-topics" data-subject-id="{{ subject_id }}">
@@ -48,25 +48,38 @@
         </li>
         <li class="breadcrumb__separator">/</li>
         <li class="breadcrumb__item">
-          <a href="{{ url_for('admin.knowledge_subjects') }}" class="breadcrumb__link">Knowledge</a>
+          <a href="{{ url_for('admin.knowledge_subjects') }}" class="breadcrumb__link">Wissensverwaltung</a>
         </li>
-        <li class="breadcrumb__separator">/</li>
-        <li class="breadcrumb__item breadcrumb__item--active">
-          <span class="breadcrumb__current" id="breadcrumb-subject-name">Loading...</span>
+        <li class="breadcrumb__separator" id="breadcrumb-separator" style="display: none;">/</li>
+        <li class="breadcrumb__item breadcrumb__item--active" id="breadcrumb-subject-item" style="display: none;">
+          <span class="breadcrumb__current" id="breadcrumb-subject-name"></span>
         </li>
       </ol>
     </nav>
     
+    <!-- Subject Selector -->
+    <div class="subject-selector" id="subject-selector" style="margin-bottom: 20px;">
+      <label for="subject-dropdown" class="subject-selector__label">Fach auswählen:</label>
+      <div class="subject-selector__row">
+        <select id="subject-dropdown" class="table-toolbar__select subject-selector__dropdown">
+          <option value="">-- Fach auswählen --</option>
+        </select>
+        <button id="load-topics-btn" class="btn btn-primary" style="margin-left: 8px;">
+          <i class="fas fa-download"></i> Laden
+        </button>
+      </div>
+    </div>
+    
     <header class="admin-header">
-      <h1 class="admin-header__title" id="topics-page-title">Topics for Loading...</h1>
-      <p class="admin-header__subtitle">Manage knowledge topics for this subject</p>
+      <h1 class="admin-header__title" id="topics-page-title">Themenverwaltung</h1>
+      <p class="admin-header__subtitle">Verwalte Themen für dieses Fach</p>
     </header>
     
     <div class="admin-content">
       <div class="topics-header">
-        <h2 class="topics-header__title">All Topics</h2>
+        <h2 class="topics-header__title">Alle Themen</h2>
         <button id="create-topic-btn" class="btn btn-primary">
-          <i class="fas fa-plus"></i> Create Topic
+          <i class="fas fa-plus"></i> Thema erstellen
         </button>
       </div>
       
@@ -90,10 +103,10 @@
             <tr>
               <th>ID</th>
               <th>Name</th>
-              <th>Expected Grade</th>
+              <th>Erwartete Klasse</th>
               <th>Status</th>
-              <th>Created Date</th>
-              <th>Actions</th>
+              <th>Erstellt am</th>
+              <th>Aktionen</th>
             </tr>
           </thead>
           <tbody id="topics-table-body">
@@ -101,7 +114,7 @@
             <tr class="loading-row">
               <td colspan="6" style="text-align: center; padding: 40px;">
                 <div class="spinner"></div>
-                Loading topics...
+                Themen werden geladen...
               </td>
             </tr>
           </tbody>
@@ -114,27 +127,27 @@
   <div id="create-topic-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">Create New Topic</h3>
+        <h3 class="modal-title">Neues Thema erstellen</h3>
         <button class="modal-close" id="create-topic-close">&times;</button>
       </div>
       <div class="modal-body">
         <form id="create-topic-form">
           <div class="form-group">
-            <label for="create-topic-parent">Parent Subject</label>
+            <label for="create-topic-parent">Überfach</label>
             <input type="text" id="create-topic-parent" class="form-control form-control--readonly" value="" readonly>
           </div>
           <div class="form-group">
-            <label for="create-topic-name">Topic Name</label>
+            <label for="create-topic-name">Name</label>
             <input type="text" id="create-topic-name" class="form-control" 
-                   placeholder="Enter topic name (2-150 characters)" required minlength="2" maxlength="150">
+                   placeholder="Themaname eingeben (2-150 Zeichen)" required minlength="2" maxlength="150">
             <div class="invalid-feedback">
-              Topic name must be 2-150 characters long.
+              Der Themaname muss zwischen 2 und 150 Zeichen lang sein.
             </div>
           </div>
           <div class="form-group">
-            <label for="create-topic-grade">Expected Grade</label>
+            <label for="create-topic-grade">Erwartete Klasse</label>
             <select id="create-topic-grade" class="form-control" required>
-              <option value="">Select grade</option>
+              <option value="">Klasse auswählen</option>
               {% for grade in range(1, 14) %}
               <option value="{{ grade }}">{{ grade }}</option>
               {% endfor %}
@@ -143,8 +156,8 @@
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="create-topic-cancel">Cancel</button>
-        <button type="button" class="btn btn-primary" id="create-topic-submit">Create Topic</button>
+        <button type="button" class="btn btn-secondary" id="create-topic-cancel">Abbrechen</button>
+        <button type="button" class="btn btn-primary" id="create-topic-submit">Thema erstellen</button>
       </div>
     </div>
   </div>
@@ -153,7 +166,7 @@
   <div id="edit-topic-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">Edit Topic</h3>
+        <h3 class="modal-title">Thema bearbeiten</h3>
         <button class="modal-close" id="edit-topic-close">&times;</button>
       </div>
       <div class="modal-body">
@@ -161,20 +174,20 @@
           <input type="hidden" id="edit-topic-id">
           <input type="hidden" id="edit-topic-subject-id">
           <div class="form-group">
-            <label for="edit-topic-parent">Parent Subject</label>
+            <label for="edit-topic-parent">Überfach</label>
             <input type="text" id="edit-topic-parent" class="form-control form-control--readonly" value="" readonly>
           </div>
           <div class="form-group">
-            <label for="edit-topic-name">Topic Name</label>
+            <label for="edit-topic-name">Name</label>
             <input type="text" id="edit-topic-name" class="form-control" required minlength="2" maxlength="150">
             <div class="invalid-feedback">
-              Topic name must be 2-150 characters long.
+              Der Themaname muss zwischen 2 und 150 Zeichen lang sein.
             </div>
           </div>
           <div class="form-group">
-            <label for="edit-topic-grade">Expected Grade</label>
+            <label for="edit-topic-grade">Erwartete Klasse</label>
             <select id="edit-topic-grade" class="form-control" required>
-              <option value="">Select grade</option>
+              <option value="">Klasse auswählen</option>
               {% for grade in range(1, 14) %}
               <option value="{{ grade }}">{{ grade }}</option>
               {% endfor %}
@@ -183,8 +196,8 @@
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="edit-topic-cancel">Cancel</button>
-        <button type="button" class="btn btn-primary" id="edit-topic-submit">Save Changes</button>
+        <button type="button" class="btn btn-secondary" id="edit-topic-cancel">Abbrechen</button>
+        <button type="button" class="btn btn-primary" id="edit-topic-submit">Änderungen speichern</button>
       </div>
     </div>
   </div>
@@ -193,7 +206,7 @@
   <div id="detail-topic-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">Topic Details</h3>
+        <h3 class="modal-title">Themen-Details</h3>
         <button class="modal-close" id="detail-topic-close">&times;</button>
       </div>
       <div class="modal-body">
@@ -207,7 +220,7 @@
             <span class="topic-detail-value" id="detail-topic-name"></span>
           </div>
           <div class="topic-detail-item">
-            <span class="topic-detail-label">Expected Grade:</span>
+            <span class="topic-detail-label">Erwartete Klasse:</span>
             <span class="topic-detail-value" id="detail-topic-grade"></span>
           </div>
           <div class="topic-detail-item">
@@ -215,17 +228,17 @@
             <span class="topic-detail-value" id="detail-topic-status"></span>
           </div>
           <div class="topic-detail-item">
-            <span class="topic-detail-label">Created Date:</span>
+            <span class="topic-detail-label">Erstellt am:</span>
             <span class="topic-detail-value" id="detail-topic-created"></span>
           </div>
           <div class="topic-detail-item">
-            <span class="topic-detail-label">Parent Subject:</span>
+            <span class="topic-detail-label">Überfach:</span>
             <span class="topic-detail-value" id="detail-topic-parent"></span>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="detail-topic-close-btn">Close</button>
+        <button type="button" class="btn btn-secondary" id="detail-topic-close-btn">Schließen</button>
       </div>
     </div>
   </div>
@@ -234,15 +247,15 @@
   <div id="confirmation-dialog" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">Confirm Action</h3>
+        <h3 class="modal-title">Aktion bestätigen</h3>
         <button class="modal-close" id="confirmation-close">&times;</button>
       </div>
       <div class="modal-body">
-        <p id="confirmation-message">Are you sure you want to perform this action?</p>
+        <p id="confirmation-message">Sind Sie sicher, dass Sie diese Aktion durchführen möchten?</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="confirmation-cancel">Cancel</button>
-        <button type="button" class="btn btn-danger" id="confirmation-confirm">Confirm</button>
+        <button type="button" class="btn btn-secondary" id="confirmation-cancel">Abbrechen</button>
+        <button type="button" class="btn btn-danger" id="confirmation-confirm">Bestätigen</button>
       </div>
     </div>
   </div>
@@ -257,6 +270,29 @@
 </div>
 
 <style>
+  /* Subject Selector */
+  .subject-selector {
+    margin-bottom: 20px;
+  }
+  
+  .subject-selector__label {
+    display: block;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+  }
+  
+  .subject-selector__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .subject-selector__dropdown {
+    min-width: 250px;
+  }
+  
   /* Knowledge Topics Management Styles */
   .admin-container {
     display: flex;

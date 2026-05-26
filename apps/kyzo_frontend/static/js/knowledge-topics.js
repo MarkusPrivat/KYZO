@@ -8,11 +8,17 @@ document.addEventListener('DOMContentLoaded', function() {
     var container = document.querySelector('.admin-knowledge-topics');
     if (container) {
         var subjectId = parseInt(container.dataset.subjectId);
-        if (subjectId) {
+        if (subjectId && subjectId > 0) {
+            // A subject was passed from the server (navigated from subjects page)
             loadSubjectName(subjectId);
             loadTopics(subjectId);
-            setupEventListeners(subjectId);
+            populateSubjectSelector(subjectId);
+        } else {
+            // No subject selected - show empty state
+            populateSubjectSelector(null);
+            renderEmptyState();
         }
+        setupEventListeners();
     }
 });
 
@@ -25,6 +31,7 @@ var currentTopicId = null;
 var currentSearchTerm = '';
 var currentFilter = 'all';
 var searchTimeout = null;
+var allSubjects = [];
 
 /**
  * Load subject name from API and update page
@@ -48,14 +55,11 @@ async function loadSubjectName(subjectId) {
                 // Update page title
                 var pageTitle = document.getElementById('topics-page-title');
                 if (pageTitle) {
-                    pageTitle.textContent = 'Topics for ' + subject.name;
+                    pageTitle.textContent = 'Themen für ' + subject.name;
                 }
                 
                 // Update breadcrumb
-                var breadcrumbName = document.getElementById('breadcrumb-subject-name');
-                if (breadcrumbName) {
-                    breadcrumbName.textContent = subject.name;
-                }
+                updateBreadcrumb(subject.name);
                 
                 // Update parent subject fields in modals
                 var createParent = document.getElementById('create-topic-parent');
@@ -68,21 +72,19 @@ async function loadSubjectName(subjectId) {
                 var editSubjectId = document.getElementById('edit-topic-subject-id');
                 if (editSubjectId) editSubjectId.value = subjectId;
             } else {
-                currentSubjectName = 'Subject #' + subjectId;
+                currentSubjectName = 'Fach #' + subjectId;
                 var pageTitle = document.getElementById('topics-page-title');
-                if (pageTitle) pageTitle.textContent = 'Topics for Subject #' + subjectId;
-                var breadcrumbName = document.getElementById('breadcrumb-subject-name');
-                if (breadcrumbName) breadcrumbName.textContent = 'Subject #' + subjectId;
+                if (pageTitle) pageTitle.textContent = 'Themen für Fach #' + subjectId;
+                updateBreadcrumb('Fach #' + subjectId);
             }
         } else {
             showToast('Fehler beim Laden der Fachdetails. Bitte versuche es erneut.', 'error');
         }
     } catch (error) {
-        currentSubjectName = 'Subject #' + subjectId;
+        currentSubjectName = 'Fach #' + subjectId;
         var pageTitle = document.getElementById('topics-page-title');
-        if (pageTitle) pageTitle.textContent = 'Topics for Subject #' + subjectId;
-        var breadcrumbName = document.getElementById('breadcrumb-subject-name');
-        if (breadcrumbName) breadcrumbName.textContent = 'Subject #' + subjectId;
+        if (pageTitle) pageTitle.textContent = 'Themen für Fach #' + subjectId;
+        updateBreadcrumb('Fach #' + subjectId);
         console.error('Error loading subject name:', error);
     }
 }
@@ -92,6 +94,8 @@ async function loadSubjectName(subjectId) {
  * @param {number} subjectId - ID of the subject
  */
 async function loadTopics(subjectId) {
+    if (!subjectId) return;
+    
     try {
         var response = await fetch('/api/v1/knowledge/subjects/' + subjectId + '/topics/list-all', {
             headers: getAuthHeader()
@@ -111,6 +115,77 @@ async function loadTopics(subjectId) {
         showToast('Netzwerkfehler. Bitte überprüfe deine Verbindung.', 'error');
         console.error('Network error:', error);
     }
+}
+
+/**
+ * Populate the subject selector dropdown
+ * @param {number|null} selectedSubjectId - ID of the currently selected subject
+ */
+async function populateSubjectSelector(selectedSubjectId) {
+    var dropdown = document.getElementById('subject-dropdown');
+    if (!dropdown) return;
+    
+    try {
+        var response = await fetch('/api/v1/knowledge/subjects/list-all', {
+            headers: getAuthHeader()
+        });
+        
+        if (response.ok) {
+            var data = await response.json();
+            allSubjects = Array.isArray(data) ? data : [];
+            
+            // Clear existing options except the first
+            dropdown.innerHTML = '<option value="">-- Fach auswählen --</option>';
+            
+            allSubjects.forEach(function(subject) {
+                var option = document.createElement('option');
+                option.value = subject.id;
+                option.textContent = subject.name + (subject.is_active ? '' : ' (Inaktiv)');
+                option.dataset.isActive = subject.is_active;
+                if (selectedSubjectId && subject.id === selectedSubjectId) {
+                    option.selected = true;
+                }
+                dropdown.appendChild(option);
+            });
+            
+            // If a subject was selected, show breadcrumb and header
+            if (selectedSubjectId) {
+                var subject = allSubjects.find(function(s) { return s.id === selectedSubjectId; });
+                if (subject) {
+                    currentSubjectName = subject.name;
+                    currentSubjectId = selectedSubjectId;
+                    updateBreadcrumb(subject.name);
+                    document.getElementById('topics-page-title').textContent = 'Themen für ' + subject.name;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error populating subject selector:', error);
+    }
+}
+
+/**
+ * Render empty state when no subject is selected
+ */
+function renderEmptyState() {
+    var tableBody = document.getElementById('topics-table-body');
+    if (!tableBody) return;
+    
+    tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">Keine Ergebnisse</td></tr>';
+}
+
+/**
+ * Update breadcrumb with subject name
+ * @param {string} subjectName - Name of the subject
+ */
+function updateBreadcrumb(subjectName) {
+    var separator = document.getElementById('breadcrumb-separator');
+    var subjectItem = document.getElementById('breadcrumb-subject-item');
+    var subjectNameEl = document.getElementById('breadcrumb-subject-name');
+    
+    if (separator) separator.style.display = 'inline';
+    if (subjectItem) subjectItem.style.display = 'inline';
+    if (subjectNameEl) subjectNameEl.textContent = subjectName;
 }
 
 /**
@@ -144,7 +219,7 @@ function renderFilteredTopicsTable() {
     if (filtered.length === 0) {
         var emptyMessage = currentSearchTerm || currentFilter !== 'all'
             ? 'Keine Ergebnisse'
-            : 'No topics found. Click "Create Topic" to add your first topic.';
+            : 'Keine Themen gefunden. Klicke "Thema erstellen" um dein erstes Thema hinzuzufügen.';
         tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">' + emptyMessage + '</td></tr>';
         return;
     }
@@ -160,11 +235,11 @@ function renderFilteredTopicsTable() {
         row.innerHTML = '<td>' + topic.id + '</td>' +
             '<td>' + escapeHtml(topic.name) + '</td>' +
             '<td>' + (topic.expected_grade || 'N/A') + '</td>' +
-            '<td><span class="status-badge status-badge--' + (topic.is_active ? 'active' : 'inactive') + '">' + (topic.is_active ? 'Active' : 'Inactive') + '</span></td>' +
+            '<td><span class="status-badge status-badge--' + (topic.is_active ? 'active' : 'inactive') + '">' + (topic.is_active ? 'Aktiv' : 'Inaktiv') + '</span></td>' +
             '<td>' + formatDate(topic.created_at) + '</td>' +
             '<td class="actions-cell">' +
-                '<button class="action-btn action-btn-edit" data-topic-id="' + topic.id + '"><i class="fas fa-edit"></i> Edit</button>' +
-                '<button class="action-btn action-btn-toggle" data-topic-id="' + topic.id + '"><i class="fas fa-toggle-' + (topic.is_active ? 'on' : 'off') + '"></i> ' + (topic.is_active ? 'Deactivate' : 'Activate') + '</button>' +
+                '<button class="action-btn action-btn-edit" data-topic-id="' + topic.id + '"><i class="fas fa-edit"></i> Bearbeiten</button>' +
+                '<button class="action-btn action-btn-toggle" data-topic-id="' + topic.id + '"><i class="fas fa-toggle-' + (topic.is_active ? 'on' : 'off') + '"></i> ' + (topic.is_active ? 'Deaktivieren' : 'Aktivieren') + '</button>' +
             '</td>';
         
         tableBody.appendChild(row);
@@ -218,9 +293,8 @@ function formatDate(dateString) {
 
 /**
  * Set up all event listeners
- * @param {number} subjectId - ID of the subject
  */
-function setupEventListeners(subjectId) {
+function setupEventListeners() {
     // Create topic button
     document.getElementById('create-topic-btn')?.addEventListener('click', showCreateTopicModal);
     
@@ -243,6 +317,19 @@ function setupEventListeners(subjectId) {
     document.getElementById('confirmation-cancel')?.addEventListener('click', hideConfirmationDialog);
     document.getElementById('confirmation-confirm')?.addEventListener('click', handleConfirmation);
     
+    // Subject selector "Laden" button
+    document.getElementById('load-topics-btn')?.addEventListener('click', function() {
+        var dropdown = document.getElementById('subject-dropdown');
+        var selectedSubjectId = parseInt(dropdown.value);
+        if (selectedSubjectId) {
+            currentSubjectId = selectedSubjectId;
+            var selectedOption = dropdown.options[dropdown.selectedIndex];
+            currentSubjectName = selectedOption.text.replace(' (Inaktiv)', '');
+            updateBreadcrumb(currentSubjectName);
+            document.getElementById('topics-page-title').textContent = 'Themen für ' + currentSubjectName;
+            loadTopics(selectedSubjectId);
+        }
+    });
     
     // Search input (debounced)
     document.getElementById('topics-search')?.addEventListener('input', function(e) {
@@ -298,7 +385,7 @@ async function createTopic() {
     
     // Validate grade
     if (!grade || grade < 1 || grade > 13) {
-        showToast('Bitte wähle eine gültige erwartete Note (1-13).', 'error');
+        showToast('Bitte wählen Sie eine gültige erwartete Klasse (1-13).', 'error');
         return;
     }
     
@@ -377,7 +464,7 @@ async function saveEditedTopic() {
     
     // Validate grade
     if (!grade || grade < 1 || grade > 13) {
-        showToast('Bitte wähle eine gültige erwartete Note (1-13).', 'error');
+        showToast('Bitte wählen Sie eine gültige erwartete Klasse (1-13).', 'error');
         return;
     }
     
@@ -428,7 +515,7 @@ function showTopicDetail(topicId) {
         document.getElementById('detail-topic-id').textContent = topic.id;
         document.getElementById('detail-topic-name').textContent = topic.name;
         document.getElementById('detail-topic-grade').textContent = topic.expected_grade || 'N/A';
-        document.getElementById('detail-topic-status').textContent = topic.is_active ? 'Active' : 'Inactive';
+        document.getElementById('detail-topic-status').textContent = topic.is_active ? 'Aktiv' : 'Inaktiv';
         document.getElementById('detail-topic-created').textContent = formatDate(topic.created_at);
         document.getElementById('detail-topic-parent').textContent = currentSubjectName;
         modal.style.display = 'block';
@@ -456,8 +543,8 @@ function showToggleConfirmation(topicId, currentStatus) {
     
     if (dialog && message) {
         message.textContent = currentStatus 
-            ? 'Are you sure you want to deactivate this topic?'
-            : 'Are you sure you want to activate this topic?';
+            ? 'Sind Sie sicher, dass Sie dieses Thema deaktivieren möchten?'
+            : 'Sind Sie sicher, dass Sie dieses Thema aktivieren möchten?';
         dialog.style.display = 'block';
     }
 }
