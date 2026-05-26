@@ -41,15 +41,15 @@
   
   <div class="admin-main">
     <header class="admin-header">
-      <h1 class="admin-header__title">Users Management</h1>
-      <p class="admin-header__subtitle">Manage user accounts and permissions</p>
+      <h1 class="admin-header__title">Benutzerverwaltung</h1>
+      <p class="admin-header__subtitle">Benutzerkonten und Berechtigungen verwalten</p>
     </header>
     
     <div class="admin-content">
       <div class="users-header">
-        <h2 class="users-header__title">All Users</h2>
+        <h2 class="users-header__title">Alle Benutzer</h2>
         <button id="create-user-btn" class="btn btn-primary">
-          <i class="fas fa-plus"></i> Create User
+          <i class="fas fa-plus"></i> Benutzer erstellen
         </button>
       </div>
       
@@ -73,11 +73,11 @@
             <tr>
               <th>ID</th>
               <th>Name</th>
-              <th>Email</th>
-              <th>Role</th>
+              <th>E-Mail</th>
+              <th>Rolle</th>
               <th>Status</th>
-              <th>Grade</th>
-              <th>Actions</th>
+              <th>Klasse</th>
+              <th>Aktionen</th>
             </tr>
           </thead>
           <tbody id="users-table-body">
@@ -85,7 +85,7 @@
             <tr class="loading-row">
               <td colspan="7" style="text-align: center; padding: 40px;">
                 <div class="spinner"></div>
-                Loading users...
+                Benutzer werden geladen...
               </td>
             </tr>
           </tbody>
@@ -98,7 +98,7 @@
   <div id="create-user-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">Create New User</h3>
+        <h3 class="modal-title">Neuen Benutzer erstellen</h3>
         <button class="modal-close" id="create-user-close">&times;</button>
       </div>
       <div class="modal-body">
@@ -106,25 +106,25 @@
           <div class="form-group">
             <label for="create-user-name">Name</label>
             <input type="text" id="create-user-name" class="form-control" 
-                   placeholder="Enter name (3-100 characters)" required minlength="3" maxlength="100">
+                   placeholder="Name eingeben (3-100 Zeichen)" required minlength="3" maxlength="100">
             <div class="form-error" id="create-user-name-error"></div>
           </div>
           <div class="form-group">
-            <label for="create-user-email">Email</label>
+            <label for="create-user-email">E-Mail</label>
             <input type="email" id="create-user-email" class="form-control" 
-                   placeholder="Enter email address" required>
+                   placeholder="E-Mail-Adresse eingeben" required>
             <div class="form-error" id="create-user-email-error"></div>
           </div>
           <div class="form-group">
-            <label for="create-user-password">Password</label>
+            <label for="create-user-password">Passwort</label>
             <input type="password" id="create-user-password" class="form-control" 
-                   placeholder="Enter password (min 8 characters)" required minlength="8">
+                   placeholder="Passwort eingeben (min. 8 Zeichen)" required minlength="8">
             <div class="form-error" id="create-user-password-error"></div>
           </div>
           <div class="form-group">
-            <label for="create-user-grade">Grade</label>
+            <label for="create-user-grade">Klasse</label>
             <select id="create-user-grade" class="form-control form-select" required>
-              <option value="">Select grade</option>
+              <option value="">Klasse auswählen</option>
               {% for grade in range(1, 14) %}
               <option value="{{ grade }}">{{ grade }}</option>
               {% endfor %}
@@ -132,20 +132,20 @@
             <div class="form-error" id="create-user-grade-error"></div>
           </div>
           <div class="form-group">
-            <label for="create-user-role">Role</label>
+            <label for="create-user-role">Rolle</label>
             <select id="create-user-role" class="form-control form-select" required>
-              <option value="">Select role</option>
-              <option value="student">Student</option>
-              <option value="teacher">Teacher</option>
-              <option value="admin">Admin</option>
+              <option value="">Rolle auswählen</option>
+              <option value="student">Schüler</option>
+              <option value="teacher">Lehrer</option>
+              <option value="admin">Administrator</option>
             </select>
             <div class="form-error" id="create-user-role-error"></div>
           </div>
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="create-user-cancel">Cancel</button>
-        <button type="button" class="btn btn-primary" id="create-user-submit">Create User</button>
+        <button type="button" class="btn btn-secondary" id="create-user-cancel">Abbrechen</button>
+        <button type="button" class="btn btn-primary" id="create-user-submit">Benutzer erstellen</button>
       </div>
     </div>
   </div>
@@ -154,7 +154,7 @@
   <div id="edit-user-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">Edit User</h3>
+        <h3 class="modal-title">Benutzer bearbeiten</h3>
         <button class="modal-close" id="edit-user-close">&times;</button>
       </div>
       <div class="modal-body">
@@ -166,14 +166,14 @@
             <div class="form-error" id="edit-user-name-error"></div>
           </div>
           <div class="form-group">
-            <label for="edit-user-email">Email</label>
+            <label for="edit-user-email">E-Mail</label>
             <input type="email" id="edit-user-email" class="form-control" required>
             <div class="form-error" id="edit-user-email-error"></div>
           </div>
           <div class="form-group">
-            <label for="edit-user-grade">Grade</label>
+            <label for="edit-user-grade">Klasse</label>
             <select id="edit-user-grade" class="form-control form-select" required>
-              <option value="">Select grade</option>
+              <option value="">Klasse auswählen</option>
               {% for grade in range(1, 14) %}
               <option value="{{ grade }}">{{ grade }}</option>
               {% endfor %}
@@ -181,20 +181,20 @@
             <div class="form-error" id="edit-user-grade-error"></div>
           </div>
           <div class="form-group">
-            <label for="edit-user-role">Role</label>
+            <label for="edit-user-role">Rolle</label>
             <select id="edit-user-role" class="form-control form-select" required>
-              <option value="">Select role</option>
-              <option value="student">Student</option>
-              <option value="teacher">Teacher</option>
-              <option value="admin">Admin</option>
+              <option value="">Rolle auswählen</option>
+              <option value="student">Schüler</option>
+              <option value="teacher">Lehrer</option>
+              <option value="admin">Administrator</option>
             </select>
             <div class="form-error" id="edit-user-role-error"></div>
           </div>
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="edit-user-cancel">Cancel</button>
-        <button type="button" class="btn btn-primary" id="edit-user-submit">Save Changes</button>
+        <button type="button" class="btn btn-secondary" id="edit-user-cancel">Abbrechen</button>
+        <button type="button" class="btn btn-primary" id="edit-user-submit">Änderungen speichern</button>
       </div>
     </div>
   </div>
@@ -203,7 +203,7 @@
   <div id="detail-user-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">User Details</h3>
+        <h3 class="modal-title">Benutzerdetails</h3>
         <button class="modal-close" id="detail-user-close">&times;</button>
       </div>
       <div class="modal-body">
@@ -217,11 +217,11 @@
             <span class="user-detail-value" id="detail-user-name"></span>
           </div>
           <div class="user-detail-item">
-            <span class="user-detail-label">Email:</span>
+            <span class="user-detail-label">E-Mail:</span>
             <span class="user-detail-value" id="detail-user-email"></span>
           </div>
           <div class="user-detail-item">
-            <span class="user-detail-label">Role:</span>
+            <span class="user-detail-label">Rolle:</span>
             <span class="user-detail-value" id="detail-user-role"></span>
           </div>
           <div class="user-detail-item">
@@ -229,17 +229,17 @@
             <span class="user-detail-value" id="detail-user-status"></span>
           </div>
           <div class="user-detail-item">
-            <span class="user-detail-label">Grade:</span>
+            <span class="user-detail-label">Klasse:</span>
             <span class="user-detail-value" id="detail-user-grade"></span>
           </div>
           <div class="user-detail-item">
-            <span class="user-detail-label">Created Date:</span>
+            <span class="user-detail-label">Erstellt am:</span>
             <span class="user-detail-value" id="detail-user-created"></span>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="detail-user-close-btn">Close</button>
+        <button type="button" class="btn btn-secondary" id="detail-user-close-btn">Schließen</button>
       </div>
     </div>
   </div>
@@ -248,15 +248,15 @@
   <div id="confirmation-dialog" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">Confirm Action</h3>
+        <h3 class="modal-title">Aktion bestätigen</h3>
         <button class="modal-close" id="confirmation-close">&times;</button>
       </div>
       <div class="modal-body">
-        <p id="confirmation-message">Are you sure you want to perform this action?</p>
+        <p id="confirmation-message">Sind Sie sicher, dass Sie diese Aktion durchführen möchten?</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="confirmation-cancel">Cancel</button>
-        <button type="button" class="btn btn-danger" id="confirmation-confirm">Confirm</button>
+        <button type="button" class="btn btn-secondary" id="confirmation-cancel">Abbrechen</button>
+        <button type="button" class="btn btn-danger" id="confirmation-confirm">Bestätigen</button>
       </div>
     </div>
   </div>

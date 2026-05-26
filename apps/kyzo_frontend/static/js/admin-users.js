@@ -74,7 +74,7 @@ function renderFilteredUsersTable() {
     if (filtered.length === 0) {
         const emptyMessage = currentSearchTerm || currentFilter !== 'all'
             ? 'Keine Ergebnisse'
-            : 'No users found. Click "Create User" to add your first user.';
+            : 'Keine Benutzer gefunden. Klicke \'Benutzer erstellen\' um deinen ersten Benutzer hinzuzufügen.';
         tableBody.innerHTML = `
             <tr>
                 <td colspan="7" style="text-align: center; padding: 40px;">
@@ -94,21 +94,22 @@ function renderFilteredUsersTable() {
         row.dataset.userId = user.id;
         
         const roleClass = `role-badge--${user.role || 'student'}`;
+        const roleLabels = { student: 'Schüler', teacher: 'Lehrer', admin: 'Administrator' };
         const statusClass = user.is_active !== false ? 'status-badge--active' : 'status-badge--inactive';
-        const statusText = user.is_active !== false ? 'Active' : 'Inactive';
+        const statusText = user.is_active !== false ? 'Aktiv' : 'Inaktiv';
         const grade = user.grade || 'N/A';
         
         row.innerHTML = `
             <td>${user.id}</td>
             <td>${escapeHtml(user.name || '')}</td>
             <td>${escapeHtml(user.email || '')}</td>
-            <td><span class="role-badge ${roleClass}">${escapeHtml(user.role || 'student')}</span></td>
+            <td><span class="role-badge ${roleClass}">${escapeHtml(roleLabels[user.role] || user.role)}</span></td>
             <td><span class="status-badge ${statusClass}">${statusText}</span></td>
             <td>${escapeHtml(String(grade))}</td>
             <td class="actions-cell">
-                <button class="action-btn action-btn-edit" data-user-id="${user.id}">Edit</button>
+                <button class="action-btn action-btn-edit" data-user-id="${user.id}">Bearbeiten</button>
                 <button class="action-btn action-btn-toggle" data-user-id="${user.id}">
-                    ${user.is_active !== false ? 'Deactivate' : 'Activate'}
+                    ${user.is_active !== false ? 'Deaktivieren' : 'Aktivieren'}
                 </button>
             </td>
         `;
@@ -253,7 +254,7 @@ async function createUser() {
     // Validate name
     const name = nameInput.value.trim();
     if (name.length < 3 || name.length > 100) {
-        document.getElementById('create-user-name-error').textContent = 'Name must be 3-100 characters long.';
+        document.getElementById('create-user-name-error').textContent = 'Name muss zwischen 3 und 100 Zeichen lang sein.';
         nameInput.setAttribute('aria-invalid', 'true');
         isValid = false;
     }
@@ -262,7 +263,7 @@ async function createUser() {
     const email = emailInput.value.trim();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-        document.getElementById('create-user-email-error').textContent = 'Please enter a valid email address.';
+        document.getElementById('create-user-email-error').textContent = 'Bitte geben Sie eine gültige E-Mail-Adresse ein.';
         emailInput.setAttribute('aria-invalid', 'true');
         isValid = false;
     }
@@ -270,7 +271,7 @@ async function createUser() {
     // Validate password
     const password = passwordInput.value;
     if (password.length < 8) {
-        document.getElementById('create-user-password-error').textContent = 'Password must be at least 8 characters long.';
+        document.getElementById('create-user-password-error').textContent = 'Passwort muss mindestens 8 Zeichen lang sein.';
         passwordInput.setAttribute('aria-invalid', 'true');
         isValid = false;
     }
@@ -278,7 +279,7 @@ async function createUser() {
     // Validate grade
     const grade = gradeInput.value;
     if (!grade) {
-        document.getElementById('create-user-grade-error').textContent = 'Please select a grade.';
+        document.getElementById('create-user-grade-error').textContent = 'Bitte wählen Sie eine Klasse aus.';
         gradeInput.setAttribute('aria-invalid', 'true');
         isValid = false;
     }
@@ -286,7 +287,7 @@ async function createUser() {
     // Validate role
     const role = roleInput.value;
     if (!role) {
-        document.getElementById('create-user-role-error').textContent = 'Please select a role.';
+        document.getElementById('create-user-role-error').textContent = 'Bitte wählen Sie eine Rolle aus.';
         roleInput.setAttribute('aria-invalid', 'true');
         isValid = false;
     }
@@ -377,7 +378,7 @@ async function saveEditedUser() {
     // Validate name
     const name = nameInput.value.trim();
     if (name.length < 3 || name.length > 100) {
-        document.getElementById('edit-user-name-error').textContent = 'Name must be 3-100 characters long.';
+        document.getElementById('edit-user-name-error').textContent = 'Name muss zwischen 3 und 100 Zeichen lang sein.';
         nameInput.setAttribute('aria-invalid', 'true');
         isValid = false;
     }
@@ -386,7 +387,7 @@ async function saveEditedUser() {
     const email = emailInput.value.trim();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-        document.getElementById('edit-user-email-error').textContent = 'Please enter a valid email address.';
+        document.getElementById('edit-user-email-error').textContent = 'Bitte geben Sie eine gültige E-Mail-Adresse ein.';
         emailInput.setAttribute('aria-invalid', 'true');
         isValid = false;
     }
@@ -394,7 +395,7 @@ async function saveEditedUser() {
     // Validate grade
     const grade = gradeInput.value;
     if (!grade) {
-        document.getElementById('edit-user-grade-error').textContent = 'Please select a grade.';
+        document.getElementById('edit-user-grade-error').textContent = 'Bitte wählen Sie eine Klasse aus.';
         gradeInput.setAttribute('aria-invalid', 'true');
         isValid = false;
     }
@@ -402,7 +403,7 @@ async function saveEditedUser() {
     // Validate role
     const role = roleInput.value;
     if (!role) {
-        document.getElementById('edit-user-role-error').textContent = 'Please select a role.';
+        document.getElementById('edit-user-role-error').textContent = 'Bitte wählen Sie eine Rolle aus.';
         roleInput.setAttribute('aria-invalid', 'true');
         isValid = false;
     }
@@ -474,8 +475,9 @@ function showUserDetail(userId) {
         document.getElementById('detail-user-id').textContent = user.id;
         document.getElementById('detail-user-name').textContent = user.name || 'N/A';
         document.getElementById('detail-user-email').textContent = user.email || 'N/A';
-        document.getElementById('detail-user-role').textContent = (user.role || 'student').charAt(0).toUpperCase() + (user.role || 'student').slice(1);
-        document.getElementById('detail-user-status').textContent = user.is_active !== false ? 'Active' : 'Inactive';
+        const roleLabels = { student: 'Schüler', teacher: 'Lehrer', admin: 'Administrator' };
+        document.getElementById('detail-user-role').textContent = roleLabels[user.role] || (user.role || 'student').charAt(0).toUpperCase() + (user.role || 'student').slice(1);
+        document.getElementById('detail-user-status').textContent = user.is_active !== false ? 'Aktiv' : 'Inaktiv';
         document.getElementById('detail-user-grade').textContent = user.grade || 'N/A';
         document.getElementById('detail-user-created').textContent = formatDate(user.created_at);
         modal.style.display = 'block';
@@ -503,8 +505,8 @@ function showToggleConfirmation(userId, currentStatus) {
     
     if (dialog && message) {
         message.textContent = currentStatus 
-            ? 'Are you sure you want to deactivate this user?'
-            : 'Are you sure you want to activate this user?';
+            ? 'Sind Sie sicher, dass Sie diesen Benutzer deaktivieren möchten?'
+            : 'Sind Sie sicher, dass Sie diesen Benutzer aktivieren möchten?';
         dialog.style.display = 'block';
     }
 }
