@@ -14,24 +14,26 @@
           </a>
         </li>
         <li class="admin-nav__item">
-          <a href="{{ url_for('admin.knowledge_subjects') }}" class="admin-nav__link admin-nav__link--active">
-            Knowledge Subjects
-          </a>
-        </li>
-        <li class="admin-nav__item">
-          <a href="{{ url_for('admin.knowledge_subjects') }}" class="admin-nav__link">
-            Knowledge Topics
-          </a>
-        </li>
-        <li class="admin-nav__item">
           <a href="{{ url_for('admin.admin_users') }}" class="admin-nav__link">
-            Users Management
+            Benutzerverwaltung
           </a>
         </li>
         <li class="admin-nav__item">
-          <a href="#" class="admin-nav__link">
-            System Settings
-          </a>
+          <span class="admin-nav__link admin-nav__link--subheader">
+            Wissensverwaltung
+          </span>
+          <ul class="admin-nav__sublist">
+            <li class="admin-nav__item">
+              <a href="{{ url_for('admin.knowledge_subjects') }}" class="admin-nav__link admin-nav__link--active">
+                Fach
+              </a>
+            </li>
+            <li class="admin-nav__item">
+              <a href="{{ url_for('admin.knowledge_topics', subject_id=0) }}" class="admin-nav__link">
+                Thema
+              </a>
+            </li>
+          </ul>
         </li>
       </ul>
     </nav>
@@ -263,7 +265,26 @@
     background-color: #007bff;
     color: white;
     border-left: 3px solid #007bff;
+  }  
+  .admin-nav__link--subheader {
+    font-weight: 600;
+    color: #333;
+    cursor: default;
+    border-left: none;
+    padding-left: 20px;
   }
+  
+  .admin-nav__sublist {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .admin-nav__sublist .admin-nav__link {
+    padding-left: 40px;
+    font-size: 0.95rem;
+  }
+
   
   .admin-main {
     flex: 1;

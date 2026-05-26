@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Check if we're on the admin dashboard page
     if (document.querySelector('.admin-dashboard')) {
         loadDashboardStatistics();
-        setupQuickLinks();
     }
 });
 
@@ -20,12 +19,18 @@ async function loadDashboardStatistics() {
         const usersResponse = await fetch('/api/v1/users/list-all', {
             headers: getAuthHeader()
         });
+        let totalUsers = 0;
+        let activeUsers = 0;
         if (usersResponse.ok) {
             const usersData = await usersResponse.json();
-            const totalUsers = Array.isArray(usersData) ? usersData.length : 0;
+            totalUsers = Array.isArray(usersData) ? usersData.length : 0;
             updateStatCard('total-users', totalUsers);
+            activeUsers = Array.isArray(usersData)
+                ? usersData.filter(u => u.is_active === true).length
+                : 0;
+            updateStatCard('active-users', activeUsers);
         }
-        
+
         // Fetch total subjects
         const subjectsResponse = await fetch('/api/v1/knowledge/subjects/list-all', {
             headers: getAuthHeader()
@@ -34,7 +39,7 @@ async function loadDashboardStatistics() {
             const subjectsData = await subjectsResponse.json();
             const totalSubjects = Array.isArray(subjectsData) ? subjectsData.length : 0;
             updateStatCard('total-subjects', totalSubjects);
-            
+
             // Calculate total topics from subjects data
             let totalTopics = 0;
             if (Array.isArray(subjectsData)) {
@@ -46,13 +51,7 @@ async function loadDashboardStatistics() {
             }
             updateStatCard('total-topics', totalTopics);
         }
-        
-        // Fetch active users (filtered count)
-        // For now, we'll use the same users count as active users
-        // In a real implementation, this would be a separate API endpoint
-        const activeUsers = totalUsers || 0;
-        updateStatCard('active-users', activeUsers);
-        
+
     } catch (error) {
         console.error('Error loading dashboard statistics:', error);
         // Show error state in UI
@@ -75,28 +74,5 @@ function updateStatCard(cardId, value) {
     const card = document.getElementById(cardId);
     if (card) {
         card.textContent = value.toString();
-    }
-}
-
-/**
- * Set up quick link navigation
- */
-function setupQuickLinks() {
-    // Knowledge management quick link
-    const knowledgeLink = document.getElementById('quick-link-knowledge');
-    if (knowledgeLink) {
-        // The link now has a proper href, so no need to prevent default
-        // Just ensure it works as a normal link
-    }
-    
-    // Users management quick link
-    const usersLink = document.getElementById('quick-link-users');
-    if (usersLink) {
-        usersLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            // Navigate to users management section
-            console.log('Navigate to Users Management');
-            // In a real implementation, this would trigger a route change or load content dynamically
-        });
     }
 }
