@@ -159,6 +159,40 @@ async function populateSubjectSelector(selectedSubjectId) {
 }
 
 /**
+ * Populate the create topic modal subject selector dropdown
+ */
+async function populateCreateSubjectSelector() {
+    var dropdown = document.getElementById('create-topic-subject');
+    if (!dropdown) return;
+
+    try {
+        var response = await fetch(API_URL + '/knowledge/subjects/list-all', {
+            headers: getAuthHeader()
+        });
+
+        if (response.ok) {
+            var data = await response.json();
+            var subjects = Array.isArray(data) ? data : [];
+
+            // Clear existing options except the first
+            dropdown.innerHTML = '<option value="">-- Fach auswählen --</option>';
+
+            subjects.forEach(function(subject) {
+                var option = document.createElement('option');
+                option.value = subject.id;
+                option.textContent = subject.name + (subject.is_active ? '' : ' (Inaktiv)');
+                if (currentSubjectId && subject.id === currentSubjectId) {
+                    option.selected = true;
+                }
+                dropdown.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error populating create topic subject selector:', error);
+    }
+}
+
+/**
  * Render empty state when no subject is selected
  */
 function renderEmptyState() {
@@ -334,6 +368,26 @@ function showCreateTopicModal() {
     if (modal) {
         document.getElementById('create-topic-name').value = '';
         document.getElementById('create-topic-grade').value = '';
+
+        // Conditional parent subject field
+        var createParent = document.getElementById('create-topic-parent');
+        var createSubjectGroup = document.getElementById('create-topic-subject-group');
+
+        if (currentSubjectId && currentSubjectId > 0) {
+            // Navigated from a subject detail page: show readonly parent field
+            if (createParent) createParent.style.display = 'block';
+            if (createSubjectGroup) createSubjectGroup.style.display = 'none';
+        } else {
+            // Topics overview page: show subject dropdown
+            if (createParent) createParent.style.display = 'none';
+            if (createSubjectGroup) createSubjectGroup.style.display = 'block';
+            // Populate the dropdown if empty
+            var dropdown = document.getElementById('create-topic-subject');
+            if (dropdown && dropdown.options.length <= 1) {
+                populateCreateSubjectSelector();
+            }
+        }
+
         modal.style.display = 'block';
         document.getElementById('create-topic-name').focus();
     }
@@ -368,8 +422,22 @@ async function createTopic() {
         return;
     }
     
+    // Determine subject_id from context
+    var topicSubjectId = currentSubjectId;
+    if (!topicSubjectId || topicSubjectId <= 0) {
+        // On overview page: read from dropdown
+        var subjectDropdown = document.getElementById('create-topic-subject');
+        if (subjectDropdown) {
+            topicSubjectId = parseInt(subjectDropdown.value);
+        }
+    }
+    if (!topicSubjectId || topicSubjectId <= 0) {
+        showToast('Bitte wählen Sie ein Fach aus.', 'error');
+        return;
+    }
+
     try {
-        var response = await fetch(API_URL + '/knowledge/subjects/' + currentSubjectId + '/topics/add', {
+        var response = await fetch(API_URL + '/knowledge/subjects/' + topicSubjectId + '/topics/add', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -377,7 +445,8 @@ async function createTopic() {
             },
             body: JSON.stringify({
                 name: name,
-                expected_grade: parseInt(grade)
+                expected_grade: parseInt(grade),
+                subject_id: topicSubjectId
             })
         });
         
@@ -447,8 +516,16 @@ async function saveEditedTopic() {
         return;
     }
     
+    // Read subject_id from hidden field
+    var editSubjectIdField = document.getElementById('edit-topic-subject-id');
+    var editSubjectId = editSubjectIdField ? parseInt(editSubjectIdField.value) : null;
+    if (!editSubjectId || editSubjectId <= 0) {
+        showToast('Fehler: Fach-ID nicht gefunden.', 'error');
+        return;
+    }
+
     try {
-        var response = await fetch(API_URL + '/knowledge/subjects/' + currentSubjectId + '/topics/' + topicId + '/edit', {
+        var response = await fetch(API_URL + '/knowledge/subjects/' + editSubjectId + '/topics/' + topicId + '/edit', {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -456,7 +533,8 @@ async function saveEditedTopic() {
             },
             body: JSON.stringify({
                 name: name,
-                expected_grade: parseInt(grade)
+                expected_grade: parseInt(grade),
+                subject_id: editSubjectId
             })
         });
         
