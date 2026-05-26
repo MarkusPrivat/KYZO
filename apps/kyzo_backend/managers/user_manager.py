@@ -354,7 +354,12 @@ class UserManager:
                 detail=f"{UserMessages.UPDATE_USER_ERROR} {str(error)}"
             ) from error
 
-    def update_user(self, user_id: int, user_update: UserUpdate) -> User:
+    def update_user(
+            self,
+            user_id: int,
+            user_update: UserUpdate,
+            requester: UserRole
+    )-> User:
         """
         Updates specific fields of an existing user record.
 
@@ -365,6 +370,7 @@ class UserManager:
         Args:
             user_id (int): The unique identifier of the user to update.
             user_update (UserUpdate): Schema containing optional fields for modification.
+            requester (UserRole): The system role of the staff member executing the change.
 
         Returns:
             User: The updated SQLAlchemy User instance.
@@ -375,6 +381,12 @@ class UserManager:
                 - 500 (Internal Server Error) if the database transaction fails.
         """
         user = self.get_user_by_id(user_id)
+
+        if requester == UserRole.TEACHER and user.role == UserRole.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions.",
+            )
 
         try:
             update_data = user_update.model_dump(exclude_unset=True)
