@@ -107,7 +107,8 @@ def admin_dashboard():
         return redirect(url_for("main.index"))
     
     # User is authenticated and is admin, render admin dashboard
-    return render_template("admin/dashboard.html")
+    api_url = current_app.config.get("API_URL", "/api/v1")
+    return render_template("admin/dashboard.html", api_url=api_url)
 
 
 @admin_bp.route("/admin/knowledge/subjects")
@@ -155,7 +156,8 @@ def knowledge_subjects():
         return redirect(url_for("main.index"))
     
     # User is authenticated and is admin, render knowledge subjects management
-    return render_template("admin/knowledge_subjects.html")
+    api_url = current_app.config.get("API_URL", "/api/v1")
+    return render_template("admin/knowledge_subjects.html", api_url=api_url)
 
 @admin_bp.route("/admin/knowledge/subjects/<int:subject_id>/topics")
 def knowledge_topics(subject_id):
@@ -206,7 +208,8 @@ def knowledge_topics(subject_id):
         return redirect(url_for("main.index"))
     
     # User is authenticated and is admin, render knowledge topics management
-    return render_template("admin/knowledge_topics.html", subject_id=subject_id)
+    api_url = current_app.config.get("API_URL", "/api/v1")
+    return render_template("admin/knowledge_topics.html", subject_id=subject_id, api_url=api_url)
 
 
 @admin_bp.route("/admin/users")
@@ -237,4 +240,5 @@ def admin_users():
     if not is_admin_user(token):
         return redirect(url_for("main.index"))
     
-    return render_template("admin/users.html")
+    api_url = current_app.config.get("API_URL", "/api/v1")
+    return render_template("admin/users.html", api_url=api_url)

@@ -24,7 +24,7 @@ let searchTimeout = null;
  */
 async function loadUsers() {
     try {
-        const response = await fetch('/api/v1/users/list-all', {
+        const response = await fetch(API_URL + '/users/list-all', {
             headers: getAuthHeader()
         });
         
@@ -295,7 +295,7 @@ async function createUser() {
     if (!isValid) return;
     
     try {
-        const response = await fetch('/api/v1/users/register-staff', {
+        const response = await fetch(API_URL + '/users/register-staff', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -432,7 +432,7 @@ async function saveEditedUser() {
     }
     
     try {
-        const response = await fetch(`/api/v1/users/${userId}/edit`, {
+        const response = await fetch(`${API_URL}/users/${userId}/edit`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -547,7 +547,7 @@ async function toggleUserStatus(userId) {
     const newStatus = !user.is_active;
     
     try {
-        const response = await fetch(`/api/v1/users/${userId}/status?active=${newStatus}`, {
+        const response = await fetch(`${API_URL}/users/${userId}/status?active=${newStatus}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',

@@ -39,7 +39,7 @@ var allSubjects = [];
  */
 async function loadSubjectName(subjectId) {
     try {
-        var response = await fetch('/api/v1/knowledge/subjects/list-all', {
+        var response = await fetch(API_URL + '/knowledge/subjects/list-all', {
             headers: getAuthHeader()
         });
         
@@ -97,7 +97,7 @@ async function loadTopics(subjectId) {
     if (!subjectId) return;
     
     try {
-        var response = await fetch('/api/v1/knowledge/subjects/' + subjectId + '/topics/list-all', {
+        var response = await fetch(API_URL + '/knowledge/subjects/' + subjectId + '/topics/list-all', {
             headers: getAuthHeader()
         });
         
@@ -126,7 +126,7 @@ async function populateSubjectSelector(selectedSubjectId) {
     if (!dropdown) return;
     
     try {
-        var response = await fetch('/api/v1/knowledge/subjects/list-all', {
+        var response = await fetch(API_URL + '/knowledge/subjects/list-all', {
             headers: getAuthHeader()
         });
         
@@ -390,7 +390,7 @@ async function createTopic() {
     }
     
     try {
-        var response = await fetch('/api/v1/knowledge/subjects/' + currentSubjectId + '/topics/add', {
+        var response = await fetch(API_URL + '/knowledge/subjects/' + currentSubjectId + '/topics/add', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -469,7 +469,7 @@ async function saveEditedTopic() {
     }
     
     try {
-        var response = await fetch('/api/v1/knowledge/subjects/' + currentSubjectId + '/topics/' + topicId + '/edit', {
+        var response = await fetch(API_URL + '/knowledge/subjects/' + currentSubjectId + '/topics/' + topicId + '/edit', {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -585,7 +585,7 @@ async function toggleTopicStatus(topicId) {
     var newStatus = !topic.is_active;
     
     try {
-        var response = await fetch('/api/v1/knowledge/subjects/' + currentSubjectId + '/topics/' + topicId, {
+        var response = await fetch(API_URL + '/knowledge/subjects/' + currentSubjectId + '/topics/' + topicId, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',

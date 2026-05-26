@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function() {
 async function loadDashboardStatistics() {
     try {
         // Fetch total users
-        const usersResponse = await fetch('/api/v1/users/list-all', {
+        const usersResponse = await fetch(API_URL + '/users/list-all', {
             headers: getAuthHeader()
         });
         let totalUsers = 0;
@@ -32,7 +32,7 @@ async function loadDashboardStatistics() {
         }
 
         // Fetch total subjects
-        const subjectsResponse = await fetch('/api/v1/knowledge/subjects/list-all', {
+        const subjectsResponse = await fetch(API_URL + '/knowledge/subjects/list-all', {
             headers: getAuthHeader()
         });
         if (subjectsResponse.ok) {

@@ -24,7 +24,7 @@ let searchTimeout = null;
  */
 async function loadSubjects() {
     try {
-        const response = await fetch('/api/v1/knowledge/subjects/list-all', {
+        const response = await fetch(API_URL + '/knowledge/subjects/list-all', {
             headers: getAuthHeader()
         });
         
@@ -227,7 +227,7 @@ async function createSubject() {
     }
     
     try {
-        const response = await fetch('/api/v1/knowledge/subjects/add', {
+        const response = await fetch(API_URL + '/knowledge/subjects/add', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -293,7 +293,7 @@ async function saveEditedSubject() {
     }
     
     try {
-        const response = await fetch(`/api/v1/knowledge/subjects/${subjectId}/edit`, {
+        const response = await fetch(`${API_URL}/knowledge/subjects/${subjectId}/edit`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -406,7 +406,7 @@ async function toggleSubjectStatus(subjectId) {
     const newStatus = !subject.is_active;
     
     try {
-        const response = await fetch(`/api/v1/knowledge/subjects/${subjectId}/status`, {
+        const response = await fetch(`${API_URL}/knowledge/subjects/${subjectId}/status`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
