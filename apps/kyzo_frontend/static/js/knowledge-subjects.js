@@ -73,7 +73,7 @@ function renderFilteredSubjectsTable() {
     if (filtered.length === 0) {
         const emptyMessage = currentSearchTerm || currentFilter !== 'all'
             ? 'Keine Ergebnisse'
-            : 'No subjects found. Click "Create Subject" to add your first subject.';
+            : 'Keine Fächer gefunden. Klicke "Fach erstellen" um dein erstes Fach hinzuzufügen.';
         tableBody.innerHTML = `
             <tr>
                 <td colspan="5" style="text-align: center; padding: 40px;">
@@ -97,17 +97,17 @@ function renderFilteredSubjectsTable() {
             <td>${subject.name}</td>
             <td>
                 <span class="status-badge status-badge--${subject.is_active ? 'active' : 'inactive'}">
-                    ${subject.is_active ? 'Active' : 'Inactive'}
+                    ${subject.is_active ? 'Aktiv' : 'Inaktiv'}
                 </span>
             </td>
             <td>${formatDate(subject.created_at)}</td>
             <td class="actions-cell">
                 <button class="action-btn action-btn-edit" data-subject-id="${subject.id}">
-                    <i class="fas fa-edit"></i> Edit
+                    <i class="fas fa-edit"></i> Bearbeiten
                 </button>
                 <button class="action-btn action-btn-toggle" data-subject-id="${subject.id}">
                     <i class="fas fa-toggle-${subject.is_active ? 'on' : 'off'}"></i> 
-                    ${subject.is_active ? 'Deactivate' : 'Activate'}
+                    ${subject.is_active ? 'Deaktivieren' : 'Aktivieren'}
                 </button>
             </td>
         `;
@@ -337,7 +337,7 @@ function showSubjectDetail(subjectId) {
     if (modal) {
         document.getElementById('detail-subject-id').textContent = subject.id;
         document.getElementById('detail-subject-name').textContent = subject.name;
-        document.getElementById('detail-subject-status').textContent = subject.is_active ? 'Active' : 'Inactive';
+        document.getElementById('detail-subject-status').textContent = subject.is_active ? 'Aktiv' : 'Inaktiv';
         document.getElementById('detail-subject-created').textContent = formatDate(subject.created_at);
         modal.style.display = 'block';
     }
@@ -364,8 +364,8 @@ function showToggleConfirmation(subjectId, currentStatus) {
     
     if (dialog && message) {
         message.textContent = currentStatus 
-            ? 'Are you sure you want to deactivate this subject?'
-            : 'Are you sure you want to activate this subject?';
+            ? 'Bist du sicher, dass du dieses Fach deaktivieren möchtest?'
+            : 'Bist du sicher, dass du dieses Fach aktivieren möchtest?';
         dialog.style.display = 'block';
     }
 }
