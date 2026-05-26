@@ -49,39 +49,39 @@
       <div class="admin-stats-grid">
         <div class="admin-stat-card">
           <div class="admin-stat-card__value" id="total-users">0</div>
-          <div class="admin-stat-card__label">Total Users</div>
-        </div>
-        
-        <div class="admin-stat-card">
-          <div class="admin-stat-card__value" id="total-subjects">0</div>
-          <div class="admin-stat-card__label">Total Subjects</div>
-        </div>
-        
-        <div class="admin-stat-card">
-          <div class="admin-stat-card__value" id="total-topics">0</div>
-          <div class="admin-stat-card__label">Total Topics</div>
+          <div class="admin-stat-card__label">Anzahl Benutzer</div>
         </div>
         
         <div class="admin-stat-card">
           <div class="admin-stat-card__value" id="active-users">0</div>
-          <div class="admin-stat-card__label">Active Users</div>
+          <div class="admin-stat-card__label">Aktive Benutzer</div>
+        </div>
+        
+        <div class="admin-stat-card">
+          <div class="admin-stat-card__value" id="total-subjects">0</div>
+          <div class="admin-stat-card__label">Fächer</div>
+        </div>
+        
+        <div class="admin-stat-card">
+          <div class="admin-stat-card__value" id="total-topics">0</div>
+          <div class="admin-stat-card__label">Themen</div>
         </div>
       </div>
       
       <div class="admin-quick-links">
         <div class="admin-quick-link-card">
-          <h3 class="admin-quick-link-card__title">Knowledge verwalten</h3>
-          <p class="admin-quick-link-card__description">Fächer und Themen verwalten</p>
-          <a href="{{ url_for('admin.knowledge_subjects') }}" class="admin-quick-link-card__button" id="quick-link-knowledge">
-            Zu Knowledge Management
+          <h3 class="admin-quick-link-card__title">Benutzerverwaltung</h3>
+          <p class="admin-quick-link-card__description">Benutzerkonten und Berechtigungen</p>
+          <a href="{{ url_for('admin.admin_users') }}" class="admin-quick-link-card__button" id="quick-link-users">
+            Zu Benutzerverwaltung
           </a>
         </div>
         
         <div class="admin-quick-link-card">
-          <h3 class="admin-quick-link-card__title">Users verwalten</h3>
-          <p class="admin-quick-link-card__description">Benutzerkonten und Berechtigungen</p>
-          <a href="{{ url_for('admin.admin_users') }}" class="admin-quick-link-card__button" id="quick-link-users">
-            Zu Users Management
+          <h3 class="admin-quick-link-card__title">Wissensverwaltung</h3>
+          <p class="admin-quick-link-card__description">Fächer und Themen verwalten</p>
+          <a href="{{ url_for('admin.knowledge_subjects') }}" class="admin-quick-link-card__button" id="quick-link-knowledge">
+            Zu Wissensverwaltung
           </a>
         </div>
       </div>
