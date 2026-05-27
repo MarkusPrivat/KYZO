@@ -258,7 +258,7 @@ function renderFilteredTopicsTable() {
             '<td>' + formatDate(topic.created_at) + '</td>' +
             '<td class="actions-cell">' +
                 '<button class="action-btn action-btn-edit" data-topic-id="' + topic.id + '">' + svgIcon('pencil-solid-full') + '</button>' +
-                '<button class="action-btn action-btn-toggle" data-topic-id="' + topic.id + '">' + svgIcon('toggle-' + (topic.is_active ? 'on' : 'off') + '-solid-full') + '</button>' +
+                '<button class="action-btn action-btn-toggle' + (topic.is_active ? ' action-btn-toggle--active' : ' action-btn-toggle--inactive') + '" data-topic-id="' + topic.id + '">' + svgIcon('toggle-' + (topic.is_active ? 'on' : 'off') + '-solid-full') + '</button>' +
             '</td>';
         
         tableBody.appendChild(row);
