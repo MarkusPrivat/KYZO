@@ -13,6 +13,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Global variables
 let currentSubjects = [];
+
+// SVG icon helper (replaces Font Awesome)
+function svgIcon(name) {
+    return '<img src="/static/svg/' + name + '.svg" alt="" width="16" height="16" class="icon icon--' + name + '">';
+}
 let currentAction = null;
 let currentSubjectId = null;
 let currentSearchTerm = '';
@@ -103,10 +108,10 @@ function renderFilteredSubjectsTable() {
             <td>${formatDate(subject.created_at)}</td>
             <td class="actions-cell">
                 <button class="action-btn action-btn-edit" data-subject-id="${subject.id}">
-                    <i class="fas fa-pen"></i>
+                    ${svgIcon('pencil-solid-full')}
                 </button>
                 <button class="action-btn action-btn-toggle ${subject.is_active ? 'action-btn-toggle--active' : 'action-btn-toggle--inactive'}" data-subject-id="${subject.id}">
-                    <i class="fas fa-toggle-${subject.is_active ? 'on' : 'off'}"></i>
+                    ${svgIcon('toggle-' + (subject.is_active ? 'on' : 'off') + '-solid-full')}
                 </button>
             </td>
         `;

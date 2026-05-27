@@ -13,6 +13,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Global variables
 let currentUsers = [];
+
+// SVG icon helper (replaces Font Awesome)
+function svgIcon(name) {
+    return '<img src="/static/svg/' + name + '.svg" alt="" width="16" height="16" class="icon icon--' + name + '">';
+}
 let currentAction = null;
 let currentUserId = null;
 let currentSearchTerm = '';
@@ -108,10 +113,10 @@ function renderFilteredUsersTable() {
             <td>${escapeHtml(String(grade))}</td>
             <td class="actions-cell">
                 <button class="action-btn action-btn-edit" data-user-id="${user.id}">
-                    <i class="fas fa-pen"></i>
+                    ${svgIcon('pencil-solid-full')}
                 </button>
                 <button class="action-btn action-btn-toggle ${user.is_active !== false ? 'action-btn-toggle--active' : 'action-btn-toggle--inactive'}" data-user-id="${user.id}">
-                    <i class="fas fa-toggle-${user.is_active !== false ? 'on' : 'off'}"></i>
+                    ${svgIcon('toggle-' + (user.is_active !== false ? 'on' : 'off') + '-solid-full')}
                 </button>
             </td>
         `;

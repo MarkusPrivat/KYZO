@@ -49,13 +49,13 @@
       <div class="subjects-header">
         <h2 class="subjects-header__title">Alle Fächer</h2>
         <button id="create-subject-btn" class="btn btn-primary">
-          <i class="fas fa-plus"></i> Fach erstellen
+          <img src="{{ url_for('static', filename='svg/plus-solid-full.svg') }}" alt="+" class="icon icon--plus" width="16" height="16"> Fach erstellen
         </button>
       </div>
       
       <div class="table-toolbar">
         <div class="table-toolbar__search">
-          <i class="fas fa-search"></i>
+          <img src="{{ url_for('static', filename='svg/magnifying-glass-solid-full.svg') }}" alt="Suchen" class="icon icon--search" width="16" height="16">
           <input type="text" id="subjects-search" class="table-toolbar__input" placeholder="Suchen...">
         </div>
         <div class="table-toolbar__filter">
@@ -379,9 +379,10 @@
     min-width: 200px;
   }
   
-  .table-toolbar__search i {
+  .table-toolbar__search img.icon {
     color: #6c757d;
-    font-size: 0.9rem;
+    width: 16px;
+    height: 16px;
   }
   
   .table-toolbar__input {
@@ -491,8 +492,8 @@
     transition: all 0.2s ease;
   }
   
-  .action-btn i {
-    line-height: 1;
+  .action-btn img.icon {
+    vertical-align: middle;
   }
   
   .action-btn-edit {

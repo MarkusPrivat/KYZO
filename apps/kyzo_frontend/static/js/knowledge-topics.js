@@ -24,6 +24,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Global variables
 var currentTopics = [];
+
+// SVG icon helper (replaces Font Awesome)
+function svgIcon(name) {
+    return '<img src="/static/svg/' + name + '.svg" alt="" width="16" height="16" class="icon icon--' + name + '">';
+}
 var currentSubjectId = null;
 var currentSubjectName = '';
 var currentAction = null;
@@ -252,8 +257,8 @@ function renderFilteredTopicsTable() {
             '<td><span class="status-badge status-badge--' + (topic.is_active ? 'active' : 'inactive') + '">' + (topic.is_active ? 'Aktiv' : 'Inaktiv') + '</span></td>' +
             '<td>' + formatDate(topic.created_at) + '</td>' +
             '<td class="actions-cell">' +
-                '<button class="action-btn action-btn-edit" data-topic-id="' + topic.id + '"><i class="fas fa-edit"></i> Bearbeiten</button>' +
-                '<button class="action-btn action-btn-toggle" data-topic-id="' + topic.id + '"><i class="fas fa-toggle-' + (topic.is_active ? 'on' : 'off') + '"></i> ' + (topic.is_active ? 'Deaktivieren' : 'Aktivieren') + '</button>' +
+                '<button class="action-btn action-btn-edit" data-topic-id="' + topic.id + '">' + svgIcon('pencil-solid-full') + '</button>' +
+                '<button class="action-btn action-btn-toggle" data-topic-id="' + topic.id + '">' + svgIcon('toggle-' + (topic.is_active ? 'on' : 'off') + '-solid-full') + '</button>' +
             '</td>';
         
         tableBody.appendChild(row);

@@ -49,13 +49,13 @@
       <div class="users-header">
         <h2 class="users-header__title">Alle Benutzer</h2>
         <button id="create-user-btn" class="btn btn-primary">
-          <i class="fas fa-plus"></i> Benutzer erstellen
+          <img src="{{ url_for('static', filename='svg/plus-solid-full.svg') }}" alt="+" class="icon icon--plus" width="16" height="16"> Benutzer erstellen
         </button>
       </div>
       
       <div class="table-toolbar">
         <div class="table-toolbar__search">
-          <i class="fas fa-search"></i>
+          <img src="{{ url_for('static', filename='svg/magnifying-glass-solid-full.svg') }}" alt="Suchen" class="icon icon--search" width="16" height="16">
           <input type="text" id="users-search" class="table-toolbar__input" placeholder="Suchen...">
         </div>
         <div class="table-toolbar__filter">
@@ -446,9 +446,10 @@
     min-width: 200px;
   }
   
-  .table-toolbar__search i {
+  .table-toolbar__search img.icon {
     color: #6c757d;
-    font-size: 0.9rem;
+    width: 16px;
+    height: 16px;
   }
   
   .table-toolbar__input {
@@ -583,8 +584,8 @@
     transition: all 0.2s ease;
   }
   
-  .action-btn i {
-    line-height: 1;
+  .action-btn img.icon {
+    vertical-align: middle;
   }
   
   .action-btn-edit {
