@@ -445,13 +445,26 @@ async function toggleSubjectStatus(subjectId) {
  * @returns {boolean} - True if valid, false otherwise
  */
 function validateSubjectName() {
-    const input = document.getElementById('create-subject-name') || document.getElementById('edit-subject-name');
+    // Detect which modal is currently open to pick the correct input
+    const createModal = document.getElementById('create-subject-modal');
+    const editModal = document.getElementById('edit-subject-modal');
+    let input;
+
+    if (editModal && editModal.style.display === 'block') {
+        input = document.getElementById('edit-subject-name');
+    } else if (createModal && createModal.style.display === 'block') {
+        input = document.getElementById('create-subject-name');
+    } else {
+        // Fallback: try create first, then edit
+        input = document.getElementById('create-subject-name') || document.getElementById('edit-subject-name');
+    }
+
     if (!input) return true;
     const name = input.value.trim();
     const feedback = input.nextElementSibling;
-    
+
     const isValid = name.length >= 3 && name.length <= 100;
-    
+
     if (feedback) {
         if (name.length === 0) {
             feedback.style.display = 'none';
@@ -461,7 +474,7 @@ function validateSubjectName() {
             feedback.style.display = 'none';
         }
     }
-    
+
     return isValid;
 }
 
