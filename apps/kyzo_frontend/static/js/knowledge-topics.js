@@ -450,7 +450,7 @@ async function createTopic() {
             },
             body: JSON.stringify({
                 name: name,
-                expected_grade: parseInt(grade),
+                grade_expected: parseInt(grade),
                 subject_id: topicSubjectId
             })
         });
@@ -538,7 +538,7 @@ async function saveEditedTopic() {
             },
             body: JSON.stringify({
                 name: name,
-                expected_grade: parseInt(grade),
+                grade_expected: parseInt(grade),
                 subject_id: editSubjectId
             })
         });
