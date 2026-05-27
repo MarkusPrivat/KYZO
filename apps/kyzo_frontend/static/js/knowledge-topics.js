@@ -63,16 +63,7 @@ async function loadSubjectName(subjectId) {
                     pageTitle.textContent = 'Themen für ' + subject.name;
                 }
                 
-                // Update parent subject fields in modals
-                var createParent = document.getElementById('create-topic-parent');
-                if (createParent) createParent.value = subject.name;
-                
-                var editParent = document.getElementById('edit-topic-parent');
-                if (editParent) editParent.value = subject.name;
-                
-                // Update edit form hidden field
-                var editSubjectId = document.getElementById('edit-topic-subject-id');
-                if (editSubjectId) editSubjectId.value = subjectId;
+
             } else {
                 currentSubjectName = 'Fach #' + subjectId;
                 var pageTitle = document.getElementById('topics-page-title');
@@ -194,6 +185,41 @@ async function populateCreateSubjectSelector() {
         }
     } catch (error) {
         console.error('Error populating create topic subject selector:', error);
+    }
+}
+
+/**
+ * Populate the edit topic modal subject selector dropdown
+ * @param {number|null} currentSubjectId - ID of the topic's current subject (for preselection)
+ */
+async function populateEditSubjectSelector(currentSubjectId) {
+    var dropdown = document.getElementById('edit-topic-subject');
+    if (!dropdown) return;
+
+    try {
+        var response = await fetch(API_URL + '/knowledge/subjects/list-all', {
+            headers: getAuthHeader()
+        });
+
+        if (response.ok) {
+            var data = await response.json();
+            var subjects = Array.isArray(data) ? data : [];
+
+            // Clear existing options except the first
+            dropdown.innerHTML = '<option value="">-- Fach auswählen --</option>';
+
+            subjects.forEach(function(subject) {
+                var option = document.createElement('option');
+                option.value = subject.id;
+                option.textContent = subject.name + (subject.is_active ? '' : ' (Inaktiv)');
+                if (currentSubjectId && subject.id === currentSubjectId) {
+                    option.selected = true;
+                }
+                dropdown.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error populating edit topic subject selector:', error);
     }
 }
 
@@ -368,7 +394,7 @@ function setupEventListeners() {
 /**
  * Show create topic modal
  */
-function showCreateTopicModal() {
+async function showCreateTopicModal() {
     var modal = document.getElementById('create-topic-modal');
     if (modal) {
         document.getElementById('create-topic-name').value = '';
@@ -378,7 +404,7 @@ function showCreateTopicModal() {
         var createParent = document.getElementById('create-topic-parent');
         var createSubjectGroup = document.getElementById('create-topic-subject-group');
 
-        if (currentSubjectId && currentSubjectId > 0) {
+        if (currentSubjectId !== null && currentSubjectId !== undefined) {
             // Navigated from a subject detail page: show readonly parent field
             if (createParent) createParent.style.display = 'block';
             if (createSubjectGroup) createSubjectGroup.style.display = 'none';
@@ -389,7 +415,7 @@ function showCreateTopicModal() {
             // Populate the dropdown if empty
             var dropdown = document.getElementById('create-topic-subject');
             if (dropdown && dropdown.options.length <= 1) {
-                populateCreateSubjectSelector();
+                await populateCreateSubjectSelector();
             }
         }
 
@@ -477,7 +503,7 @@ async function createTopic() {
  * Show edit topic modal
  * @param {number} topicId - ID of topic to edit
  */
-function showEditTopicModal(topicId) {
+async function showEditTopicModal(topicId) {
     var topic = currentTopics.find(function(t) { return t.id === topicId; });
     if (!topic) return;
     
@@ -486,6 +512,10 @@ function showEditTopicModal(topicId) {
         document.getElementById('edit-topic-id').value = topic.id;
         document.getElementById('edit-topic-name').value = topic.name;
         document.getElementById('edit-topic-grade').value = topic.expected_grade || '';
+        
+        // Populate subject dropdown with preselection
+        await populateEditSubjectSelector(topic.subject_id);
+        
         modal.style.display = 'block';
         document.getElementById('edit-topic-name').focus();
     }
@@ -521,11 +551,11 @@ async function saveEditedTopic() {
         return;
     }
     
-    // Read subject_id from hidden field
-    var editSubjectIdField = document.getElementById('edit-topic-subject-id');
-    var editSubjectId = editSubjectIdField ? parseInt(editSubjectIdField.value) : null;
+    // Read subject_id from dropdown
+    var editSubjectDropdown = document.getElementById('edit-topic-subject');
+    var editSubjectId = editSubjectDropdown ? parseInt(editSubjectDropdown.value) : null;
     if (!editSubjectId || editSubjectId <= 0) {
-        showToast('Fehler: Fach-ID nicht gefunden.', 'error');
+        showToast('Bitte wählen Sie ein Fach aus.', 'error');
         return;
     }
 

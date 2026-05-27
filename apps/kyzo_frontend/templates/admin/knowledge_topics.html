@@ -161,10 +161,11 @@
       <div class="modal-body">
         <form id="edit-topic-form">
           <input type="hidden" id="edit-topic-id">
-          <input type="hidden" id="edit-topic-subject-id">
           <div class="form-group">
-            <label for="edit-topic-parent">Überfach</label>
-            <input type="text" id="edit-topic-parent" class="form-control form-control--readonly" value="" readonly>
+            <label for="edit-topic-subject">Fachzuordnung</label>
+            <select id="edit-topic-subject" class="form-control" style="min-width: 250px;">
+              <option value="">-- Fach auswählen --</option>
+            </select>
           </div>
           <div class="form-group">
             <label for="edit-topic-name">Name</label>
@@ -221,7 +222,7 @@
             <span class="topic-detail-value" id="detail-topic-created"></span>
           </div>
           <div class="topic-detail-item">
-            <span class="topic-detail-label">Überfach:</span>
+            <span class="topic-detail-label">Fach:</span>
             <span class="topic-detail-value" id="detail-topic-parent"></span>
           </div>
         </div>
