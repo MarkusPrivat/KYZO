@@ -400,23 +400,10 @@ async function showCreateTopicModal() {
         document.getElementById('create-topic-name').value = '';
         document.getElementById('create-topic-grade').value = '';
 
-        // Conditional parent subject field
-        var createParent = document.getElementById('create-topic-parent');
-        var createSubjectGroup = document.getElementById('create-topic-subject-group');
-
-        if (currentSubjectId !== null && currentSubjectId !== undefined) {
-            // Navigated from a subject detail page: show readonly parent field
-            if (createParent) createParent.style.display = 'block';
-            if (createSubjectGroup) createSubjectGroup.style.display = 'none';
-        } else {
-            // Topics overview page: show subject dropdown
-            if (createParent) createParent.style.display = 'none';
-            if (createSubjectGroup) createSubjectGroup.style.display = 'block';
-            // Populate the dropdown if empty
-            var dropdown = document.getElementById('create-topic-subject');
-            if (dropdown && dropdown.options.length <= 1) {
-                await populateCreateSubjectSelector();
-            }
+        // Always show the dropdown, populate it
+        var dropdown = document.getElementById('create-topic-subject');
+        if (dropdown && dropdown.options.length <= 1) {
+            await populateCreateSubjectSelector();
         }
 
         modal.style.display = 'block';
@@ -453,15 +440,9 @@ async function createTopic() {
         return;
     }
     
-    // Determine subject_id from context
-    var topicSubjectId = currentSubjectId;
-    if (!topicSubjectId || topicSubjectId <= 0) {
-        // On overview page: read from dropdown
-        var subjectDropdown = document.getElementById('create-topic-subject');
-        if (subjectDropdown) {
-            topicSubjectId = parseInt(subjectDropdown.value);
-        }
-    }
+    // Always read subject_id from dropdown
+    var subjectDropdown = document.getElementById('create-topic-subject');
+    var topicSubjectId = subjectDropdown ? parseInt(subjectDropdown.value) : null;
     if (!topicSubjectId || topicSubjectId <= 0) {
         showToast('Bitte wählen Sie ein Fach aus.', 'error');
         return;
