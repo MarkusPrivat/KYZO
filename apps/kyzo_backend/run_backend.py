@@ -59,7 +59,8 @@ def create_app() -> FastAPI:
     It centralizes the integration of:
     - API Metadata: Sets the title, version, and description for OpenAPI docs.
     - Lifecycle Management: Hooks into the 'lifespan' context manager.
-    - CORS Security: Mounts CORSMiddleware to allow secure cross-origin communication with the frontend.
+    - CORS Security: Mounts CORSMiddleware to allow secure cross-origin
+      communication with the frontend.
     - Rate Limiting: Configures SlowAPI by binding the global limiter instance
       to the application state and registering the 'RateLimitExceeded' exception handler.
     - Routing Architecture: Aggregates specialized routers (e.g. Knowledge,
@@ -103,7 +104,7 @@ def create_app() -> FastAPI:
 
 if __name__ == "__main__":
     uvicorn.run(
-        "run_backend:create_app",
+        "apps.kyzo_backend.run_backend:create_app",
         host="127.0.0.1",
         port=8000,
         reload=True,

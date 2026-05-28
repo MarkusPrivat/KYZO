@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kyzo-backend"
+version = "1.0.0"
+description = "AI-powered adaptive learning platform API"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "Markus" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+]
+dependencies = [
+    "dotenv",
+    "fastapi[standard-no-fastapi-cloud-cli]",
+    "google-genai",
+    "openai",
+    "pdf2image",
+    "Pillow",
+    "pwdlib[argon2]",
+    "python-multipart",
+    "pydantic[email]",
+    "pydantic_settings",
+    "PyJWT",
+    "slowapi",
+    "sqlalchemy",
+    "uvicorn",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pylint",
+    "pytest",
+]
+
+[tool.setuptools]
+packages = { find = {} }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.pylint.messages_control]
+disable = [
+    "C0114",  # missing-module-docstring
+    "C0116",  # missing-function-docstring
+    "R0903",  # too-few-public-methods
+]

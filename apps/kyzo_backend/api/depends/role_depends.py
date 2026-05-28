@@ -91,7 +91,7 @@ def require_student(
         ]))]
 ) -> User:
     """
-    Dependency to enforce that the requesting user has administrative privileges.
+    Dependency to enforce that the requesting user is a student.
 
     This acts as a shorthand alias that permits access to students
     It ensures the user is authenticated, active, and holds the STUDENT role.
