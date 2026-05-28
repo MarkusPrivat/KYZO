@@ -14,7 +14,8 @@ To set up the project locally, follow these steps.
    ```  
 2. **Install dependencies**:  
    ```bash  
-   pip install -r requirements.txt  
+   pip install -e .          # editable install
+   pip install -e ".[dev]"   # + dev deps
    ```  
 3. **Configure Enviroment**:<br>
 Copy `apps/kyzo_backend/.env_template` to `.env` and add your key:

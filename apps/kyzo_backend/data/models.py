@@ -318,8 +318,8 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(100), default=None, nullable=True)
+    email: Mapped[str] = mapped_column(String(256), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(256), default=None, nullable=True)
     grade: Mapped[int] = mapped_column(Integer, nullable=False)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.STUDENT, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

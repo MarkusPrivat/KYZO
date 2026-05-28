@@ -15,7 +15,14 @@ def validate_uploaded_file(files: list[UploadFile]) -> None:
                        f"Allowed formats: {', '.join(fastapi_settings.ALLOWED_MIME_TYPES)}"
             )
 
-        if file.size > fastapi_settings.MAX_UPLOAD_SIZE:
+        file_size = file.size
+
+        if file_size is None:
+            file.file.seek(0, 2)
+            file_size = file.file.tell()
+            file.file.seek(0)
+
+        if file_size > fastapi_settings.MAX_UPLOAD_SIZE:
             max_mb = fastapi_settings.MAX_UPLOAD_SIZE / (1024 * 1024)
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,

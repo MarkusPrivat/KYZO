@@ -245,7 +245,9 @@ async def register_staff(
 
 
 @router.post("/register-user", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+@slowapi_limiter.limit("20/minute")
 async def register_user(
+        request: Request,
         user_data: UserCreate,
         user_manager: Annotated[UserManager, Depends(get_user_manager)]
 ):
@@ -258,6 +260,8 @@ async def register_user(
     The remaining persistence logic is delegated to the UserManager.
 
     Args:
+        request (Request): The incoming FastAPI HTTP request instance, required
+            by SlowAPI to track client state and enforce the rate limit.
         user_data (UserCreate): Validated registration data transfer object
             containing the new student's credentials.
         user_manager (UserManager): Injected manager instance handling user-related
@@ -273,9 +277,10 @@ async def register_user(
             - 500 (Internal Server Error): If a technical error or database
               integrity violation occurs during the registration process.
 
-    Security:
-        - Public Endpoint (No authentication required)
-        - Enforced target role: STUDENT
+    Security & Rate Limiting:
+        - Public Endpoint (No authentication token required)
+        - Rate Limit: Enforced at **20 requests per minute** per client IP to
+          prevent CPU exhaustion via malicious bulk hashing operations.
     """
     user_data.role = UserRole.STUDENT
     return user_manager.add_user(user_data)
@@ -403,7 +408,7 @@ async def update_current_user(
         - Bearer Auth (JWT)
         - Open to all authenticated roles: STUDENT, TEACHER, ADMIN
     """
-    return user_manager.update_user(current_user.id, update_data)
+    return user_manager.update_user(current_user.id, update_data, current_user.role)
 
 
 @router.put("/{user_id}/edit", response_model=UserRead)
