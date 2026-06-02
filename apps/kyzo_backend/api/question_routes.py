@@ -135,7 +135,10 @@ async def add_question(
             orchestration of file processing, LLM services, and database persistence.
 
     Returns:
-        str: A localized success message confirming the count of generated questions.
+            dict[str, Any]: A dictionary containing:
+                - "message" (str): A localized success message indicating the number
+                                   of successfully generated and stored questions.
+                - "id" (int): The database primary key ID of the newly created QuestionInput.
 
     Raises:
         HTTPException:
