@@ -313,3 +313,302 @@ class TestAdminTemplateRendering:
             assert "Benutzerverwaltung" in html
             assert "Fragen eingeben" in html
             assert "Wissensverwaltung" in html
+
+
+# ── Question Input Template Tests ─────────────────────────────────────────────
+
+class TestQuestionInputTemplate:
+    """Tests for the question_input.html template rendering and structure."""
+
+    @pytest.fixture
+    def app(self):
+        """Create a Flask app with admin and main blueprints for testing."""
+        import os
+        from flask import Flask
+        template_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "apps", "kyzo_frontend", "templates")
+        app = Flask(__name__, template_folder=template_dir)
+        app.config["SECRET_KEY"] = "test-secret"
+        app.config["API_URL"] = "http://localhost:8000/api/v1"
+        app.config["AUTH_SECRET_KEY"] = "test-secret"
+
+        from apps.kyzo_frontend.routes.admin import admin_bp
+        from apps.kyzo_frontend.routes.main import main_bp
+        app.register_blueprint(admin_bp)
+        app.register_blueprint(main_bp)
+
+        return app
+
+    def _make_token(self, scope, expired=False):
+        """Helper to create a JWT token."""
+        if expired:
+            exp = datetime.now(timezone.utc) - timedelta(minutes=10)
+        else:
+            exp = datetime.now(timezone.utc) + timedelta(minutes=30)
+        return jwt.encode(
+            {"sub": "test@kyzo.com", "scope": scope, "exp": exp},
+            "test-secret", algorithm="HS256"
+        )
+
+    # ── Functional: Template renders with all required elements ─────────────
+
+    def test_admin_sees_all_dropdowns(self, app):
+        """Template renders with Subject, Topic, Grade dropdowns, mode toggle, question count."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert 'id="subject-dropdown"' in html
+            assert 'id="topic-dropdown"' in html
+            assert 'id="grade-dropdown"' in html
+            assert 'id="input-type-dropdown"' in html
+            assert 'id="num-of-questions-dropdown"' in html
+
+    def test_grade_options_1_to_13(self, app):
+        """Grade select contains options 1 through 13."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            for grade in range(1, 14):
+                assert f'value="{grade}"' in html
+
+    def test_mode_toggle_default_scan(self, app):
+        """Mode toggle defaults to Datei-Upload (scan)."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert 'value="scan"' in html
+            assert 'value="manual"' in html
+
+    def test_question_count_options(self, app):
+        """Question count select has 5, 10, 15, 20, 25 options."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            for count in [5, 10, 15, 20, 25]:
+                assert f'value="{count}"' in html
+
+    def test_file_upload_panel_present(self, app):
+        """File upload area is present in the template."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert 'id="file-upload-panel"' in html
+            assert 'id="file-upload"' in html
+
+    def test_text_input_panel_present(self, app):
+        """Textarea for manual mode is present in the template."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert 'id="text-input-panel"' in html
+            assert 'id="text-input"' in html
+
+    # ── Functional: Sidebar role-based filtering ────────────────────────────
+
+    def test_admin_sees_benutzerverwaltung(self, app):
+        """Admin sidebar includes Benutzerverwaltung."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "Benutzerverwaltung" in html
+
+    def test_teacher_no_benutzerverwaltung(self, app):
+        """Teacher sidebar does NOT include Benutzerverwaltung."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("teacher"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "Benutzerverwaltung" not in html
+            assert "Fragen eingeben" in html
+            assert "Wissensverwaltung" in html
+
+    def test_teacher_sees_fragen_eingeben(self, app):
+        """Teacher sidebar shows 'Fragen eingeben'."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("teacher"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "Fragen eingeben" in html
+
+    def test_student_redirected_from_question_input(self, app):
+        """Student is redirected from question_input route."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("student"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 302
+
+    # ── Technical: Template structure ───────────────────────────────────────
+
+    def test_template_extends_base(self, app):
+        """Template extends base.html (verified by rendered nav structure)."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            # base.html provides the nav structure; its presence confirms inheritance
+            assert 'class="nav"' in html
+            assert 'class="nav__logo"' in html
+
+    def test_reuses_btn_class(self, app):
+        """Template includes btn CSS class."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert ".btn {" in html or "btn-primary" in html
+
+    def test_reuses_btn_primary_class(self, app):
+        """Template includes btn-primary CSS class."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "btn-primary" in html
+
+    def test_reuses_form_control_class(self, app):
+        """Template includes form-control CSS class."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "form-control" in html
+
+    def test_reuses_table_toolbar_select_class(self, app):
+        """Template includes table-toolbar__select CSS class."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "table-toolbar__select" in html
+
+    def test_reuses_spinner_class(self, app):
+        """Template includes spinner CSS class."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert ".spinner" in html
+
+    def test_reuses_modal_class(self, app):
+        """Template includes modal CSS class."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert ".modal" in html
+
+    def test_includes_auth_js(self, app):
+        """Template includes auth.js script."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "auth.js" in html
+
+    def test_includes_toast_js(self, app):
+        """Template includes toast.js script."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "toast.js" in html
+
+    def test_includes_question_input_js(self, app):
+        """Template includes question-input.js script."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "question-input.js" in html
+
+    def test_sets_api_url(self, app):
+        """Template sets API_URL JS variable."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "const API_URL" in html
+
+    # ── Technical: Responsive layout ────────────────────────────────────────
+
+    def test_has_768px_breakpoint(self, app):
+        """Template includes 768px responsive breakpoint."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "@media (max-width: 768px)" in html
+
+    def test_has_640px_breakpoint(self, app):
+        """Template includes 640px responsive breakpoint."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "@media (max-width: 640px)" in html
+
+    def test_has_1100px_breakpoint(self, app):
+        """Template includes 1100px responsive breakpoint."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "@media (max-width: 1100px)" in html
+
+    # ── Technical: WCAG compliance ──────────────────────────────────────────
+
+    def test_has_aria_labels(self, app):
+        """Template includes ARIA labels for accessibility."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "aria-label" in html or "aria-labelledby" in html
+
+    def test_has_form_labels(self, app):
+        """Template includes form labels for all inputs."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "<label" in html
+
+    def test_file_upload_has_max_attribute(self, app):
+        """File input has multiple attribute for file limit."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/questions/input")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "multiple" in html

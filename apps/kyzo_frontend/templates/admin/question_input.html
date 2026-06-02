@@ -5,7 +5,7 @@
 {% block content %}
 <div class="admin-container admin-question-input">
   <div class="admin-sidebar">
-    <nav class="admin-nav">
+    <nav class="admin-nav" aria-label="Admin Navigation">
       <h2 class="admin-nav__title">Admin Panel</h2>
       <ul class="admin-nav__list">
         <li class="admin-nav__item">
@@ -27,7 +27,7 @@
           </a>
         </li>
         <li class="admin-nav__item">
-          <span class="admin-nav__link admin-nav__link--subheader">
+          <span class="admin-nav__link admin-nav__link--subheader" role="heading" aria-level="3">
             Wissensverwaltung
           </span>
           <ul class="admin-nav__sublist">
@@ -47,147 +47,90 @@
       </ul>
     </nav>
   </div>
-  
+
   <div class="admin-main">
     <header class="admin-header">
       <h1 class="admin-header__title">Fragen eingeben</h1>
       <p class="admin-header__subtitle">Erstellen Sie neue Fragen für die Lernplattform</p>
     </header>
-    
+
     <div class="admin-content">
       <div class="question-input-container">
-        <div class="input-type-selector">
-          <h2 class="input-type-selector__title">Eingabetyp wählen</h2>
-          <div class="input-type-cards">
-            <div class="input-type-card" id="manual-input-card">
-              <h3 class="input-type-card__title">Manuelle Eingabe</h3>
-              <p class="input-type-card__description">
-                Fragen direkt im Formular eingeben
-              </p>
-              <button class="btn btn-primary" id="manual-input-btn">
-                Manuelle Eingabe starten
-              </button>
-            </div>
-            
-            <div class="input-type-card" id="scan-input-card">
-              <h3 class="input-type-card__title">Dokument-Upload</h3>
-              <p class="input-type-card__description">
-                Dokumente hochladen und KI-extrahieren lassen
-              </p>
-              <button class="btn btn-primary" id="scan-input-btn">
-                Dokument hochladen
-              </button>
-            </div>
+        <!-- Form row: Subject, Topic, Grade -->
+        <div class="question-input-row">
+          <div class="question-input-field">
+            <label for="subject-dropdown" id="subject-label">Fach</label>
+            <select id="subject-dropdown" class="table-toolbar__select" aria-labelledby="subject-label" required>
+              <option value="">-- Fach auswählen --</option>
+            </select>
+          </div>
+
+          <div class="question-input-field">
+            <label for="topic-dropdown" id="topic-label">Thema</label>
+            <select id="topic-dropdown" class="table-toolbar__select" aria-labelledby="topic-label" disabled>
+              <option value="">-- Thema auswählen --</option>
+            </select>
+          </div>
+
+          <div class="question-input-field">
+            <label for="grade-dropdown" id="grade-label">Klasse</label>
+            <select id="grade-dropdown" class="table-toolbar__select" aria-labelledby="grade-label">
+              <option value="">Klasse auswählen</option>
+              {% for grade in range(1, 14) %}
+              <option value="{{ grade }}">{{ grade }}</option>
+              {% endfor %}
+            </select>
           </div>
         </div>
-        
-        <!-- Manual Input Form -->
-        <div class="manual-input-form" id="manual-input-form" style="display: none;">
-          <h2 class="manual-input-form__title">Neue Frage erstellen</h2>
-          <form id="question-form">
-            <div class="form-group">
-              <label for="question-text">Frage</label>
-              <textarea id="question-text" class="form-control" rows="4" 
-                        placeholder="Geben Sie die Frage ein..." required></textarea>
-            </div>
-            
-            <div class="form-group">
-              <label>Antwortoptionen</label>
-              <div id="options-container">
-                <div class="option-row">
-                  <input type="text" class="form-control option-input" placeholder="Option A" required>
-                  <label class="option-correct-label">
-                    <input type="radio" name="correct-option" value="0" class="correct-radio">
-                    Korrekt
-                  </label>
-                </div>
-                <div class="option-row">
-                  <input type="text" class="form-control option-input" placeholder="Option B" required>
-                  <label class="option-correct-label">
-                    <input type="radio" name="correct-option" value="1" class="correct-radio">
-                    Korrekt
-                  </label>
-                </div>
-                <div class="option-row">
-                  <input type="text" class="form-control option-input" placeholder="Option C" required>
-                  <label class="option-correct-label">
-                    <input type="radio" name="correct-option" value="2" class="correct-radio">
-                    Korrekt
-                  </label>
-                </div>
-                <div class="option-row">
-                  <input type="text" class="form-control option-input" placeholder="Option D" required>
-                  <label class="option-correct-label">
-                    <input type="radio" name="correct-option" value="3" class="correct-radio">
-                    Korrekt
-                  </label>
-                </div>
-              </div>
-              <button type="button" class="btn btn-secondary" id="add-option-btn">
-                + Option hinzufügen
-              </button>
-            </div>
-            
-            <div class="form-group">
-              <label for="explanation">Erklärung</label>
-              <textarea id="explanation" class="form-control" rows="3" 
-                        placeholder="Erklärung für die korrekte Antwort..."></textarea>
-            </div>
-            
-            <div class="form-group">
-              <label for="target-subject">Fachzuordnung</label>
-              <select id="target-subject" class="form-control" style="min-width: 250px;">
-                <option value="">-- Fach auswählen --</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label for="target-topic">Thema</label>
-              <select id="target-topic" class="form-control" style="min-width: 250px;">
-                <option value="">-- Thema auswählen --</option>
-              </select>
-            </div>
-            
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary" id="submit-question-btn">
-                Frage erstellen
-              </button>
-              <button type="button" class="btn btn-secondary" id="cancel-question-btn">
-                Abbrechen
-              </button>
-            </div>
-          </form>
+
+        <!-- Form row: Mode toggle, Question count -->
+        <div class="question-input-row">
+          <div class="question-input-field">
+            <label for="input-type-dropdown" id="mode-label">Eingabetyp</label>
+            <select id="input-type-dropdown" class="table-toolbar__select" aria-labelledby="mode-label">
+              <option value="scan">Datei-Upload</option>
+              <option value="manual">Texteingabe</option>
+            </select>
+          </div>
+
+          <div class="question-input-field">
+            <label for="num-of-questions-dropdown" id="count-label">Anzahl Fragen</label>
+            <select id="num-of-questions-dropdown" class="table-toolbar__select" aria-labelledby="count-label">
+              <option value="5">5 Fragen</option>
+              <option value="10">10 Fragen</option>
+              <option value="15">15 Fragen</option>
+              <option value="20">20 Fragen</option>
+              <option value="25">25 Fragen</option>
+            </select>
+          </div>
         </div>
-        
-        <!-- Scan Input Form -->
-        <div class="scan-input-form" id="scan-input-form" style="display: none;">
-          <h2 class="scan-input-form__title">Dokument hochladen</h2>
-          <form id="upload-form" enctype="multipart/form-data">
-            <div class="upload-zone" id="upload-zone">
-              <div class="upload-zone__content">
-                <img src="{{ url_for('static', filename='svg/upload-solid-full.svg') }}" alt="Upload" class="upload-icon" width="48" height="48">
-                <p class="upload-zone__text">Dokument hierher ziehen oder klicken zum Auswählen</p>
-                <p class="upload-zone__hint">PDF, DOCX, TXT (max. 10 MB)</p>
-                <input type="file" id="file-input" class="file-input-hidden" accept=".pdf,.docx,.txt">
-              </div>
+
+        <!-- File upload area (visible when mode = scan) -->
+        <div class="question-input-panel" id="file-upload-panel">
+          <label for="file-upload" id="file-label">Datei-Upload</label>
+          <div class="upload-zone" id="upload-zone" role="button" tabindex="0" aria-labelledby="file-label">
+            <div class="upload-zone__content">
+              <img src="{{ url_for('static', filename='svg/upload-solid-full.svg') }}" alt="Upload" class="upload-icon" width="48" height="48">
+              <p class="upload-zone__text">Dateien hierher ziehen oder klicken zum Auswählen</p>
+              <p class="upload-zone__hint">PDF, DOCX, TXT, JPG, PNG, WEBP (max. 10 Dateien, 25 MB pro Datei)</p>
+              <input type="file" id="file-upload" class="file-input-hidden" multiple accept="image/jpeg,image/png,image/webp,application/pdf,.docx,.doc,.txt,.pdf,.docx">
             </div>
-            
-            <div class="form-group">
-              <label for="upload-subject">Fachzuordnung</label>
-              <select id="upload-subject" class="form-control" style="min-width: 250px;">
-                <option value="">-- Fach auswählen --</option>
-              </select>
-            </div>
-            
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary" id="upload-btn">
-                Hochladen &amp; extrahieren
-              </button>
-              <button type="button" class="btn btn-secondary" id="cancel-upload-btn">
-                Abbrechen
-              </button>
-            </div>
-          </form>
+          </div>
+          <div id="file-list" class="file-list" aria-live="polite"></div>
+        </div>
+
+        <!-- Textarea (visible when mode = manual) -->
+        <div class="question-input-panel" id="text-input-panel" style="display: none;">
+          <label for="text-input" id="text-label">Texteingabe</label>
+          <textarea id="text-input" class="form-control" rows="10" aria-labelledby="text-label"
+                    placeholder="Text eingeben..."></textarea>
+        </div>
+
+        <!-- Submit button -->
+        <div class="question-input-actions">
+          <button type="button" id="submit-btn" class="btn btn-primary">
+            Fragen generieren
+          </button>
         </div>
       </div>
     </div>
@@ -195,21 +138,21 @@
 </div>
 
 <!-- Toast Notification -->
-<div id="toast-notification" class="toast">
+<div id="toast-notification" class="toast" role="alert" aria-live="assertive">
   <div class="toast-content">
     <span id="toast-message"></span>
-    <button class="toast-close" id="toast-close">&times;</button>
+    <button class="toast-close" id="toast-close" aria-label="Benachrichtigung schließen">&times;</button>
   </div>
 </div>
 
 <style>
-  /* Question Input Styles */
+  /* Admin container (reused from existing templates) */
   .admin-container {
     display: flex;
     min-height: calc(100vh - 120px);
     margin-top: 80px;
   }
-  
+
   .admin-sidebar {
     width: 250px;
     background-color: #f8f9fa;
@@ -221,11 +164,11 @@
     overflow-y: auto;
     padding: 20px 0;
   }
-  
+
   .admin-nav {
     width: 100%;
   }
-  
+
   .admin-nav__title {
     font-size: 1.2rem;
     font-weight: 600;
@@ -234,17 +177,17 @@
     margin-bottom: 10px;
     border-bottom: 1px solid #e9ecef;
   }
-  
+
   .admin-nav__list {
     list-style: none;
     padding: 0;
     margin: 0;
   }
-  
+
   .admin-nav__item {
     margin-bottom: 5px;
   }
-  
+
   .admin-nav__link {
     display: block;
     padding: 12px 20px;
@@ -254,22 +197,22 @@
     transition: all 0.2s ease;
     border-left: 3px solid transparent;
   }
-  
+
   .admin-nav__link:hover {
     background-color: #e9ecef;
     color: #212529;
   }
-  
+
   .admin-nav__link--active {
     background-color: #007bff;
     color: white;
     border-left: 3px solid #007bff;
   }
-  
+
   .admin-nav__link--active:hover {
     background-color: #0069d9;
   }
-  
+
   .admin-nav__link--subheader {
     font-weight: 600;
     color: #333;
@@ -277,93 +220,86 @@
     border-left: none;
     padding-left: 20px;
   }
-  
+
   .admin-nav__sublist {
     list-style: none;
     padding: 0;
     margin: 0;
   }
-  
+
   .admin-nav__sublist .admin-nav__link {
     padding-left: 40px;
     font-size: 0.95rem;
   }
-  
+
   .admin-main {
     flex: 1;
     margin-left: 250px;
     padding: 30px;
     background-color: #fff;
   }
-  
+
   .admin-header {
     margin-bottom: 30px;
     padding-bottom: 20px;
     border-bottom: 1px solid #e9ecef;
   }
-  
+
   .admin-header__title {
     font-size: 2rem;
     font-weight: 600;
     color: #212529;
     margin-bottom: 5px;
   }
-  
+
   .admin-header__subtitle {
     font-size: 1rem;
     color: #6c757d;
     margin: 0;
   }
-  
+
+  .admin-content {
+    max-width: 900px;
+  }
+
+  /* Question input layout */
   .question-input-container {
     max-width: 800px;
   }
-  
-  .input-type-selector {
-    margin-bottom: 30px;
-  }
-  
-  .input-type-selector__title {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: #212529;
+
+  .question-input-row {
+    display: flex;
+    gap: 16px;
     margin-bottom: 20px;
+    flex-wrap: wrap;
   }
-  
-  .input-type-cards {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
+
+  .question-input-field {
+    flex: 1;
+    min-width: 180px;
   }
-  
-  .input-type-card {
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
-    padding: 25px;
-    text-align: center;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-  
-  .input-type-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  }
-  
-  .input-type-card__title {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: #212529;
-    margin-bottom: 10px;
-  }
-  
-  .input-type-card__description {
-    color: #6c757d;
+
+  .question-input-field label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #495057;
     font-size: 0.95rem;
-    margin-bottom: 20px;
-    line-height: 1.5;
   }
-  
+
+  .question-input-panel {
+    margin-bottom: 24px;
+  }
+
+  .question-input-panel label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #495057;
+    font-size: 0.95rem;
+  }
+
+  /* Buttons (reused from existing templates) */
   .btn {
     padding: 8px 16px;
     border-radius: 4px;
@@ -372,52 +308,43 @@
     transition: all 0.2s ease;
     border: none;
   }
-  
+
   .btn-primary {
     background-color: #E4572E;
     color: white;
   }
-  
+
   .btn-primary:hover {
     background-color: #d1451e;
   }
-  
+
   .btn-secondary {
     background-color: #6c757d;
     color: white;
   }
-  
+
   .btn-secondary:hover {
     background-color: #5a6268;
   }
-  
-  .manual-input-form,
-  .scan-input-form {
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
-    padding: 30px;
+
+  /* Form controls (reused from existing templates) */
+  .table-toolbar__select {
+    padding: 8px 12px;
+    border: 1px solid #E8E2DC;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    background-color: white;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+    width: 100%;
   }
-  
-  .manual-input-form__title,
-  .scan-input-form__title {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: #212529;
-    margin-bottom: 20px;
+
+  .table-toolbar__select:focus {
+    outline: none;
+    border-color: #E4572E;
+    box-shadow: 0 0 0 2px rgba(228, 87, 46, 0.2);
   }
-  
-  .form-group {
-    margin-bottom: 20px;
-  }
-  
-  .form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
-    color: #495057;
-  }
-  
+
   .form-control {
     width: 100%;
     padding: 10px;
@@ -427,39 +354,14 @@
     transition: border-color 0.2s ease;
     font-family: 'Inter', sans-serif;
   }
-  
+
   .form-control:focus {
     outline: none;
     border-color: #E4572E;
     box-shadow: 0 0 0 2px rgba(228, 87, 46, 0.2);
   }
-  
-  .option-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 10px;
-  }
-  
-  .option-input {
-    flex: 1;
-  }
-  
-  .option-correct-label {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.9rem;
-    color: #6c757d;
-    white-space: nowrap;
-  }
-  
-  .form-actions {
-    display: flex;
-    gap: 12px;
-    margin-top: 24px;
-  }
-  
+
+  /* Upload zone */
   .upload-zone {
     border: 2px dashed #E8E2DC;
     border-radius: 8px;
@@ -468,40 +370,179 @@
     cursor: pointer;
     transition: border-color 0.2s ease, background-color 0.2s ease;
   }
-  
-  .upload-zone:hover {
+
+  .upload-zone:hover,
+  .upload-zone:focus {
     border-color: #E4572E;
     background-color: rgba(228, 87, 46, 0.05);
+    outline: none;
   }
-  
+
   .upload-zone__content {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 12px;
   }
-  
+
   .upload-icon {
     color: #6c757d;
   }
-  
+
   .upload-zone__text {
     font-size: 1rem;
     color: #495057;
     margin: 0;
   }
-  
+
   .upload-zone__hint {
     font-size: 0.85rem;
     color: #6c757d;
     margin: 0;
   }
-  
+
   .file-input-hidden {
     display: none;
   }
-  
-  /* Toast Notification */
+
+  /* File list */
+  .file-list {
+    margin-top: 12px;
+    font-size: 0.9rem;
+    color: #495057;
+  }
+
+  .file-list__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .file-list__remove {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0 4px;
+  }
+
+  /* Submit actions */
+  .question-input-actions {
+    margin-top: 24px;
+  }
+
+  /* Spinner (reused from existing templates) */
+  .spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #E4572E;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 10px;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Modal (reused from existing templates) */
+  .modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .modal-content {
+    background-color: #FFFFFF;
+    margin: 10% auto;
+    padding: 0;
+    border: 1px solid #E8E2DC;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    animation: slideIn 0.3s ease;
+  }
+
+  @keyframes slideIn {
+    from {
+      transform: translateY(-50px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #E8E2DC;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .modal-title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #212529;
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #6c757d;
+  }
+
+  .modal-close:hover {
+    color: #495057;
+  }
+
+  .modal-body {
+    padding: 20px;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #495057;
+  }
+
+  .modal-footer {
+    padding: 20px;
+    border-top: 1px solid #E8E2DC;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  /* Toast Notification (reused from existing templates) */
   .toast {
     position: fixed;
     bottom: 30px;
@@ -515,7 +556,7 @@
     display: none;
     animation: toastSlideIn 0.3s ease;
   }
-  
+
   @keyframes toastSlideIn {
     from {
       transform: translateX(400px);
@@ -526,13 +567,13 @@
       opacity: 1;
     }
   }
-  
+
   .toast-content {
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
-  
+
   .toast-close {
     background: none;
     border: none;
@@ -541,18 +582,24 @@
     cursor: pointer;
     margin-left: 15px;
   }
-  
+
   .toast-error {
     background-color: #dc3545;
   }
-  
+
   /* Responsive adjustments */
+  @media (max-width: 1100px) {
+    .admin-main {
+      padding: 20px;
+    }
+  }
+
   @media (max-width: 768px) {
     .admin-container {
       flex-direction: column;
       margin-top: 60px;
     }
-    
+
     .admin-sidebar {
       width: 100%;
       position: relative;
@@ -560,14 +607,32 @@
       left: auto;
       bottom: auto;
     }
-    
+
     .admin-main {
       margin-left: 0;
       padding: 20px;
     }
-    
-    .input-type-cards {
-      grid-template-columns: 1fr;
+
+    .question-input-row {
+      flex-direction: column;
+    }
+
+    .question-input-field {
+      min-width: 100%;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .admin-header__title {
+      font-size: 1.5rem;
+    }
+
+    .upload-zone {
+      padding: 24px;
+    }
+
+    .upload-zone__text {
+      font-size: 0.9rem;
     }
   }
 </style>
