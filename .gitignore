@@ -1,5 +1,5 @@
-docs-intern/
-/tests/
+/docs/intern/
+/tests/kyzo_backend/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

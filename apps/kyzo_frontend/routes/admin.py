@@ -6,31 +6,47 @@ from flask import Blueprint, render_template, current_app, request, redirect, ur
 admin_bp = Blueprint("admin", __name__)
 
 
-def get_user_role_from_token(token):
+def _decode_token(token, auth_secret=None):
+    """Decode a JWT token and return the payload.
+    
+    Args:
+        token: JWT token string
+        auth_secret: Secret key for verification. If None, decodes without verification.
+        
+    Returns:
+        dict: Decoded token payload
+        
+    Raises:
+        jwt.ExpiredSignatureError: If token is expired
+        jwt.InvalidTokenError: If token is invalid
+    """
+    if auth_secret:
+        return jwt.decode(
+            token,
+            auth_secret,
+            algorithms=["HS256"],
+            options={"verify_signature": True},
+        )
+    return jwt.decode(
+        token,
+        options={"verify_signature": False},
+        algorithms=["HS256"],
+    )
+
+
+def get_user_role_from_token(token, auth_secret=None):
     """Extract user role from JWT token.
     
     Args:
         token: JWT token string
+        auth_secret: Optional secret key for verification. If None, 
+                     decodes without verification (for testing).
         
     Returns:
-        str: User role (admin, teacher, student) or None if not found
+        str or list: User role (admin, teacher, student) or None if not found
     """
     try:
-        auth_secret = current_app.config.get("AUTH_SECRET_KEY", "")
-        if auth_secret:
-            payload = jwt.decode(
-                token,
-                auth_secret,
-                algorithms=["HS256"],
-                options={"verify_signature": True},
-            )
-        else:
-            # Fallback: decode without verification (development only)
-            payload = jwt.decode(
-                token,
-                options={"verify_signature": False},
-                algorithms=["HS256"],
-            )
+        payload = _decode_token(token, auth_secret)
         
         # Check for role in scope claim (backend uses "scope", singular)
         if "scope" in payload and payload["scope"]:
@@ -49,27 +65,49 @@ def get_user_role_from_token(token):
     return None
 
 
-def is_admin_user(token):
+def is_admin_user(token, auth_secret=None):
     """Check if the user has admin role.
     
     Args:
         token: JWT token string
+        auth_secret: Optional secret key for verification.
         
     Returns:
         bool: True if user is admin, False otherwise
     """
-    role = get_user_role_from_token(token)
+    role = get_user_role_from_token(token, auth_secret)
     return role == "admin" or (isinstance(role, list) and "admin" in role)
+
+
+def has_role(token, roles, auth_secret=None):
+    """Check if the user has any of the specified roles.
+    
+    Args:
+        token: JWT token string
+        roles: List of role strings to check against
+        auth_secret: Optional secret key for verification.
+        
+    Returns:
+        bool: True if user has any of the specified roles, False otherwise
+    """
+    if not token or not roles:
+        return False
+    role = get_user_role_from_token(token, auth_secret)
+    if role is None:
+        return False
+    if isinstance(role, list):
+        return any(r in role for r in roles)
+    return role in roles
 
 
 @admin_bp.route("/admin")
 def admin_dashboard():
-    """Admin dashboard route with JWT authentication and admin role requirement.
+    """Admin dashboard route with JWT authentication.
     
     - Requires valid JWT token
-    - Requires admin role
+    - Requires admin or teacher role
     - Redirects to login if token is expired
-    - Redirects to homepage if user is not admin
+    - Redirects to homepage if user is not admin or teacher
     """
     token = request.cookies.get("jwt_token")
     
@@ -101,14 +139,16 @@ def admin_dashboard():
         # Invalid token, redirect to login
         return redirect(url_for("main.login"))
     
-    # Check if user is admin
-    if not is_admin_user(token):
-        # User is authenticated but not admin, redirect to homepage
+    # Check if user has admin or teacher role
+    auth_secret = current_app.config.get("AUTH_SECRET_KEY", "")
+    if not has_role(token, ["admin", "teacher"], auth_secret):
+        # User is authenticated but lacks required role, redirect to homepage
         return redirect(url_for("main.index"))
     
-    # User is authenticated and is admin, render admin dashboard
+    # User is authenticated and has required role, render admin dashboard
     api_url = current_app.config.get("API_URL", "/api/v1")
-    return render_template("admin/dashboard.html", api_url=api_url)
+    user_role = get_user_role_from_token(token, auth_secret)
+    return render_template("admin/dashboard.html", api_url=api_url, user_role=user_role)
 
 
 @admin_bp.route("/admin/knowledge/subjects")
@@ -150,14 +190,16 @@ def knowledge_subjects():
         # Invalid token, redirect to login
         return redirect(url_for("main.login"))
     
-    # Check if user is admin
-    if not is_admin_user(token):
-        # User is authenticated but not admin, redirect to homepage
+    # Check if user has teacher or admin role
+    auth_secret = current_app.config.get("AUTH_SECRET_KEY", "")
+    if not has_role(token, ["teacher", "admin"], auth_secret):
+        # User is authenticated but lacks required role, redirect to homepage
         return redirect(url_for("main.index"))
     
-    # User is authenticated and is admin, render knowledge subjects management
+    # User is authenticated and has required role, render knowledge subjects management
     api_url = current_app.config.get("API_URL", "/api/v1")
-    return render_template("admin/knowledge_subjects.html", api_url=api_url)
+    user_role = get_user_role_from_token(token, auth_secret)
+    return render_template("admin/knowledge_subjects.html", api_url=api_url, user_role=user_role)
 
 @admin_bp.route("/admin/knowledge/subjects/<int:subject_id>/topics")
 def knowledge_topics(subject_id):
@@ -202,14 +244,16 @@ def knowledge_topics(subject_id):
         # Invalid token, redirect to login
         return redirect(url_for("main.login"))
     
-    # Check if user is admin
-    if not is_admin_user(token):
-        # User is authenticated but not admin, redirect to homepage
+    # Check if user has teacher or admin role
+    auth_secret = current_app.config.get("AUTH_SECRET_KEY", "")
+    if not has_role(token, ["teacher", "admin"], auth_secret):
+        # User is authenticated but lacks required role, redirect to homepage
         return redirect(url_for("main.index"))
     
-    # User is authenticated and is admin, render knowledge topics management
+    # User is authenticated and has required role, render knowledge topics management
     api_url = current_app.config.get("API_URL", "/api/v1")
-    return render_template("admin/knowledge_topics.html", subject_id=subject_id, api_url=api_url)
+    user_role = get_user_role_from_token(token, auth_secret)
+    return render_template("admin/knowledge_topics.html", subject_id=subject_id, api_url=api_url, user_role=user_role)
 
 
 @admin_bp.route("/admin/users")
@@ -237,8 +281,44 @@ def admin_users():
     except jwt.InvalidTokenError:
         return redirect(url_for("main.login"))
     
-    if not is_admin_user(token):
+    auth_secret = current_app.config.get("AUTH_SECRET_KEY", "")
+    if not is_admin_user(token, auth_secret):
         return redirect(url_for("main.index"))
     
     api_url = current_app.config.get("API_URL", "/api/v1")
-    return render_template("admin/users.html", api_url=api_url)
+    user_role = get_user_role_from_token(token, auth_secret)
+    return render_template("admin/users.html", api_url=api_url, user_role=user_role)
+
+
+@admin_bp.route("/admin/questions/input")
+def question_input():
+    """Question input route for teachers and admins.
+    
+    - Requires valid JWT token
+    - Requires teacher or admin role
+    - Redirects to login if token is expired
+    - Redirects to homepage if user is not teacher or admin
+    """
+    token = request.cookies.get("jwt_token")
+    
+    if not token:
+        return redirect(url_for("main.login"))
+    
+    try:
+        auth_secret = current_app.config.get("AUTH_SECRET_KEY", "")
+        if auth_secret:
+            jwt.decode(token, auth_secret, algorithms=["HS256"], options={"require": ["exp"]})
+        else:
+            jwt.decode(token, options={"verify_signature": False, "require": ["exp"]}, algorithms=["HS256"])
+    except jwt.ExpiredSignatureError:
+        return redirect(url_for("main.login"))
+    except jwt.InvalidTokenError:
+        return redirect(url_for("main.login"))
+    
+    auth_secret = current_app.config.get("AUTH_SECRET_KEY", "")
+    if not has_role(token, ["teacher", "admin"], auth_secret):
+        return redirect(url_for("main.index"))
+    
+    api_url = current_app.config.get("API_URL", "/api/v1")
+    user_role = get_user_role_from_token(token, auth_secret)
+    return render_template("admin/question_input.html", api_url=api_url, user_role=user_role)

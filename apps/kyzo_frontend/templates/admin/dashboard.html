@@ -13,9 +13,17 @@
             Dashboard
           </a>
         </li>
+        {% if user_role == 'admin' %}
         <li class="admin-nav__item">
           <a href="{{ url_for('admin.admin_users') }}" class="admin-nav__link">
             Benutzerverwaltung
+          </a>
+        </li>
+        {% endif %}
+        {% if user_role in ['teacher', 'admin'] %}
+        <li class="admin-nav__item">
+          <a href="{{ url_for('admin.question_input') }}" class="admin-nav__link">
+            Fragen eingeben
           </a>
         </li>
         <li class="admin-nav__item">
@@ -35,6 +43,7 @@
             </li>
           </ul>
         </li>
+        {% endif %}
       </ul>
     </nav>
   </div>
@@ -69,6 +78,7 @@
       </div>
       
       <div class="admin-quick-links">
+        {% if user_role == 'admin' %}
         <div class="admin-quick-link-card">
           <h3 class="admin-quick-link-card__title">Benutzerverwaltung</h3>
           <p class="admin-quick-link-card__description">Benutzerkonten und Berechtigungen</p>
@@ -76,6 +86,7 @@
             Zu Benutzerverwaltung
           </a>
         </div>
+        {% endif %}
         
         <div class="admin-quick-link-card">
           <h3 class="admin-quick-link-card__title">Wissensverwaltung</h3>

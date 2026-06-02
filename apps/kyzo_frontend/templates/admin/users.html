@@ -13,9 +13,17 @@
             Dashboard
           </a>
         </li>
+        {% if user_role == 'admin' %}
         <li class="admin-nav__item">
           <a href="{{ url_for('admin.admin_users') }}" class="admin-nav__link admin-nav__link--active">
             Benutzerverwaltung
+          </a>
+        </li>
+        {% endif %}
+        {% if user_role in ['teacher', 'admin'] %}
+        <li class="admin-nav__item">
+          <a href="{{ url_for('admin.question_input') }}" class="admin-nav__link">
+            Fragen eingeben
           </a>
         </li>
         <li class="admin-nav__item">
@@ -35,6 +43,7 @@
             </li>
           </ul>
         </li>
+        {% endif %}
       </ul>
     </nav>
   </div>
