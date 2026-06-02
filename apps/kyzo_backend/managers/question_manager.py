@@ -102,7 +102,7 @@ class QuestionManager:
             num_of_questions: int,
             question_input_data: QuestionInputCreate,
             files: Optional[list[UploadFile]] = None
-    ) -> str:
+    ) -> dict[str, Any]:
         """
         Orchestrates the full pipeline for generating questions from
         text or multi-format file inputs.
@@ -123,8 +123,10 @@ class QuestionManager:
                                                 Defaults to None for purely text-based inputs.
 
         Returns:
-            str: A localized success message indicating the number of successfully
-                 generated and stored questions.
+            dict[str, Any]: A dictionary containing:
+                - "message" (str): A localized success message indicating the number
+                                   of successfully generated and stored questions.
+                - "id" (int): The database primary key ID of the newly created QuestionInput.
 
         Raises:
             HTTPException:
@@ -168,9 +170,12 @@ class QuestionManager:
             self._db.commit()
             self._db.refresh(new_question_input)
 
-            return QuestionMessages.QUESTION_INPUT_PROCESSED.format(
-                num_of_questions=len(new_question_input.extracted_questions)
-            )
+            return {
+                "message": QuestionMessages.QUESTION_INPUT_PROCESSED.format(
+                    num_of_questions=len(new_question_input.extracted_questions)
+                ),
+                "id": new_question_input.id
+            }
 
         except SQLAlchemyError as error:
             self._db.rollback()
