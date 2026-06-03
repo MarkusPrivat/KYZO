@@ -316,13 +316,16 @@ window.submitQuestionInput = function () {
         .then(function (response) {
             if (response.status === 201) {
                 showToast('Fragen erfolgreich generiert!', 'success');
+                return response.json().catch(function () { return null; });
             } else {
                 return response.json().catch(function () { return null; });
             }
         })
-        .then(function (errData) {
-            if (errData) {
-                var detail = errData.detail;
+        .then(function (data) {
+            if (data && data.question_input_id) {
+                window.location.href = '/admin/draft-review/' + data.question_input_id;
+            } else if (data && data.detail) {
+                var detail = data.detail;
                 if (Array.isArray(detail)) {
                     detail = detail.map(function (e) { return e.msg || e.message; }).join('; ');
                 }

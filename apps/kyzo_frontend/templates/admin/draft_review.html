@@ -1,0 +1,553 @@
+{% extends "base.html" %}
+
+{% block title %}Draft-Fragen prüfen - Kyzo Admin{% endblock %}
+
+{% block content %}
+<div class="admin-container admin-draft-review" data-question-input-id="{{ question_input_id }}">
+  <div class="admin-sidebar">
+    <nav class="admin-nav" aria-label="Admin Navigation">
+      <h2 class="admin-nav__title">Admin Panel</h2>
+      <ul class="admin-nav__list">
+        <li class="admin-nav__item">
+          <a href="{{ url_for('admin.admin_dashboard') }}" class="admin-nav__link">
+            Dashboard
+          </a>
+        </li>
+        {% if user_role == 'admin' %}
+        <li class="admin-nav__item">
+          <a href="{{ url_for('admin.admin_users') }}" class="admin-nav__link">
+            Benutzerverwaltung
+          </a>
+        </li>
+        {% endif %}
+        {% if user_role in ['teacher', 'admin'] %}
+        <li class="admin-nav__item">
+          <a href="{{ url_for('admin.question_input') }}" class="admin-nav__link">
+            Fragen eingeben
+          </a>
+        </li>
+        <li class="admin-nav__item">
+          <span class="admin-nav__link admin-nav__link--subheader" role="heading" aria-level="3">
+            Wissensverwaltung
+          </span>
+          <ul class="admin-nav__sublist">
+            <li class="admin-nav__item">
+              <a href="{{ url_for('admin.knowledge_subjects') }}" class="admin-nav__link">
+                Fach
+              </a>
+            </li>
+            <li class="admin-nav__item">
+              <a href="{{ url_for('admin.knowledge_topics', subject_id=0) }}" class="admin-nav__link">
+                Thema
+              </a>
+            </li>
+          </ul>
+        </li>
+        <li class="admin-nav__item">
+          <a href="{{ url_for('admin.draft_review', question_input_id=question_input_id) }}" class="admin-nav__link admin-nav__link--active">
+            Draft-Fragen prüfen
+          </a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+
+  <div class="admin-main">
+    <header class="admin-header">
+      <h1 class="admin-header__title">Draft-Fragen prüfen</h1>
+      <p class="admin-header__subtitle">Überprüfe und übernehme die KI-generierten Fragen</p>
+    </header>
+
+    <div class="admin-content">
+      <!-- RAWInput Accordion -->
+      <div class="card draft-review-section" id="rawinput-accordion">
+        <div class="card-header">
+          <button type="button" class="card-header__toggle" aria-expanded="false" aria-controls="rawinput-content">
+            RAWInput anzeigen
+            <span class="card-header__icon" aria-hidden="true">▼</span>
+          </button>
+        </div>
+        <div class="card-body" id="rawinput-content" style="display: none;">
+          <div id="rawinput-placeholder" class="rawinput-placeholder">
+            RAWInput wird geladen...
+          </div>
+        </div>
+      </div>
+
+      <!-- Metadaten -->
+      <div class="card draft-review-section" id="metadata-section">
+        <div class="card-header">
+          <h3 class="card-header__title">Metadaten</h3>
+        </div>
+        <div class="card-body">
+          <div class="metadata-grid" id="metadata-grid">
+            <div class="metadata-item">
+              <span class="metadata-label">Fach:</span>
+              <span class="metadata-value" id="metadata-subject">—</span>
+            </div>
+            <div class="metadata-item">
+              <span class="metadata-label">Thema:</span>
+              <span class="metadata-value" id="metadata-topic">—</span>
+            </div>
+            <div class="metadata-item">
+              <span class="metadata-label">Klasse:</span>
+              <span class="metadata-value" id="metadata-grade">—</span>
+            </div>
+            <div class="metadata-item">
+              <span class="metadata-label">Eingabetyp:</span>
+              <span class="metadata-value" id="metadata-input-type">—</span>
+            </div>
+            <div class="metadata-item">
+              <span class="metadata-label">Anzahl Fragen:</span>
+              <span class="metadata-value" id="metadata-num-questions">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Draft-Fragen-Karten -->
+      <div class="card draft-review-section" id="draft-questions-section">
+        <div class="card-header">
+          <h3 class="card-header__title">Draft-Fragen</h3>
+        </div>
+        <div class="card-body">
+          <div id="draft-questions-list" class="draft-questions-list">
+            <div class="loading-state">
+              <div class="spinner"></div>
+              Draft-Fragen werden geladen...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Finalize-Button -->
+      <div class="draft-review-actions" id="finalize-actions">
+        <label for="finalize-btn" class="sr-only">Fragen in den Katalog übernehmen</label>
+        <button type="button" id="finalize-btn" class="btn btn-primary">
+          Fragen übernehmen
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast-notification" class="toast" role="alert" aria-live="assertive">
+  <div class="toast-content">
+    <span id="toast-message"></span>
+    <button class="toast-close" id="toast-close" aria-label="Benachrichtigung schließen">&times;</button>
+  </div>
+</div>
+
+<style>
+  /* Admin container (reused from existing templates) */
+  .admin-container {
+    display: flex;
+    min-height: calc(100vh - 120px);
+    margin-top: 80px;
+  }
+
+  .admin-sidebar {
+    width: 250px;
+    background-color: #f8f9fa;
+    border-right: 1px solid #e9ecef;
+    position: fixed;
+    left: 0;
+    top: 80px;
+    bottom: 0;
+    overflow-y: auto;
+    padding: 20px 0;
+  }
+
+  .admin-nav {
+    width: 100%;
+  }
+
+  .admin-nav__title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+    padding: 0 20px 15px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #e9ecef;
+  }
+
+  .admin-nav__list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .admin-nav__item {
+    margin-bottom: 5px;
+  }
+
+  .admin-nav__link {
+    display: block;
+    padding: 12px 20px;
+    color: #495057;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+  }
+
+  .admin-nav__link:hover {
+    background-color: #e9ecef;
+    color: #212529;
+  }
+
+  .admin-nav__link--active {
+    background-color: #007bff;
+    color: white;
+    border-left: 3px solid #007bff;
+  }
+
+  .admin-nav__link--active:hover {
+    background-color: #0069d9;
+  }
+
+  .admin-nav__link--subheader {
+    font-weight: 600;
+    color: #333;
+    cursor: default;
+    border-left: none;
+    padding-left: 20px;
+  }
+
+  .admin-nav__sublist {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .admin-nav__sublist .admin-nav__link {
+    padding-left: 40px;
+    font-size: 0.95rem;
+  }
+
+  .admin-main {
+    flex: 1;
+    margin-left: 250px;
+    padding: 30px;
+    background-color: #fff;
+  }
+
+  .admin-header {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e9ecef;
+  }
+
+  .admin-header__title {
+    font-size: 2rem;
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 5px;
+  }
+
+  .admin-header__subtitle {
+    font-size: 1rem;
+    color: #6c757d;
+    margin: 0;
+  }
+
+  .admin-content {
+    max-width: 900px;
+  }
+
+  /* Card styles (reused from existing templates) */
+  .card {
+    background-color: #fff;
+    border: 1px solid #E8E2DC;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #E8E2DC;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f8f9fa;
+    border-radius: 8px 8px 0 0;
+  }
+
+  .card-header__title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #212529;
+  }
+
+  .card-header__toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #212529;
+    cursor: pointer;
+    padding: 0;
+    width: 100%;
+    text-align: left;
+  }
+
+  .card-header__toggle:hover {
+    color: #E4572E;
+  }
+
+  .card-header__icon {
+    font-size: 0.8rem;
+    transition: transform 0.2s ease;
+  }
+
+  .card-header__toggle[aria-expanded="true"] .card-header__icon {
+    transform: rotate(180deg);
+  }
+
+  .card-body {
+    padding: 20px;
+  }
+
+  /* RAWInput placeholder */
+  .rawinput-placeholder {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: #495057;
+    background-color: #f8f9fa;
+    padding: 16px;
+    border-radius: 4px;
+    border: 1px solid #E8E2DC;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+    resize: vertical;
+  }
+
+  /* Metadata grid */
+  .metadata-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+
+  .metadata-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .metadata-label {
+    font-weight: 600;
+    color: #6c757d;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .metadata-value {
+    font-size: 1rem;
+    color: #212529;
+  }
+
+  /* Draft questions list */
+  .draft-questions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .draft-question-card {
+    border: 1px solid #E8E2DC;
+    border-radius: 6px;
+    padding: 16px;
+    background-color: #fff;
+  }
+
+  .draft-question-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .draft-question-card__number {
+    font-weight: 600;
+    color: #E4572E;
+  }
+
+  .draft-question-card__text {
+    font-size: 0.95rem;
+    color: #212529;
+    line-height: 1.5;
+  }
+
+  /* Loading state */
+  .loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 40px;
+    color: #6c757d;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #E4572E;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Buttons (reused from existing templates) */
+  .btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+  }
+
+  .btn-primary {
+    background-color: #E4572E;
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background-color: #d1451e;
+  }
+
+  .btn-secondary {
+    background-color: #6c757d;
+    color: white;
+  }
+
+  .btn-secondary:hover {
+    background-color: #5a6268;
+  }
+
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Finalize actions */
+  .draft-review-actions {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  /* Toast Notification (reused from existing templates) */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background-color: #28a745;
+    color: white;
+    padding: 15px 25px;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1001;
+    display: none;
+    animation: toastSlideIn 0.3s ease;
+  }
+
+  @keyframes toastSlideIn {
+    from {
+      transform: translateX(400px);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .toast-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .toast-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.2rem;
+    cursor: pointer;
+    margin-left: 15px;
+  }
+
+  .toast-error {
+    background-color: #dc3545;
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 1100px) {
+    .admin-main {
+      padding: 20px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .admin-container {
+      flex-direction: column;
+      margin-top: 60px;
+    }
+
+    .admin-sidebar {
+      width: 100%;
+      position: relative;
+      top: auto;
+      left: auto;
+      bottom: auto;
+    }
+
+    .admin-main {
+      margin-left: 0;
+      padding: 20px;
+    }
+
+    .metadata-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .admin-header__title {
+      font-size: 1.5rem;
+    }
+
+    .card-body {
+      padding: 12px;
+    }
+  }
+</style>
+
+<script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+<script src="{{ url_for('static', filename='js/toast.js') }}"></script>
+<script>
+  const API_URL = "{{ api_url }}";
+  const QUESTION_INPUT_ID = {{ question_input_id }};
+</script>
+<script src="{{ url_for('static', filename='js/draft-review.js') }}"></script>
+{% endblock %}

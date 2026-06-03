@@ -612,3 +612,295 @@ class TestQuestionInputTemplate:
             assert resp.status_code == 200
             html = resp.data.decode()
             assert "multiple" in html
+
+
+# ── Draft Review Route Tests ──────────────────────────────────────────────────
+
+class TestDraftReviewRoute:
+    """Tests for the draft_review route and template."""
+
+    @pytest.fixture
+    def app(self):
+        """Create a Flask app with admin and main blueprints for testing."""
+        import os
+        from flask import Flask
+        template_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "apps", "kyzo_frontend", "templates")
+        app = Flask(__name__, template_folder=template_dir)
+        app.config["SECRET_KEY"] = "test-secret"
+        app.config["API_URL"] = "http://localhost:8000/api/v1"
+        app.config["AUTH_SECRET_KEY"] = "test-secret"
+
+        from apps.kyzo_frontend.routes.admin import admin_bp
+        from apps.kyzo_frontend.routes.main import main_bp
+        app.register_blueprint(admin_bp)
+        app.register_blueprint(main_bp)
+
+        return app
+
+    def _make_token(self, scope, expired=False):
+        """Helper to create a JWT token."""
+        if expired:
+            exp = datetime.now(timezone.utc) - timedelta(minutes=10)
+        else:
+            exp = datetime.now(timezone.utc) + timedelta(minutes=30)
+        return jwt.encode(
+            {"sub": "test@kyzo.com", "scope": scope, "exp": exp},
+            "test-secret", algorithm="HS256"
+        )
+
+    # ── Functional: Route accessibility ─────────────────────────────────
+
+    def test_admin_accesses_draft_review(self, app):
+        """Admin can access draft_review route."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+
+    def test_teacher_accesses_draft_review(self, app):
+        """Teacher can access draft_review route."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("teacher"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+
+    def test_student_redirected_from_draft_review(self, app):
+        """Student is redirected from draft_review route."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("student"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 302
+
+    def test_no_token_redirects_from_draft_review(self, app):
+        """No token redirects from draft_review route."""
+        with app.test_client() as client:
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 302
+
+    def test_expired_token_redirects_from_draft_review(self, app):
+        """Expired token redirects from draft_review route."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin", expired=True))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 302
+
+    # ── Functional: Template rendering ──────────────────────────────────
+
+    def test_draft_review_page_title(self, app):
+        """Template renders page title 'Draft-Fragen prüfen'."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "Draft-Fragen prüfen" in html
+
+    def test_draft_review_has_admin_sidebar(self, app):
+        """Template renders with admin sidebar."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "admin-sidebar" in html
+            assert "admin-nav" in html
+
+    def test_draft_review_has_dynamic_content_container(self, app):
+        """Template renders dynamic content container."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "admin-container" in html
+
+    def test_draft_review_has_toast_element(self, app):
+        """Template includes toast notification element."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "toast" in html.lower()
+
+    def test_draft_review_reuses_admin_container_class(self, app):
+        """Template reuses admin-container CSS class."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "admin-container" in html
+
+    def test_draft_review_reuses_admin_sidebar_class(self, app):
+        """Template reuses admin-sidebar CSS class."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "admin-sidebar" in html
+
+    def test_draft_review_reuses_admin_nav_class(self, app):
+        """Template reuses admin-nav CSS class."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "admin-nav" in html
+
+    def test_draft_review_reuses_toast_class(self, app):
+        """Template reuses toast CSS class."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "toast" in html.lower()
+
+    # ── Functional: Navigation entry ────────────────────────────────────
+
+    def test_admin_sidebar_has_draft_review_link(self, app):
+        """Admin sidebar includes 'Draft-Fragen prüfen' link."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "Draft-Fragen prüfen" in html
+
+    def test_teacher_sidebar_has_draft_review_link(self, app):
+        """Teacher sidebar includes 'Draft-Fragen prüfen' link."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("teacher"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "Draft-Fragen prüfen" in html
+
+    def test_teacher_sidebar_no_benutzerverwaltung(self, app):
+        """Teacher sidebar does NOT include Benutzerverwaltung on draft_review."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("teacher"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "Benutzerverwaltung" not in html
+
+    def test_admin_sidebar_has_benutzerverwaltung(self, app):
+        """Admin sidebar includes Benutzerverwaltung on draft_review."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "Benutzerverwaltung" in html
+
+    # ── Technical: Template structure ───────────────────────────────────
+
+    def test_draft_review_template_extends_base(self, app):
+        """Template extends base.html (verified by rendered nav structure)."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert 'class="nav"' in html
+            assert 'class="nav__logo"' in html
+
+    def test_draft_review_sets_api_url(self, app):
+        """Template sets API_URL JS variable."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "const API_URL" in html
+
+    def test_draft_review_includes_auth_js(self, app):
+        """Template includes auth.js script."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "auth.js" in html
+
+    def test_draft_review_includes_toast_js(self, app):
+        """Template includes toast.js script."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "toast.js" in html
+
+    # ── Technical: Responsive layout ────────────────────────────────────
+
+    def test_draft_review_has_768px_breakpoint(self, app):
+        """Template includes 768px responsive breakpoint."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "@media (max-width: 768px)" in html
+
+    def test_draft_review_has_640px_breakpoint(self, app):
+        """Template includes 640px responsive breakpoint."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "@media (max-width: 640px)" in html
+
+    def test_draft_review_has_1100px_breakpoint(self, app):
+        """Template includes 1100px responsive breakpoint."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "@media (max-width: 1100px)" in html
+
+    # ── Technical: WCAG compliance ──────────────────────────────────────
+
+    def test_draft_review_has_aria_labels(self, app):
+        """Template includes ARIA labels for accessibility."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "aria-label" in html or "aria-labelledby" in html
+
+    def test_draft_review_has_form_labels(self, app):
+        """Template includes form labels."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/1")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "<label" in html
+
+    # ── Technical: question_input_id passed to template ─────────────────
+
+    def test_question_input_id_passed_to_template(self, app):
+        """question_input_id is passed to the template context."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/42")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "42" in html
+
+    def test_different_ids_work(self, app):
+        """Different question_input_id values work."""
+        with app.test_client() as client:
+            client.set_cookie("jwt_token", self._make_token("admin"))
+            resp = client.get("/admin/draft-review/99")
+            assert resp.status_code == 200
+            html = resp.data.decode()
+            assert "99" in html

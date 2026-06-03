@@ -322,3 +322,45 @@ def question_input():
     api_url = current_app.config.get("API_URL", "/api/v1")
     user_role = get_user_role_from_token(token, auth_secret)
     return render_template("admin/question_input.html", api_url=api_url, user_role=user_role)
+
+
+@admin_bp.route("/admin/draft-review/<int:question_input_id>")
+def draft_review(question_input_id):
+    """Draft review route for teachers and admins.
+    
+    - Requires valid JWT token
+    - Requires teacher or admin role
+    - Redirects to login if token is expired
+    - Redirects to homepage if user is not teacher or admin
+    
+    Args:
+        question_input_id: ID of the question input to review
+    """
+    token = request.cookies.get("jwt_token")
+    
+    if not token:
+        return redirect(url_for("main.login"))
+    
+    try:
+        auth_secret = current_app.config.get("AUTH_SECRET_KEY", "")
+        if auth_secret:
+            jwt.decode(token, auth_secret, algorithms=["HS256"], options={"require": ["exp"]})
+        else:
+            jwt.decode(token, options={"verify_signature": False, "require": ["exp"]}, algorithms=["HS256"])
+    except jwt.ExpiredSignatureError:
+        return redirect(url_for("main.login"))
+    except jwt.InvalidTokenError:
+        return redirect(url_for("main.login"))
+    
+    auth_secret = current_app.config.get("AUTH_SECRET_KEY", "")
+    if not has_role(token, ["teacher", "admin"], auth_secret):
+        return redirect(url_for("main.index"))
+    
+    api_url = current_app.config.get("API_URL", "/api/v1")
+    user_role = get_user_role_from_token(token, auth_secret)
+    return render_template(
+        "admin/draft_review.html",
+        api_url=api_url,
+        user_role=user_role,
+        question_input_id=question_input_id,
+    )
