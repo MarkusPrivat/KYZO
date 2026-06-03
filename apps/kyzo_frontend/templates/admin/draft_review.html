@@ -541,10 +541,99 @@
       padding: 12px;
     }
   }
+
+  /* Draft Review Card Renderer styles */
+  .draft-card {
+    border: 1px solid #E8E2DC;
+    border-radius: 8px;
+    background-color: #fff;
+    overflow: hidden;
+  }
+
+  .draft-card__body {
+    padding: 16px 20px;
+  }
+
+  .draft-card__question-text {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+
+  .draft-card__options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .draft-card__option {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid #E8E2DC;
+    border-radius: 6px;
+    background-color: #fff;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+  }
+
+  .draft-card__option--correct {
+    border-color: #76B041;
+    background-color: rgba(118, 176, 65, 0.06);
+  }
+
+  .draft-card__option-text {
+    font-size: 0.95rem;
+    color: #212529;
+    line-height: 1.4;
+  }
+
+  .draft-card__explanation {
+    font-size: 0.9rem;
+    color: #6c757d;
+    font-style: italic;
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border-left: 3px solid #E4572E;
+    border-radius: 0 4px 4px 0;
+    margin-top: 4px;
+  }
+
+  .draft-card__footer {
+    display: flex;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid #E8E2DC;
+    background-color: #f8f9fa;
+  }
+
+  .draft-card__badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background-color: #e9ecef;
+    color: #495057;
+  }
+
+  .draft-card__badge--difficulty {
+    background-color: rgba(228, 87, 46, 0.1);
+    color: #E4572E;
+  }
+
+  .draft-card__badge--grade {
+    background-color: rgba(118, 176, 65, 0.1);
+    color: #4A7228;
+  }
 </style>
 
 <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
 <script src="{{ url_for('static', filename='js/toast.js') }}"></script>
+<script src="{{ url_for('static', filename='js/draft-review-card-renderer.js') }}"></script>
 <script>
   const API_URL = "{{ api_url }}";
   const QUESTION_INPUT_ID = {{ question_input_id }};
