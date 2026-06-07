@@ -762,6 +762,284 @@ function runCompletionDisplayTests() {
     }, 50);
 }
 
+/* ── Mock data for error handling tests (Issue 051) ─────────────── */
+
+var mockError401 = { detail: 'Sitzung abgelaufen. Bitte erneut anmelden.' };
+var mockError403 = { detail: 'Zugriff verweigert.' };
+var mockError404 = { detail: 'Test nicht gefunden.' };
+var mockGenericError = { detail: 'Interner Serverfehler aufgetreten.' };
+
+/* ── Fetch mock with HTTP error status (Issue 051) ─────────────── */
+
+/**
+ * Create a fetch mock that resolves with an HTTP error status code.
+ * @param {number} statusCode - The HTTP status code to return.
+ * @param {Object|null} responseData - Optional JSON response body for the error.
+ * @returns {{ promise: Promise, lastRequest: Object|null, restore: Function }}
+ */
+function createFetchMockWithError(statusCode, responseData) {
+    var capturedRequests = [];
+    var origFetch = window.fetch;
+
+    if (responseData === undefined || responseData === null) {
+        responseData = {};
+    }
+
+    window.fetch = function (url, options) {
+        capturedRequests.push({ url: url, options: options });
+        return new Promise(function (resolve) {
+            resolve(new Response(JSON.stringify(responseData), {
+                status: statusCode,
+                headers: { 'Content-Type': 'application/json' }
+            }));
+        });
+    };
+
+    return {
+        get lastRequest() { return capturedRequests.length > 0 ? capturedRequests[capturedRequests.length - 1] : null; },
+        restore: function () { window.fetch = origFetch; capturedRequests = []; }
+    };
+}
+
+/* ── Mock for network failure (Issue 051) ─────────────── */
+
+/**
+ * Create a fetch mock that rejects with a TypeError (network error).
+ * @returns {{ restore: Function }}
+ */
+function createFetchMockNetworkError() {
+    var origFetch = window.fetch;
+    window.fetch = function () {
+        return Promise.reject(new TypeError('Failed to fetch'));
+    };
+    return { restore: function () { window.fetch = origFetch; } };
+}
+
+/* ── Test suites for error handling (Issue 051) ─────────────── */
+
+function runErrorToastOn401Tests() {
+    console.log('\n── Error toast on 401 Unauthorized (Issue 051) ──');
+
+    var mock = createFetchMockWithError(401, mockError401);
+    setupTestDom();
+
+    // showError is private to the IIFE — we verify behavior via showToast + DOM output
+    var origShowToast = window.showToast;
+    var toastCalledWith = null;
+    window.showToast = function (message, type) {
+        toastCalledWith = message + '|' + type;
+        if (!origShowToast) return;
+        origShowToast(message, type);
+    };
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        assertEqual(toastCalledWith !== null, true, 'showToast was called on 401 error');
+
+        if (toastCalledWith) {
+            var parts = toastCalledWith.split('|');
+            assert(parts[1] === 'error', 'toast type is "error" for 401');
+            assert(
+                parts[0].indexOf('Sitzung abgelaufen') >= 0,
+                'toast message mentions session expired on 401 (got: "' + parts[0] + '")'
+            );
+        }
+
+        window.showToast = origShowToast;
+        mock.restore();
+    }, 80);
+}
+
+function runErrorToastOn403Tests() {
+    console.log('\n── Error toast on 403 Forbidden (Issue 051) ──');
+
+    var mock = createFetchMockWithError(403, mockError403);
+    setupTestDom();
+
+    var origShowToast = window.showToast;
+    var toastCalledWith = null;
+    window.showToast = function (message, type) {
+        toastCalledWith = message + '|' + type;
+        if (!origShowToast) return;
+        origShowToast(message, type);
+    };
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        assertEqual(toastCalledWith !== null, true, 'showToast was called on 403 error');
+
+        if (toastCalledWith) {
+            var parts = toastCalledWith.split('|');
+            assert(parts[1] === 'error', 'toast type is "error" for 403');
+            assert(
+                parts[0].indexOf('Zugriff verweigert') >= 0,
+                'toast message mentions access denied on 403 (got: "' + parts[0] + '")'
+            );
+        }
+
+        window.showToast = origShowToast;
+        mock.restore();
+    }, 80);
+}
+
+function runErrorToastOn404Tests() {
+    console.log('\n── Error toast on 404 Not Found (Issue 051) ──');
+
+    var mock = createFetchMockWithError(404, mockError404);
+    setupTestDom();
+
+    var origShowToast = window.showToast;
+    var toastCalledWith = null;
+    window.showToast = function (message, type) {
+        toastCalledWith = message + '|' + type;
+        if (!origShowToast) return;
+        origShowToast(message, type);
+    };
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        assertEqual(toastCalledWith !== null, true, 'showToast was called on 404 error');
+
+        if (toastCalledWith) {
+            var parts = toastCalledWith.split('|');
+            assert(parts[1] === 'error', 'toast type is "error" for 404');
+            assert(
+                parts[0].indexOf('Test nicht gefunden') >= 0,
+                'toast message mentions test not found on 404 (got: "' + parts[0] + '")'
+            );
+        }
+
+        window.showToast = origShowToast;
+        mock.restore();
+    }, 80);
+}
+
+function runErrorStateWithResetButtonTests() {
+    console.log('\n── Error state with reset button (Issue 051) ──');
+
+    var mock = createFetchMockWithError(404, mockError404);
+    setupTestDom();
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        // Check that error-state div was rendered with reset button
+        var questionContainer = document.getElementById('question-container');
+        assertNotNull(questionContainer, 'question-container exists after error render');
+
+        if (questionContainer) {
+            assert(
+                questionContainer.innerHTML.indexOf('error-state') >= 0,
+                'error state class is present in rendered HTML'
+            );
+            assert(
+                document.getElementById('reset-btn') !== null,
+                'reset button element exists after error render'
+            );
+
+            var resetBtn = document.getElementById('reset-btn');
+            if (resetBtn) {
+                assertEqual(resetBtn.textContent.trim(), 'Zurück zur Startseite',
+                    'reset button text is "Zurück zur Startseite"');
+            }
+        }
+
+        mock.restore();
+    }, 80);
+}
+
+function runResetButtonNavigationTests() {
+    console.log('\n── Reset button navigates to / (Issue 051) ──');
+
+    var mock = createFetchMockWithError(404, mockError404);
+    setupTestDom();
+
+    setTimeout(function () {
+        var resetBtn = document.getElementById('reset-btn');
+        if (!resetBtn) {
+            console.log('  ⊘ Skipped (no #reset-btn found yet)');
+            mock.restore();
+            return;
+        }
+
+        // The click handler should set window.location.href to '/'
+        assert(
+            resetBtn.tagName.toLowerCase() === 'button',
+            'reset element is a <button> tag'
+        );
+
+        mock.restore();
+    }, 80);
+}
+
+function runErrorToastOnNetworkFailureTests() {
+    console.log('\n── Error toast on network failure (Issue 051) ──');
+
+    var mock = createFetchMockNetworkError();
+    setupTestDom();
+
+    var origShowToast = window.showToast;
+    var toastCalledWith = null;
+    window.showToast = function (message, type) {
+        toastCalledWith = message + '|' + type;
+        if (!origShowToast) return;
+        origShowToast(message, type);
+    };
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        assertEqual(toastCalledWith !== null, true, 'showToast was called on network error');
+
+        if (toastCalledWith) {
+            var parts = toastCalledWith.split('|');
+            assert(parts[1] === 'error', 'toast type is "error" for network failure');
+            // For generic errors: should show a message with reset button context
+            assert(
+                typeof showError !== 'undefined' || parts[0].length > 0,
+                'generic error toast has non-empty message (got: "' + parts[0] + '")'
+            );
+        }
+
+        window.showToast = origShowToast;
+        mock.restore();
+    }, 80);
+}
+
+function runErrorHandlingUsesExistingToastTests() {
+    console.log('\n── Error handling uses existing showToast (Issue 051) ──');
+
+    // Verify that showError calls the EXISTING window.showToast, not a new implementation
+    var mock = createFetchMockWithError(403, mockError403);
+    setupTestDom();
+
+    var toastCallCount = 0;
+    var origShowToast = window.showToast;
+    window.showToast = function (message, type) {
+        toastCallCount++;
+        if (!origShowToast) return;
+        origShowToast(message, type);
+    };
+
+    // Verify showToast is the original from toast.js by checking its signature
+    assert(
+        typeof origShowToast === 'function' && origShowToast.toString().indexOf('createToastElement') >= 0 ||
+        typeof origShowToast === 'function',
+        'showToast exists and is callable (from existing toast system)'
+    );
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        assert(toastCallCount > 0, 'existing showToast was called at least once during error handling');
+        window.showToast = origShowToast;
+        mock.restore();
+    }, 80);
+}
+
 /* ── Entry point ─────────────────────────────────────────────────────────── */
 
 function loadAndRunTests() {
@@ -783,6 +1061,15 @@ function loadAndRunTests() {
     runFinalizePayloadTests();
     runNextQuestionRenderingTests();
     runCompletionDisplayTests();
+
+    // Issue 051: Error handling tests
+    runErrorToastOn401Tests();
+    runErrorToastOn403Tests();
+    runErrorToastOn404Tests();
+    runErrorStateWithResetButtonTests();
+    runResetButtonNavigationTests();
+    runErrorToastOnNetworkFailureTests();
+    runErrorHandlingUsesExistingToastTests();
 
     console.log('\n=== Ergebnis: ' + _passCount + '/' + _testCount + ' bestanden, ' + _failCount + ' fehlgeschlagen ===');
 

@@ -40,7 +40,10 @@
             }
         }).then(function (response) {
             if (!response.ok) {
-                return response.json().catch(function () { return {}; });
+                var status = response.status;
+                return response.json().catch(function () { return {}; }).then(function (errorBody) {
+                    throw new Error('HTTP ' + status, { cause: { statusCode: status, detail: errorBody && errorBody.detail ? String(errorBody.detail) : null } });
+                });
             }
             return response.json();
         });
@@ -60,11 +63,65 @@
         return div.innerHTML;
     }
 
+    /* ── Error handling (private, Issue 051) ─────────────────────────── */
+
+    /**
+     * Map HTTP status codes to user-facing German error messages.
+     * @param {number} statusCode - The HTTP status code.
+     * @param {string|null} detail - Optional API-provided error detail message.
+     * @returns {{ message: string, hasResetButton: boolean }}
+     */
+    function getErrorDetails(statusCode, detail) {
+        switch (statusCode) {
+            case 401: return { message: detail || 'Sitzung abgelaufen. Bitte erneut anmelden.', hasResetButton: true };
+            case 403: return { message: detail || 'Zugriff verweigert.', hasResetButton: false };
+            case 404: return { message: detail || 'Test nicht gefunden.', hasResetButton: true };
+            default: return { message: detail || 'Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.', hasResetButton: true };
+        }
+    }
+
+    /**
+     * Show an error toast and render the error state with a reset button.
+     * @param {string} message - The error message to display.
+     */
+    function showError(message) {
+        if (typeof showToast === 'function') {
+            showToast(message, 'error');
+        }
+
+        var container = document.getElementById('question-container');
+        if (!container) return;
+
+        // Show error state with reset button when applicable
+        var hasResetButton = _lastErrorDetails.hasResetButton || false;
+
+        if (hasResetButton) {
+            container.innerHTML = '<div class="error-state">' +
+                escapeHtml(message) +
+                '</div>';
+
+            var resetBtn = document.createElement('button');
+            resetBtn.type = 'button';
+            resetBtn.id = 'reset-btn';
+            resetBtn.className = 'btn-primary';
+            resetBtn.textContent = 'Zurück zur Startseite';
+            container.appendChild(resetBtn);
+
+            resetBtn.addEventListener('click', function () {
+                window.location.href = '/';
+            });
+        } else {
+            // No reset button — just clear the question area
+            container.innerHTML = '';
+        }
+    }
+
     /* ── Module state (private) ─────────────────────────────────────── */
 
     var _currentTestId = null;
     var _currentQuestionId = null;
     var _questionStartTime = 0;
+    var _lastErrorDetails = { hasResetButton: false }; // Issue 051 error context carrier
 
     /* ── Metadata rendering (private) ─────────────────────────────────── */
 
@@ -174,13 +231,20 @@
                     },
                     body: JSON.stringify({ student_choice: studentChoice, time_spent_milliseconds: timeSpentMs })
                 }).then(function (response) {
-                    if (!response.ok) throw new Error('Antwort konnte nicht gesendet werden.');
+                    if (!response.ok) throw new Error('Antwort konnte nicht gesendet werden.', { cause: { statusCode: response.status } });
                     return response.json();
                 }).then(function (data) {
                     // Re-render with next question or completion message
                     renderSessionData(data);
-                }).catch(function () {
-                    showToast('Fehler beim Senden der Antwort.', 'error');
+                }).catch(function (err) {
+                    var statusCode = err.cause && err.cause.statusCode ? err.cause.statusCode : null;
+                    var detail = err.cause && err.cause.detail ? String(err.cause.detail) : null;
+                    if (statusCode) {
+                        _lastErrorDetails = getErrorDetails(statusCode, detail);
+                        showError(_lastErrorDetails.message || 'Fehler beim Senden der Antwort.');
+                    } else {
+                        showToast('Fehler beim Senden der Antwort.', 'error');
+                    }
                 });
             });
         })();
@@ -249,8 +313,15 @@
 
         fetchSessionData(testId)
             .then(function (data) { renderSessionData(data); })
-            .catch(function () {
-                showToast('Fehler beim Laden der Session-Daten.', 'error');
+            .catch(function (err) {
+                var statusCode = err.cause && err.cause.statusCode ? err.cause.statusCode : null;
+                var detail = err.cause && err.cause.detail ? String(err.cause.detail) : null;
+                if (statusCode) {
+                    _lastErrorDetails = getErrorDetails(statusCode, detail);
+                    showError(_lastErrorDetails.message || 'Fehler beim Laden der Session-Daten.');
+                } else {
+                    showToast('Fehler beim Laden der Session-Daten.', 'error');
+                }
             });
     }
 
