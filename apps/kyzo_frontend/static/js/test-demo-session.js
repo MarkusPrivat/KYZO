@@ -63,6 +63,8 @@
     /* ── Module state (private) ─────────────────────────────────────── */
 
     var _currentTestId = null;
+    var _currentQuestionId = null;
+    var _questionStartTime = 0;
 
     /* ── Metadata rendering (private) ─────────────────────────────────── */
 
@@ -102,6 +104,10 @@
 
         // Clear previous content
         container.innerHTML = '';
+
+        // Track current question state for finalize timing
+        _currentQuestionId = question.id != null ? question.id : null;
+        _questionStartTime = Date.now();
 
         // Question text
         var questionTextEl = document.createElement('div');
@@ -150,20 +156,23 @@
         weiterBtn.textContent = 'Weiter';
         container.appendChild(weiterBtn);
 
-        // Weiter button — click handler sends the selected answer via POST
+        // Weiter button — click handler sends the selected answer via POST /finalize
         (function () {
             weiterBtn.addEventListener('click', function () {
                 var selectedRadio = document.querySelector('input[name="test-option"]:checked');
                 if (!selectedRadio) return;
 
+                var studentChoice = parseInt(selectedRadio.value, 10);
+                var timeSpentMs = Date.now() - _questionStartTime;
+
                 var apiUrl = typeof API_URL !== 'undefined' ? API_URL : '/api/v1';
-                fetch(apiUrl + '/test/' + encodeURIComponent(_currentTestId || '') + '/answer', {
+                fetch(apiUrl + '/test/' + encodeURIComponent(_currentTestId || '') + '/question/' + encodeURIComponent(_currentQuestionId || '') + '/finalize', {
                     method: 'POST',
                     headers: {
                         'Authorization': getAuthHeader(),
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ option_index: parseInt(selectedRadio.value, 10) })
+                    body: JSON.stringify({ student_choice: studentChoice, time_spent_milliseconds: timeSpentMs })
                 }).then(function (response) {
                     if (!response.ok) throw new Error('Antwort konnte nicht gesendet werden.');
                     return response.json();

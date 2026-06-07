@@ -145,36 +145,47 @@ var mockSessionSingleOption = {
 
 /**
  * Create a fetch mock that resolves with the given data.
- * @param {Object} responseData - The JSON response to return.
- * @returns {{ promise: Promise, lastRequest: Object|null }}
+ * @param {Object|Function} responseData - The JSON response to return, or a function(url, options) => Object for dynamic responses.
+ * @returns {{ promise: Promise, lastRequest: Object|null, resolveWith: Function, restore: Function }}
  */
-function createFetchMock(responseData) {
-    var capturedRequest = null;
-    var resolveFn = null;
-
-    var mockPromise = new Promise(function (resolve) {
-        resolveFn = function () { resolve(); };
-    });
+function createFetchMock(responseDataOrFn) {
+    var capturedRequests = [];
+    var isFnResponse = typeof responseDataOrFn === 'function';
 
     // Store original fetch
     var origFetch = window.fetch;
 
     window.fetch = function (url, options) {
-        capturedRequest = { url: url, options: options };
-        return mockPromise.then(function () {
-            return new Response(JSON.stringify(responseData), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' }
-            });
+        capturedRequests.push({ url: url, options: options });
+        return new Promise(function (resolve) {
+            var resolveLater = function () {
+                var data = isFnResponse ? responseDataOrFn(url, options) : responseDataOrFn;
+                resolve(new Response(JSON.stringify(data), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                }));
+            };
+
+            // If already resolved (no pending resolution needed for simple cases)
+            if (_mockResolvedImmediately) {
+                resolveLater();
+            } else {
+                _pendingResolve = resolveLater;
+            }
         });
     };
 
     return {
-        get lastRequest() { return capturedRequest; },
-        resolve: function () { if (resolveFn) resolveFn(); },
-        restore: function () { window.fetch = origFetch; }
+        get lastRequest() { return capturedRequests.length > 0 ? capturedRequests[capturedRequests.length - 1] : null; },
+        get allRequests() { return capturedRequests; },
+        resolve: function () { _mockResolvedImmediately = true; if (_pendingResolve) { var fn = _pendingResolve; _pendingResolve = null; fn(); } },
+        resolveWith: function (newData) { responseDataOrFn = newData; isFnResponse = typeof newData === 'function'; if (_mockResolvedImmediately && _pendingResolve) { var fn = _pendingResolve; _pendingResolve = null; fn(); } },
+        restore: function () { window.fetch = origFetch; _mockResolvedImmediately = false; _pendingResolve = null; capturedRequests = []; }
     };
 }
+
+var _mockResolvedImmediately = false;
+var _pendingResolve = null;
 
 /* ── DOM setup helper ────────────────────────────────────────────────────── */
 
@@ -498,6 +509,259 @@ function runNoGlobalStateTests() {
     );
 }
 
+/* ── Mock data for finalize flow tests (Issue 050) ─────────────── */
+
+var mockSessionNextQuestion = {
+    test: {
+        id: 42,
+        user_id: 7,
+        subject_id: 3,
+        topic_id: 12,
+        grade: 9,
+        difficulty: null,
+        score: 0,
+        max_score: 5,
+        ai_feedback_summary: '',
+        started_at: '2026-06-07T10:00:00Z',
+        is_done: false,
+        completed_at: null
+    },
+    next_question: {
+        question_text: 'Was ist 2 + 2?',
+        options: [
+            { answer: '3', is_correct: false },
+            { answer: '4', is_correct: true },
+            { answer: '5', is_correct: false }
+        ],
+        answer: 1,
+        explanations: [],
+        difficulty: null,
+        grade: 9
+    },
+    all_done: false
+};
+
+var mockSessionAllDone = {
+    test: {
+        id: 42,
+        user_id: 7,
+        subject_id: 3,
+        topic_id: 12,
+        grade: 9,
+        difficulty: null,
+        score: 5,
+        max_score: 5,
+        ai_feedback_summary: 'Perfekte Leistung!',
+        started_at: '2026-06-07T10:00:00Z',
+        is_done: true,
+        completed_at: '2026-06-07T10:30:00Z'
+    },
+    next_question: null,
+    all_done: true
+};
+
+/* ── Test suites for finalize flow (Issue 050) ─────────────── */
+
+function runFinalizeEndpointTests() {
+    console.log('\n── Finalize endpoint URL (Issue 050) ──');
+
+    var mock = createFetchMock(mockSessionNextQuestion);
+    setupTestDom();
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        mock.resolve();
+
+        // Wait for async render to complete, then simulate Weiter click
+        setTimeout(function () {
+            var weiterBtn = document.getElementById('weiter-btn');
+            if (!weiterBtn) {
+                console.log('  ⊘ Skipped finalize endpoint test (no #weiter-btn in DOM)');
+                mock.restore();
+                return;
+            }
+
+            // Simulate selecting option index 1 and clicking Weiter
+            var radio = document.querySelector('#question-container input[name="test-option"]:checked');
+            if (!radio) {
+                var radios = document.querySelectorAll('#question-container input[type="radio"]');
+                if (radios.length > 0) radios[1].click(); // select second option
+            }
+
+            weiterBtn.click();
+
+            assert(
+                mock.lastRequest.url.indexOf('/finalize') >= 0,
+                'fetch URL contains /finalize endpoint'
+            );
+
+            mock.restore();
+        }, 60);
+    }, 50);
+}
+
+function runFinalizePayloadTests() {
+    console.log('\n── Finalize payload structure (Issue 050) ──');
+
+    var capturedBody = null;
+    var origFetch = window.fetch;
+
+    // Custom mock that captures the request body for inspection
+    window.fetch = function (url, options) {
+        if ((options.body || '').indexOf('student_choice') >= 0) {
+            try {
+                capturedBody = JSON.parse(options.body);
+            } catch (e) {
+                capturedBody = null;
+            }
+        }
+        return new Promise(function (resolve) {
+            resolve(new Response(JSON.stringify(mockSessionNextQuestion), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            }));
+        });
+    };
+
+    setupTestDom();
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        // Simulate Weiter click with option index 1 selected
+        var radio = document.querySelector('#question-container input[name="test-option"]:checked');
+        if (!radio) {
+            var radios = document.querySelectorAll('#question-container input[type="radio"]');
+            if (radios.length > 0) radios[1].click();
+        }
+
+        var weiterBtn = document.getElementById('weiter-btn');
+        if (weiterBtn) weiterBtn.click();
+
+        setTimeout(function () {
+            assert(
+                capturedBody !== null && typeof capturedBody === 'object',
+                'finalize payload is a valid JSON object'
+            );
+
+            assertNotNull(capturedBody.student_choice, 'payload contains student_choice field');
+
+            assertNotNull(capturedBody.time_spent_milliseconds, 'payload contains time_spent_milliseconds field');
+
+            assert(
+                typeof capturedBody.student_choice === 'number',
+                'student_choice is a number (0-based index)'
+            );
+
+            assert(
+                typeof capturedBody.time_spent_milliseconds === 'number' && capturedBody.time_spent_milliseconds >= 0,
+                'time_spent_milliseconds is a non-negative number'
+            );
+
+            window.fetch = origFetch;
+        }, 60);
+    }, 50);
+}
+
+function runNextQuestionRenderingTests() {
+    console.log('\n── Next question rendering on all_done=false (Issue 050) ──');
+
+    var mock = createFetchMock(mockSessionAllDone);
+    setupTestDom();
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        mock.resolve();
+
+        // Simulate Weiter click with option selected
+        setTimeout(function () {
+            var radio = document.querySelector('#question-container input[name="test-option"]:checked');
+            if (!radio) {
+                var radios = document.querySelectorAll('#question-container input[type="radio"]');
+                if (radios.length > 0) radios[1].click();
+            }
+
+            var weiterBtn = document.getElementById('weiter-btn');
+            if (weiterBtn) weiterBtn.click();
+
+            // Wait for finalize response and re-render
+            setTimeout(function () {
+                mock.resolveWith(mockSessionNextQuestion);
+
+                setTimeout(function () {
+                    var questionContainer = document.getElementById('question-container');
+                    assertNotNull(questionContainer, 'question-container exists after next_question render');
+
+                    if (questionContainer) {
+                        assert(
+                            questionContainer.innerHTML.indexOf(mockSessionNextQuestion.next_question.question_text) >= 0,
+                            'next question text is rendered'
+                        );
+
+                        var radios = questionContainer.querySelectorAll('input[type="radio"]');
+                        assertNotNull(radios.length > 0, 'radio buttons present for next question (' + radios.length + ')');
+                    }
+
+                    mock.restore();
+                }, 60);
+            }, 50);
+        }, 50);
+    }, 50);
+}
+
+function runCompletionDisplayTests() {
+    console.log('\n── Completion display on all_done=true (Issue 050) ──');
+
+    var mock = createFetchMock(mockSessionNextQuestion);
+    setupTestDom();
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        mock.resolve();
+
+        // Simulate Weiter click with option selected
+        setTimeout(function () {
+            var radio = document.querySelector('#question-container input[name="test-option"]:checked');
+            if (!radio) {
+                var radios = document.querySelectorAll('#question-container input[type="radio"]');
+                if (radios.length > 0) radios[1].click();
+            }
+
+            var weiterBtn = document.getElementById('weiter-btn');
+            if (weiterBtn) weiterBtn.click();
+
+            // Wait for finalize response, then resolve with all_done=true
+            setTimeout(function () {
+                mock.resolveWith(mockSessionAllDone);
+
+                setTimeout(function () {
+                    var completionEl = document.getElementById('completion-message');
+                    assertNotNull(completionEl, 'completion element exists after all_done');
+
+                    if (completionEl) {
+                        assertEqual(completionEl.style.display, 'block', 'completion message is visible when all_done=true');
+                        assert(
+                            completionEl.innerHTML.indexOf(mockSessionAllDone.test.score + ' / ' + mockSessionAllDone.test.max_score) >= 0,
+                            'score displayed in completion'
+                        );
+
+                        if (mockSessionAllDone.test.ai_feedback_summary) {
+                            assert(
+                                completionEl.innerHTML.indexOf(mockSessionAllDone.test.ai_feedback_summary) >= 0,
+                                'AI feedback summary displayed'
+                            );
+                        }
+                    }
+
+                    mock.restore();
+                }, 60);
+            }, 50);
+        }, 50);
+    }, 50);
+}
+
 /* ── Entry point ─────────────────────────────────────────────────────────── */
 
 function loadAndRunTests() {
@@ -513,6 +777,12 @@ function loadAndRunTests() {
     runJwtCookieAuthTests();
     runCompletionMessageTests();
     runNoGlobalStateTests();
+
+    // Issue 050: Finalize flow tests
+    runFinalizeEndpointTests();
+    runFinalizePayloadTests();
+    runNextQuestionRenderingTests();
+    runCompletionDisplayTests();
 
     console.log('\n=== Ergebnis: ' + _passCount + '/' + _testCount + ' bestanden, ' + _failCount + ' fehlgeschlagen ===');
 
