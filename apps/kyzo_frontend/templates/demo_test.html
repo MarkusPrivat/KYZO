@@ -13,13 +13,28 @@
     <p class="demo-test__info demo-test__info--placeholder">Keine Test-ID angegeben.</p>
     {% endif %}
 
-    <div id="demo-test-content" class="demo-test__content"></div>
+    <!-- Session metadata -->
+    <div id="session-metadata" class="demo-test__metadata"></div>
+
+    <!-- Question area -->
+    <div id="question-container" class="demo-test__question-area"></div>
+
+    <!-- Completion message (shown when all_done is true) -->
+    <div id="completion-message" class="demo-test__completion" style="display:none;"></div>
   </div>
 </section>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-  const API_URL = "{{ api_url }}";
+  var API_URL = "{{ api_url }}";
+</script>
+<script src="{{ url_for('static', filename='js/test-demo-session.js') }}"></script>
+<script>
+  (function () {
+    'use strict';
+    var testId = '{{ test_id if test_id else "" }}';
+    window.initTestDemo(testId || null);
+  })();
 </script>
 {% endblock %}
