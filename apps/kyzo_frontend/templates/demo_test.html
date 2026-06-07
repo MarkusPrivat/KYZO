@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Demo-Test — Kyzo{% endblock %}
+
+{% block content %}
+<section class="demo-test-section">
+  <div class="demo-test-container">
+    <h1>Demo-Test starten</h1>
+
+    {% if test_id %}
+    <p class="demo-test__info">Test-ID: {{ test_id }}</p>
+    {% else %}
+    <p class="demo-test__info demo-test__info--placeholder">Keine Test-ID angegeben.</p>
+    {% endif %}
+
+    <div id="demo-test-content" class="demo-test__content"></div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const API_URL = "{{ api_url }}";
+</script>
+{% endblock %}

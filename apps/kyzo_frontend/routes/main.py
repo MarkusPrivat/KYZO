@@ -62,3 +62,18 @@ def profile():
     """Render the profile page."""
     api_url = current_app.config.get("API_URL", "/api/v1")
     return render_template("profile.html", api_url=api_url)
+
+
+@main_bp.route("/demo-test")
+def demo_test():
+    """Render the student test demo page.
+
+    Accessible directly via URL without navigation through the system.
+    The presenter opens this after login to demonstrate the test flow.
+    """
+    api_url = current_app.config.get("API_URL", "/api/v1")
+    return render_template(
+        "demo_test.html",
+        api_url=api_url,
+        test_id=request.args.get("test_id"),
+    )

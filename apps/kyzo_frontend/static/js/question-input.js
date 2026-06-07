@@ -354,7 +354,10 @@ document.addEventListener('DOMContentLoaded', function () {
     var uploadZone = document.getElementById('upload-zone');
     var fileList = document.getElementById('file-list');
 
-    if (!subjectDropdown || !topicDropdown) return;
+    if (!subjectDropdown || !topicDropdown) {
+        console.error('question-input: subject-dropdown oder topic-dropdown nicht gefunden.');
+        return;
+    }
 
     // ── Load subjects on page load ──────────────────────────────────────
 
@@ -377,6 +380,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Mode toggle: show/hide panels ───────────────────────────────────
 
+    var fileUploadPanel = document.getElementById('file-upload-panel');
+    var textInputPanel = document.getElementById('text-input-panel');
+
     inputTypeDropdown.addEventListener('change', function () {
         var mode = this.value;
         if (mode === 'scan') {
@@ -389,9 +395,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // ── File upload handling ────────────────────────────────────────────
-
-    var fileUploadPanel = document.getElementById('file-upload-panel');
-    var textInputPanel = document.getElementById('text-input-panel');
 
     if (uploadZone && fileUploadInput) {
         uploadZone.addEventListener('click', function () {
@@ -521,5 +524,14 @@ document.addEventListener('DOMContentLoaded', function () {
         if (bytes < 1024) return bytes + ' B';
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // ── Wire up submit button ───────────────────────────────────────────
+
+    var submitBtn = document.getElementById('submit-btn');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', function () {
+            window.submitQuestionInput();
+        });
     }
 });
