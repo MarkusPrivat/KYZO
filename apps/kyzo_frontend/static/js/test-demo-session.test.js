@@ -1293,6 +1293,271 @@ function runErrorHandlingUsesExistingToastTests() {
     }, 80);
 }
 
+/* ── Mock data for Issue 053: loading state and error handling ─────────────── */
+
+var mockSessionForLoadingTest = {
+    test: {
+        id: 42,
+        user_id: 7,
+        subject_id: 3,
+        topic_id: 12,
+        grade: 9,
+        difficulty: null,
+        score: 0,
+        max_score: 5,
+        ai_feedback_summary: '',
+        started_at: '2026-06-07T10:00:00Z',
+        is_done: false,
+        completed_at: null
+    },
+    next_question: {
+        id: 42,
+        question_id: 99,
+        answer: null,
+        difficulty: null,
+        grade: 9
+    },
+    all_done: false
+};
+
+var mockFullQuestion = {
+    id: 99,
+    question_text: 'Was ist die Hauptstadt von Frankreich?',
+    options: [
+        { answer: 'Paris', is_correct: true },
+        { answer: 'London', is_correct: false },
+        { answer: 'Berlin', is_correct: false }
+    ],
+    difficulty: null,
+    grade: 9
+};
+
+/* ── Dual fetch mock for Issue 053 (session + question with error support) ─── */
+
+/**
+ * Create a dual fetch mock where the session endpoint returns success
+ * and the question endpoint can return either success or an HTTP error.
+ * @param {Object} sessionResponse - JSON response from session endpoint.
+ * @param {{ status: number, body?: Object }} questionErrorResponse - Error config for question endpoint (status 200 means success).
+ * @returns {{ lastSessionRequest: Object|null, lastQuestionRequest: Object|null, restore: Function }}
+ */
+function createDualFetchMockWithError(sessionResponse, questionErrorResponse) {
+    var capturedRequests = [];
+    var origFetch = window.fetch;
+
+    if (questionErrorResponse === undefined || !questionErrorResponse) {
+        questionErrorResponse = { status: 200 };
+    }
+
+    var sessionResolved = false;
+    var questionMockSet = false;
+
+    function setupQuestionErrorMock() {
+        if (questionMockSet) return;
+        questionMockSet = true;
+
+        window.fetch = function (url, options) {
+            capturedRequests.push({ url: url, options: options });
+            return new Promise(function (resolve) {
+                var body = questionErrorResponse.body || {};
+                resolve(new Response(JSON.stringify(body), {
+                    status: questionErrorResponse.status,
+                    headers: { 'Content-Type': 'application/json' }
+                }));
+            });
+        };
+    }
+
+    window.fetch = function (url, options) {
+        capturedRequests.push({ url: url, options: options });
+
+        if (!sessionResolved && url.indexOf('/test/') >= 0 && url.indexOf('/session') >= 0) {
+            sessionResolved = true;
+            return new Promise(function (resolve) {
+                resolve(new Response(JSON.stringify(sessionResponse), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })).then(function () {
+                    setupQuestionErrorMock();
+                });
+            });
+        }
+
+        // For question endpoint or other URLs after session resolved
+        return new Promise(function (resolve) {
+            var body = questionErrorResponse.body || {};
+            resolve(new Response(JSON.stringify(body), {
+                status: questionErrorResponse.status,
+                headers: { 'Content-Type': 'application/json' }
+            }));
+        });
+    };
+
+    return {
+        get lastSessionRequest() { return capturedRequests.length > 0 ? capturedRequests[0] : null; },
+        get lastQuestionRequest() { return capturedRequests.length > 1 ? capturedRequests[capturedRequests.length - 1] : null; },
+        get allRequests() { return capturedRequests; },
+        restore: function () { window.fetch = origFetch; capturedRequests = []; }
+    };
+}
+
+/* ── Test suites for Issue 053: Loading state and error handling ─────────── */
+
+function runLoadingStateTests() {
+    console.log('\n── Loading state appears during question fetch (Issue 053) ──');
+
+    var mock = createDualFetchMockWithError(mockSessionForLoadingTest, null);
+    setupTestDom();
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        // After session resolves and module starts fetching question, loading state should appear
+        assert(
+            document.querySelector('.demo-test__loading') !== null ||
+            (document.getElementById('question-container') &&
+             document.getElementById('question-container').innerHTML.indexOf('demo-test__loading') >= 0),
+            'loading indicator class is present in #question-container during fetch'
+        );
+
+        assert(
+            document.getElementById('question-container').innerHTML.indexOf('Frage wird geladen...') >= 0,
+            'loading text "Frage wird geladen..." is displayed'
+        );
+
+        mock.restore();
+    }, 150);
+}
+
+function runQuestionFetchSuccessClearsLoadingTests() {
+    console.log('\n── Loading state cleared after successful question fetch (Issue 053) ──');
+
+    var mock = createDualFetchMockWithError(mockSessionForLoadingTest, null);
+    setupTestDom();
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        // Wait for both session and question fetch to complete + render
+        setTimeout(function () {
+            var container = document.getElementById('question-container');
+            assertNotNull(container, 'question-container exists after full flow');
+
+            if (container) {
+                assert(
+                    container.innerHTML.indexOf('demo-test__loading') === -1 &&
+                    container.querySelector('.demo-test__loading') === null,
+                    'loading indicator is removed after successful fetch'
+                );
+
+                assert(
+                    container.innerHTML.indexOf(mockFullQuestion.question_text) >= 0,
+                    'fetched question text is rendered (not loading state)'
+                );
+            }
+
+            mock.restore();
+        }, 250);
+    }, 100);
+}
+
+function runQuestionFetch404ErrorToastTests() {
+    console.log('\n── Toast on 404 during question fetch (Issue 053) ──');
+
+    var mock = createDualFetchMockWithError(mockSessionForLoadingTest, { status: 404 });
+    setupTestDom();
+
+    var origShowToast = window.showToast;
+    var toastMessage = null;
+    var toastType = null;
+    window.showToast = function (message, type) {
+        toastMessage = message;
+        toastType = type;
+        if (!origShowToast) return;
+        origShowToast(message, type);
+    };
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        assert(
+            toastMessage !== null && typeof toastMessage === 'string',
+            'showToast was called on 404 error'
+        );
+
+        if (toastMessage) {
+            assert(
+                toastType === 'error',
+                'toast type is "error" for question fetch 404'
+            );
+
+            assert(
+                toastMessage.indexOf('Frage nicht gefunden') >= 0,
+                'toast message mentions "Frage nicht gefunden" on 404 (got: "' + toastMessage + '")'
+            );
+        }
+
+        // Verify UI is stable — no crash, question-container still exists
+        var container = document.getElementById('question-container');
+        assertNotNull(container, '#question-container still exists after 404 error (no crash)');
+
+        window.showToast = origShowToast;
+        mock.restore();
+    }, 250);
+}
+
+function runQuestionFetchGenericHttpErrorToastTests() {
+    console.log('\n── Toast on generic HTTP error during question fetch (Issue 053) ──');
+
+    var mock = createDualFetchMockWithError(mockSessionForLoadingTest, { status: 500 });
+    setupTestDom();
+
+    var origShowToast = window.showToast;
+    var toastMessage = null;
+    var toastType = null;
+    window.showToast = function (message, type) {
+        toastMessage = message;
+        toastType = type;
+        if (!origShowToast) return;
+        origShowToast(message, type);
+    };
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        assert(
+            toastMessage !== null && typeof toastMessage === 'string',
+            'showToast was called on generic HTTP error'
+        );
+
+        if (toastMessage) {
+            assert(
+                toastType === 'error',
+                'toast type is "error" for generic HTTP error'
+            );
+
+            // Should NOT say "Frage nicht gefunden" — that's only for 404
+            assert(
+                toastMessage.indexOf('Frage nicht gefunden') === -1,
+                'generic error message does not say "Frage nicht gefunden" (got: "' + toastMessage + '")'
+            );
+
+            // Should contain a generic error reference
+            assert(
+                toastMessage.length > 0,
+                'error message is non-empty for generic HTTP error'
+            );
+        }
+
+        var container = document.getElementById('question-container');
+        assertNotNull(container, '#question-container still exists after generic HTTP error (no crash)');
+
+        window.showToast = origShowToast;
+        mock.restore();
+    }, 250);
+}
+
+
 /* ── Entry point ─────────────────────────────────────────────────────────── */
 
 function loadAndRunTests() {
@@ -1328,6 +1593,12 @@ function loadAndRunTests() {
     runQuestionContentFetchTests();
     runQuestionContentRenderedTests();
     runNoContentInSessionTests();
+
+    // Issue 053: Loading state and error handling tests (see below)
+    runLoadingStateTests();
+    runQuestionFetchSuccessClearsLoadingTests();
+    runQuestionFetch404ErrorToastTests();
+    runQuestionFetchGenericHttpErrorToastTests();
 
     console.log('\n=== Ergebnis: ' + _passCount + '/' + _testCount + ' bestanden, ' + _failCount + ' fehlgeschlagen ===');
 

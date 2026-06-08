@@ -70,6 +70,27 @@
         });
     }
 
+    /* ── Loading state (private, Issue 053) ─────────────────────────────── */
+
+    /**
+     * Show a loading indicator in the question container.
+     */
+    function showLoadingState() {
+        var container = document.getElementById('question-container');
+        if (!container) return;
+        container.innerHTML = '<div class="demo-test__loading">' +
+            '<span class="spinner"></span>' +
+            '<p>Frage wird geladen...</p></div>';
+    }
+
+    /**
+     * Hide the loading indicator from the question container.
+     */
+    function hideLoadingState() {
+        var loadingEl = document.querySelector('.demo-test__loading');
+        if (loadingEl) loadingEl.remove();
+    }
+
     /* ── HTML escaping (private) ─────────────────────────────────────── */
 
     /**
@@ -316,9 +337,28 @@
 
         // Fetch full question content via separate API call when next_question has an id but no text/options
         if (data.next_question && data.next_question.id != null) {
-            fetchQuestionContent(data.next_question.question_id || data.next_question.id).then(function (fullQuestion) {
-                renderQuestion(fullQuestion);
-            });
+            showLoadingState();
+
+            fetchQuestionContent(data.next_question.question_id || data.next_question.id)
+                .then(function (fullQuestion) {
+                    hideLoadingState();
+                    renderQuestion(fullQuestion);
+                })
+                .catch(function (err) {
+                    var statusCode = err.cause && err.cause.statusCode ? err.cause.statusCode : null;
+                    if (!statusCode) {
+                        try {
+                            statusCode = parseInt(err.message.replace('HTTP ', ''), 10);
+                        } catch (_) { /* ignore */ }
+                    }
+                    hideLoadingState();
+
+                    if (statusCode === 404) {
+                        showToast('Frage nicht gefunden.', 'error');
+                    } else {
+                        showToast('Fehler beim Laden der Frage. Bitte versuchen Sie es erneut.', 'error');
+                    }
+                });
             return;
         }
 
