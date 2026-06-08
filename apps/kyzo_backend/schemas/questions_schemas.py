@@ -354,6 +354,10 @@ class QuestionInputCreate(BaseSchema):
         return self
 
 
+class QuestionInputCreateResponse(BaseSchema):
+    message: str = Field(..., description="Localized success message.")
+    id: int = Field(..., description="The database primary key ID of the newly created QuestionInput.")
+
 class QuestionInputRead(BaseSchema):
     """
     Comprehensive schema for reading a QuestionInput record.

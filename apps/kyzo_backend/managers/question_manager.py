@@ -163,7 +163,7 @@ class QuestionManager:
             question_input_dict["extracted_questions"] = [
                 question.model_dump() for question in ai_result.extracted_questions
             ]
-            question_input_dict["is_processed"] = True
+            question_input_dict["is_processed"] = False
 
             new_question_input = QuestionInput(**question_input_dict)
             self._db.add(new_question_input)

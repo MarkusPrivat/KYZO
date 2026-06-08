@@ -15,6 +15,7 @@ from apps.kyzo_backend.data import User
 from apps.kyzo_backend.managers import KnowledgeManager, QuestionManager
 from apps.kyzo_backend.schemas import (
     QuestionInputCreate,
+    QuestionInputCreateResponse,
     QuestionInputUpdate,
     QuestionInputRead,
     QuestionUpdate,
@@ -96,7 +97,7 @@ def parse_question_input(input_data_json: str = Form(...)) -> QuestionInputCreat
         ) from error
 
 
-@router.post("/input/add", status_code=status.HTTP_201_CREATED, response_model=str)
+@router.post("/input/add", status_code=status.HTTP_201_CREATED, response_model=QuestionInputCreateResponse)
 async def add_question(
         _current_user: Annotated[User, Depends(require_teacher_or_admin)],
         num_of_questions: int,

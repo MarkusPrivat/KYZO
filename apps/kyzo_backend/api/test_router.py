@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+from apps.kyzo_backend.api.depends.llm_depends import get_llm_orchestrator, get_image_service
 from apps.kyzo_backend.api.depends.role_depends import (
     require_student,
     require_student_or_admin,
@@ -27,6 +28,7 @@ from apps.kyzo_backend.schemas import (
     TestQuestionStepRead,
     TestSessionRead
 )
+from apps.kyzo_backend.services import ImageProcessingService, LLMOrchestrator
 
 router = APIRouter(
     prefix="/test",
@@ -47,17 +49,20 @@ def get_user_manager(db: Session = Depends(get_db)) -> UserManager:
     """
     return UserManager(db)
 
-
 def get_question_manager(
     db: Session = Depends(get_db),
-    knowledge_manager: KnowledgeManager = Depends(get_knowledge_manager)
+    knowledge_manager: KnowledgeManager = Depends(get_knowledge_manager),
+    image_service: ImageProcessingService = Depends(get_image_service),
+    llm_orchestrator: LLMOrchestrator = Depends(get_llm_orchestrator)
 ) -> QuestionManager:
     """
-    Dependency provider for the QuestionManager, resolving nested manager dependencies.
+    Dependency provider for the QuestionManager.
     """
     return QuestionManager(
         db=db,
-        knowledge_manager=knowledge_manager
+        knowledge_manager=knowledge_manager,
+        image_service=image_service,
+        llm_orchestrator=llm_orchestrator
     )
 
 
@@ -207,7 +212,7 @@ async def finalize_test(
     return test_manager.finalize_test_session(test_id, current_user)
 
 
-@router.post("/generate", response_model=TestRead, status_code=status.HTTP_201_CREATED)
+@router.post("/generate", response_model=None, status_code=status.HTTP_201_CREATED)
 async def generate_test(
         current_user: Annotated[User, Depends(require_student_or_admin)],
         test_data: TestGenerate,
