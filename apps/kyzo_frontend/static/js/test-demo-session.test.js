@@ -469,6 +469,259 @@ function runCompletionMessageTests() {
     }, 50);
 }
 
+/* ── Mock data for Issue 052: separate question content fetch ─────────────── */
+
+var mockSessionNextQuestionNoContent = {
+    test: {
+        id: 42,
+        user_id: 7,
+        subject_id: 3,
+        topic_id: 12,
+        grade: 9,
+        difficulty: null,
+        score: 0,
+        max_score: 5,
+        ai_feedback_summary: '',
+        started_at: '2026-06-07T10:00:00Z',
+        is_done: false,
+        completed_at: null
+    },
+    next_question: {
+        id: 42,
+        question_id: 99,
+        answer: null,
+        difficulty: null,
+        grade: 9
+    },
+    all_done: false
+};
+
+var mockFullQuestion = {
+    id: 99,
+    question_text: 'Was ist die Hauptstadt von Frankreich?',
+    options: [
+        { answer: 'Paris', is_correct: true },
+        { answer: 'London', is_correct: false },
+        { answer: 'Berlin', is_correct: false }
+    ],
+    difficulty: null,
+    grade: 9
+};
+
+var mockFullQuestionSingleOption = {
+    id: 100,
+    question_text: 'Ist Wasser H2O?',
+    options: [
+        { answer: 'Ja', is_correct: true }
+    ],
+    difficulty: null,
+    grade: 5
+};
+
+/* ── Dual fetch mock for Issue 052 (session + question endpoints) ─────────── */
+
+/**
+ * Create two sequential fetch mocks: one for session endpoint, one for question endpoint.
+ * @param {Object} sessionResponse - JSON response to return from the session endpoint.
+ * @param {Object} questionResponse - JSON response to return from the /question/{id} endpoint.
+ * @returns {{ lastSessionRequest: Object|null, lastQuestionRequest: Object|null, restore: Function }}
+ */
+function createDualFetchMock(sessionResponse, questionResponse) {
+    var capturedRequests = [];
+
+    // First fetch replacement (session mock)
+    window.fetch = function (url, options) {
+        capturedRequests.push({ url: url, options: options });
+        return new Promise(function (resolve) {
+            resolve(new Response(JSON.stringify(sessionResponse), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            }));
+        });
+    };
+
+    // Second fetch replacement (question mock) — set up after session response triggers it
+    var questionMockResolved = false;
+    function setupQuestionMock() {
+        window.fetch = function (url, options) {
+            capturedRequests.push({ url: url, options: options });
+            return new Promise(function (resolve) {
+                resolve(new Response(JSON.stringify(questionResponse), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                }));
+            });
+        };
+    }
+
+    // Intercept the first fetch to set up question mock before it resolves
+    var origFetch = window.fetch;
+    window.fetch = function (url, options) {
+        capturedRequests.push({ url: url, options: options });
+        return new Promise(function (resolve) {
+            resolve(new Response(JSON.stringify(sessionResponse), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            })).then(function () {
+                if (!questionMockResolved) {
+                    setupQuestionMock();
+                    questionMockResolved = true;
+                }
+            });
+        });
+    };
+
+    return {
+        get lastSessionRequest() { return capturedRequests.length > 0 ? capturedRequests[0] : null; },
+        get lastQuestionRequest() { return capturedRequests.length > 1 ? capturedRequests[capturedRequests.length - 1] : null; },
+        get allRequests() { return capturedRequests; },
+        restore: function () { window.fetch = origFetch; capturedRequests = []; }
+    };
+}
+
+/* ── Test suites for Issue 052: Question content fetch ─────────────── */
+
+function runQuestionContentFetchTests() {
+    console.log('\n── Question content fetch (Issue 052) ──');
+
+    var mock = createDualFetchMock(mockSessionNextQuestionNoContent, mockFullQuestion);
+    setupTestDom();
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        // Verify session endpoint was called first
+        assert(
+            mock.lastSessionRequest !== null && mock.lastSessionRequest.url.indexOf('/test/42/session') >= 0,
+            'session fetch URL is correct'
+        );
+
+        // Wait for the question content fetch to be triggered by module internals
+        setTimeout(function () {
+            assert(
+                mock.allRequests.length >= 2,
+                'two API calls were made (session + question)'
+            );
+
+            var questionRequest = mock.lastQuestionRequest;
+            assertNotNull(questionRequest, 'question request was captured');
+
+            if (questionRequest) {
+                assert(
+                    questionRequest.url.indexOf('/question/') >= 0 && questionRequest.url.indexOf('99') >= 0,
+                    'question fetch URL contains /question/ and the correct ID'
+                );
+
+                // Verify Authorization header is present on second call too
+                assert(
+                    (questionRequest.options.headers.Authorization || '').indexOf('Bearer ') === 0,
+                    'Authorization header sent with question request'
+                );
+            }
+
+            mock.restore();
+        }, 150);
+    }, 80);
+}
+
+function runQuestionContentRenderedTests() {
+    console.log('\n── Question content rendered from fetch (Issue 052) ──');
+
+    var mock = createDualFetchMock(mockSessionNextQuestionNoContent, mockFullQuestion);
+    setupTestDom();
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        // Wait for both async operations to complete: session fetch + question fetch + render
+        setTimeout(function () {
+            var questionContainer = document.getElementById('question-container');
+            assertNotNull(questionContainer, 'question-container element exists after full flow');
+
+            if (questionContainer) {
+                assert(
+                    questionContainer.innerHTML.indexOf(mockFullQuestion.question_text) >= 0,
+                    'full question text from fetch is rendered'
+                );
+
+                var radios = questionContainer.querySelectorAll('input[type="radio"]');
+                assertEqual(radios.length, mockFullQuestion.options.length,
+                    'correct number of radio buttons (' + mockFullQuestion.options.length + ') from fetched content');
+            }
+
+            mock.restore();
+        }, 200);
+    }, 80);
+}
+
+function runNoContentInSessionTests() {
+    console.log('\n── No question_text in session response (Issue 052) ──');
+
+    var renderedText = null;
+
+    // Override renderQuestion to capture what it receives
+    setupTestDom();
+
+    window.initTestDemo('42');
+
+    setTimeout(function () {
+        var mock1Resolved = false;
+        var origFetch = window.fetch;
+
+        // First fetch: session response with no question_text/options in next_question
+        window.fetch = function (url, options) {
+            if (!mock1Resolved && url.indexOf('/session') >= 0) {
+                mock1Resolved = true;
+                return new Promise(function (resolve) {
+                    resolve(new Response(JSON.stringify(mockSessionNextQuestionNoContent), {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' }
+                    })).then(function () {
+                        // After session resolves, set up question mock
+                        window.fetch = function (url2, options2) {
+                            if (url2.indexOf('/question/') >= 0) {
+                                return new Promise(function (resolve) {
+                                    resolve(new Response(JSON.stringify(mockFullQuestion), {
+                                        status: 200,
+                                        headers: { 'Content-Type': 'application/json' }
+                                    }));
+                                });
+                            }
+                            // Fallback for any other fetches
+                            return origFetch(url2, options2);
+                        };
+                    });
+                });
+            }
+            if (url.indexOf('/question/') >= 0) {
+                return new Promise(function (resolve) {
+                    resolve(new Response(JSON.stringify(mockFullQuestion), {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' }
+                    }));
+                });
+            }
+            // Fallback for any other fetches
+            return origFetch(url, options);
+        };
+
+        setTimeout(function () {
+            var questionContainer = document.getElementById('question-container');
+            if (questionContainer) {
+                renderedText = questionContainer.querySelector('.demo-test__question-text') ?
+                    questionContainer.querySelector('.demo-test__question-text').textContent : null;
+            }
+
+            assert(
+                renderedText === mockFullQuestion.question_text,
+                'rendered text matches fetched content ("' + (renderedText || '') + '" == "' + mockFullQuestion.question_text + '")'
+            );
+
+            window.fetch = origFetch;
+        }, 250);
+    }, 80);
+}
+
 function runNoGlobalStateTests() {
     console.log('\n── No global state pollution ──');
 
@@ -1070,6 +1323,11 @@ function loadAndRunTests() {
     runResetButtonNavigationTests();
     runErrorToastOnNetworkFailureTests();
     runErrorHandlingUsesExistingToastTests();
+
+    // Issue 052: Question content fetch tests
+    runQuestionContentFetchTests();
+    runQuestionContentRenderedTests();
+    runNoContentInSessionTests();
 
     console.log('\n=== Ergebnis: ' + _passCount + '/' + _testCount + ' bestanden, ' + _failCount + ' fehlgeschlagen ===');
 

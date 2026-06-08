@@ -49,6 +49,27 @@
         });
     }
 
+    /* ── Question content fetch (private, Issue 052) ─────────────────────── */
+
+    /**
+     * Fetch full question content from the existing Question API.
+     * @param {number|string} questionId - The ID of the underlying question template.
+     * @returns {Promise<Object>} Full question object with question_text and options.
+     */
+    function fetchQuestionContent(questionId) {
+        var apiUrl = typeof API_URL !== 'undefined' ? API_URL : '/api/v1';
+        return fetch(apiUrl + '/question/' + encodeURIComponent(questionId), {
+            method: 'GET',
+            headers: {
+                'Authorization': getAuthHeader(),
+                'Content-Type': 'application/json'
+            }
+        }).then(function (response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+        });
+    }
+
     /* ── HTML escaping (private) ─────────────────────────────────────── */
 
     /**
@@ -293,7 +314,15 @@
             return;
         }
 
-        // Render next question
+        // Fetch full question content via separate API call when next_question has an id but no text/options
+        if (data.next_question && data.next_question.id != null) {
+            fetchQuestionContent(data.next_question.question_id || data.next_question.id).then(function (fullQuestion) {
+                renderQuestion(fullQuestion);
+            });
+            return;
+        }
+
+        // Render next question directly (fallback for responses with full content)
         if (data.next_question) {
             renderQuestion(data.next_question);
         }
